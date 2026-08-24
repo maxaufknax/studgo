@@ -91,6 +91,27 @@ einen Build-Durchlauf — deshalb besser alle vier vorher abhaken.
 | `Group studip_oauth does not exist` | Variablengruppe fehlt | Schritt 3 oben |
 | `No suitable application records were found` / Upload scheitert | App-Datensatz in App Store Connect fehlt | App dort anlegen (Plattform iOS, Bundle-ID `com.maxpaasch.studgo`) |
 | `Bundle identifier ... not found` beim Signieren | Bundle-ID im Developer Portal nicht registriert | Identifiers → App IDs → App anlegen |
+| `Cannot save Signing Certificates without certificate private key` | Das Skript ging den **manuellen** Signierweg (`keychain initialize` + `fetch-signing-files --create`), der zusätzlich `CERTIFICATE_PRIVATE_KEY` verlangt | Behoben: Die Pipeline nutzt jetzt `environment.ios_signing` (siehe unten) |
+
+### Signierung läuft automatisch
+
+`codemagic.yaml` enthält
+
+```yaml
+environment:
+  ios_signing:
+    distribution_type: app_store
+    bundle_identifier: com.maxpaasch.studgo
+```
+
+Damit besorgt Codemagic Zertifikat und Provisioning-Profil selbst über den
+ASC-Schlüssel und legt beides in den Schlüsselbund der Baumaschine. Im Skript
+bleibt nur `xcode-project use-profiles`, und zwar **nach** `xcodegen generate`.
+
+Ein `CERTIFICATE_PRIVATE_KEY` wird dafür **nicht** gebraucht — der ist nur beim
+manuellen Weg nötig. Und ihn bei jedem Lauf neu zu erzeugen wäre keine Lösung,
+sondern ein Problem: Apple erlaubt nur wenige Verteilzertifikate je Konto, und
+dieses Kontingent teilt sich StudGo mit PocketADM.
 
 Vor dem ersten `testflight`-Lauf sollten also **alle vier** stehen: Schlüssel in
 Codemagic, Variablengruppe, Bundle-ID im Developer Portal, App-Datensatz in

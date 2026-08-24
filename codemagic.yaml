@@ -6,6 +6,7 @@
 #   2. Variablengruppe "studip_oauth" mit STUDIP_CLIENT_ID und
 #      STUDIP_CLIENT_SECRET (letzteres als "secure" markieren)
 #   3. Bundle-ID com.maxpaasch.studgo im Apple Developer Portal registrieren
+#      und die App in App Store Connect anlegen
 
 definitions:
   ios_setup: &ios_setup
@@ -19,8 +20,22 @@ definitions:
       app_store_connect: "PocketADM ASC key"
     environment:
       xcode: latest
+      # Automatische Signierung: Codemagic holt Zertifikat und Profil selbst
+      # über den ASC-Schlüssel oben und legt sie in den Schlüsselbund.
+      #
+      # Der frühere Weg über `keychain initialize` und
+      # `app-store-connect fetch-signing-files --create` im Skript ist der
+      # *manuelle* Pfad. Der verlangt zusätzlich einen RSA-Schlüssel in
+      # CERTIFICATE_PRIVATE_KEY — den liefert die Integration nicht mit, und
+      # ohne ihn bricht der Build mit "Cannot save Signing Certificates
+      # without certificate private key" ab. Ein bei jedem Lauf frisch
+      # erzeugter Schlüssel wäre die falsche Antwort darauf: Apple erlaubt nur
+      # eine Handvoll Verteilzertifikate je Konto, und das Kontingent teilt
+      # sich StudGo mit PocketADM.
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.maxpaasch.studgo
       vars:
-        BUNDLE_ID: "com.maxpaasch.studgo"
         XCODE_SCHEME: "StudGo"
         XCODE_PROJECT: "StudGo.xcodeproj"
       groups:
@@ -66,14 +81,13 @@ definitions:
         xcodegen generate
         test -d "$XCODE_PROJECT"
 
-    - name: Signaturdateien holen und anwenden
+    - name: Signaturprofile anwenden
       script: |
         set -e
-        keychain initialize
-        app-store-connect fetch-signing-files "$BUNDLE_ID" \
-          --type IOS_APP_STORE --create
-        keychain add-certificates
-        # Muss nach xcodegen laufen, sonst gibt es kein Projekt zum Anpassen.
+        # Schlüsselbund und Zertifikate hat Codemagic zu diesem Zeitpunkt
+        # bereits eingerichtet (siehe ios_signing oben). Hier bleibt nur, die
+        # Profile in das Projekt einzutragen — und das muss nach `xcodegen`
+        # laufen, sonst gibt es kein Projekt zum Anpassen.
         xcode-project use-profiles
 
     - name: IPA bauen
