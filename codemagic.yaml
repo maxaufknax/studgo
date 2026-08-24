@@ -3,8 +3,9 @@
 # Einmalige Einrichtung in Codemagic (siehe docs/CODEMAGIC.md):
 #   1. App-Store-Connect-Schlüssel als Integration anlegen — vorhanden ist
 #      bereits "PocketADM ASC key", der für alle Apps des Kontos gilt
-#   2. Variablengruppe "studip_oauth" mit STUDIP_CLIENT_ID und
-#      STUDIP_CLIENT_SECRET (letzteres als "secure" markieren)
+#   2. Variablengruppe "studip_oauth" mit STUDIP_CLIENT_ID,
+#      STUDIP_CLIENT_SECRET und CERTIFICATE_PRIVATE_KEY_B64
+#      (die letzten beiden als "secure" markieren)
 #   3. Bundle-ID com.maxpaasch.studgo im Apple Developer Portal registrieren
 #      und die App in App Store Connect anlegen
 
@@ -20,25 +21,18 @@ definitions:
       app_store_connect: "PocketADM ASC key"
     environment:
       xcode: latest
-      # Automatische Signierung: Codemagic holt Zertifikat und Profil selbst
-      # über den ASC-Schlüssel oben und legt sie in den Schlüsselbund.
-      #
-      # Der frühere Weg über `keychain initialize` und
-      # `app-store-connect fetch-signing-files --create` im Skript ist der
-      # *manuelle* Pfad. Der verlangt zusätzlich einen RSA-Schlüssel in
-      # CERTIFICATE_PRIVATE_KEY — den liefert die Integration nicht mit, und
-      # ohne ihn bricht der Build mit "Cannot save Signing Certificates
-      # without certificate private key" ab. Ein bei jedem Lauf frisch
-      # erzeugter Schlüssel wäre die falsche Antwort darauf: Apple erlaubt nur
-      # eine Handvoll Verteilzertifikate je Konto, und das Kontingent teilt
-      # sich StudGo mit PocketADM.
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.maxpaasch.studgo
+      # Bewusst **kein** `ios_signing:`-Block: Der holt nur bereits vorhandene
+      # Profile und scheitert bei einer neuen App mit "No matching profiles
+      # found". Angelegt werden Zertifikat und Profil erst durch
+      # `fetch-signing-files --create` im Signaturschritt weiter unten.
+      # Dasselbe steht so in PocketADMs Pipeline, die auf diesem Konto läuft.
       vars:
+        BUNDLE_ID: "com.maxpaasch.studgo"
         XCODE_SCHEME: "StudGo"
         XCODE_PROJECT: "StudGo.xcodeproj"
       groups:
+        # Enthält STUDIP_CLIENT_ID, STUDIP_CLIENT_SECRET **und**
+        # CERTIFICATE_PRIVATE_KEY_B64 (alle drei "secure" außer der ID).
         - studip_oauth
 
   build_scripts: &build_scripts
@@ -81,21 +75,59 @@ definitions:
         xcodegen generate
         test -d "$XCODE_PROJECT"
 
-    - name: Signaturprofile anwenden
+    - name: Signatur einrichten (Zertifikat und Profil anlegen)
       script: |
-        set -e
-        # Schlüsselbund und Zertifikate hat Codemagic zu diesem Zeitpunkt
-        # bereits eingerichtet (siehe ios_signing oben). Hier bleibt nur, die
-        # Profile in das Projekt einzutragen — und das muss nach `xcodegen`
-        # laufen, sonst gibt es kein Projekt zum Anpassen.
+        set -eo pipefail
+        # Apples API kann ein Verteilzertifikat anlegen, den zugehörigen
+        # **privaten Schlüssel gibt sie niemals heraus** — der muss von hier
+        # kommen. Fehlt er, bricht der Schritt mit "Cannot save Signing
+        # Certificates without certificate private key" ab und legt weder
+        # Zertifikat noch Profil an.
+        #
+        # Derselbe Schlüssel bei jedem Lauf ist Absicht: Apple begrenzt die
+        # Zahl der Verteilzertifikate je Konto. Ein frisch erzeugter Schlüssel
+        # verbrauchte bei jedem Build einen weiteren Platz.
+        if [ -z "${CERTIFICATE_PRIVATE_KEY_B64:-}" ]; then
+          echo "!! CERTIFICATE_PRIVATE_KEY_B64 fehlt."
+          echo "!! In Codemagic → App → Environment variables → Gruppe studip_oauth"
+          echo "!! als *secure* Variable anlegen (siehe docs/CODEMAGIC.md)."
+          exit 1
+        fi
+        printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | openssl base64 -d -A -out /tmp/cert_key.pem
+
+        keychain initialize
+        app-store-connect fetch-signing-files "$BUNDLE_ID" \
+          --type IOS_APP_STORE \
+          --certificate-key @file:/tmp/cert_key.pem \
+          --create
+        keychain add-certificates
+        # Muss nach xcodegen laufen, sonst gibt es kein Projekt zum Anpassen.
         xcode-project use-profiles
 
     - name: IPA bauen
       script: |
-        set -e
+        # Kein `set -e`: Bei einem Fehlschlag soll erst das Log ausgewertet
+        # werden. `build-ipa` meldet sonst nur "exited with status 1", und der
+        # eigentliche Fehler steckt in einer Datei, die niemand zu sehen bekommt.
+        set +e
         xcode-project build-ipa \
           --project "$XCODE_PROJECT" \
           --scheme "$XCODE_SCHEME"
+        status=$?
+        if [ $status -ne 0 ]; then
+          echo "═══════ build-ipa fehlgeschlagen (exit $status) — Xcode-Fehler unten ═══════"
+          log=$(ls -t /tmp/xcodebuild_logs/*.log 2>/dev/null | head -n1)
+          if [ -n "$log" ]; then
+            echo ">> Logdatei: $log"
+            echo "───────── Fehler- und Signaturzeilen ─────────"
+            grep -nE "error:|fatal error|The following build commands failed|Signing for|requires a provisioning|No profile|no matching|certificate|does not support|deployment target|Undefined symbol|linker command failed" "$log" | tail -n 100
+            echo "───────── letzte 200 Logzeilen ─────────"
+            tail -n 200 "$log"
+          else
+            echo "!! kein Xcode-Log unter /tmp/xcodebuild_logs gefunden"
+          fi
+          exit $status
+        fi
 
   build_artifacts: &build_artifacts
     - build/ios/ipa/*.ipa

@@ -23,3 +23,6 @@ build/
 # Arbeitsdokumente, die nicht öffentlich gehören
 __pycache__/
 docs/mail-*.md
+
+# Zertifikats-Schlüssel für die iOS-Signatur — niemals committen
+.secrets/
