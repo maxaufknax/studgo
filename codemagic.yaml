@@ -103,14 +103,27 @@ definitions:
         # Rein informativ: Ohne App-Datensatz in App Store Connect scheitert
         # erst der Upload ganz am Ende. Schlägt der Aufruf fehl, ist das kein
         # Grund abzubrechen — dann sagt eben der Upload Bescheid.
-        if app-store-connect apps list > /tmp/asc_apps.json 2>/dev/null; then
+        if app-store-connect apps list --bundle-id-identifier "$BUNDLE_ID" \
+             > /tmp/asc_apps.json 2>/tmp/asc_err.txt; then
           if grep -q "$BUNDLE_ID" /tmp/asc_apps.json; then
             echo "✓ App-Datensatz für $BUNDLE_ID gefunden."
           else
-            echo "!! Achtung: In App Store Connect gibt es keine App mit der"
-            echo "!! Bundle-ID $BUNDLE_ID. Der Build läuft durch, aber der"
-            echo "!! Upload am Ende wird scheitern. Jetzt anlegen lohnt sich."
+            echo "!! ACHTUNG: In App Store Connect gibt es keine App mit der"
+            echo "!! Bundle-ID $BUNDLE_ID."
+            echo "!!"
+            echo "!! Der Build läuft durch und die IPA wird korrekt signiert —"
+            echo "!! aber der Upload scheitert ganz am Ende mit"
+            echo "!!   'Cannot determine the Apple ID from Bundle ID'."
+            echo "!!"
+            echo "!! App Store Connect → Apps → + → Neue App: Plattform iOS,"
+            echo "!! Name StudGo, Sprache Deutsch, Bundle-ID von oben."
           fi
+        else
+          # Kein stilles Übergehen: Eine Prüfung, die unbemerkt ausfällt, ist
+          # schlimmer als keine — man verlässt sich auf ein Ergebnis, das nie kam.
+          echo "!! Der App-Datensatz ließ sich nicht abfragen, diese Vorabprüfung"
+          echo "!! entfällt damit:"
+          sed 's/^/!!   /' /tmp/asc_err.txt 2>/dev/null | head -5
         fi
 
     - name: XcodeGen bereitstellen

@@ -41,8 +41,10 @@ final class AuthStore {
                 return try await self.validAccessToken()
             },
             onUnauthorized: { [weak self] in
-                guard let self else { return }
-                await self.sessionExpired()
+                // Kein `await`: Die Closure entsteht im MainActor-Kontext
+                // dieser Klasse und ist damit selbst schon isoliert — ein
+                // Sprung findet gar nicht statt.
+                self?.sessionExpired()
             }
         )
     }
