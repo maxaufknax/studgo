@@ -63,6 +63,46 @@ def save_token(tok):
     TOKEN_FILE.chmod(0o600)
 
 
+def extract_code(pasted, state):
+    """Nimmt Redirect-URL, Query-Fragment oder blanken Code entgegen.
+
+    Der häufigste Fehlgriff ist, die *Authorize*-URL zurückzukopieren statt
+    der Adresse, auf der Stud.IP danach landet — das wird hier abgefangen,
+    statt sie als Code an den Server zu schicken.
+    """
+    pasted = pasted.strip().strip('"\'')
+    if not pasted:
+        return None, "Nichts eingegeben."
+
+    if "/oauth2/authorize" in pasted or "code_challenge" in pasted:
+        return None, ("Das ist die Authorize-URL von Schritt 1, nicht die "
+                      "Rückleitung. Gebraucht wird die Adresse, die nach "
+                      "'Zugriff erlauben' im Browser steht — sie beginnt mit "
+                      "studgo://oauth/callback?code=")
+
+    looks_like_url = "://" in pasted
+    if not (looks_like_url or "=" in pasted):
+        return pasted, None  # blanker Code
+
+    # Fragment abschneiden, manche Browser hängen ein '#/' an
+    head = pasted.split("#", 1)[0]
+    query = urllib.parse.urlparse(head).query if looks_like_url else head.split("?", 1)[-1]
+    params = urllib.parse.parse_qs(query)
+
+    # Eine Ablehnung kommt ohne code, aber mit Begründung — die gehört gezeigt.
+    if "error" in params:
+        detail = params.get("error_description", [""])[0]
+        return None, f"Stud.IP hat abgelehnt: {params['error'][0]} {detail}".strip()
+
+    if "code" not in params:
+        return None, "In dieser Adresse steckt kein code-Parameter."
+
+    if params.get("state", [state])[0] != state:
+        return None, "Der state stimmt nicht überein — bitte den Flow neu starten."
+
+    return params["code"][0], None
+
+
 def cmd_login():
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(48)).rstrip(b"=").decode()
     challenge = base64.urlsafe_b64encode(
@@ -77,20 +117,26 @@ def cmd_login():
         "code_challenge": challenge,
         "code_challenge_method": "S256",
     }
-    print("\n1) Diese URL im Browser öffnen (eingeloggt bei Stud.IP):\n")
+    print("\n1) Diese URL im Browser öffnen (dort bei Stud.IP eingeloggt sein):\n")
     print(f"   {AUTHORIZE}?{urllib.parse.urlencode(params)}\n")
-    print("2) Nach 'Zugriff erlauben' leitet Stud.IP auf studgo://oauth/callback?code=...")
-    print("   Der Browser kann das Schema nicht öffnen — die URL aus der Fehlermeldung/")
-    print("   Adresszeile kopieren und hier einfügen.\n")
-    pasted = input("Redirect-URL oder nur der code: ").strip()
+    print("2) 'Zugriff erlauben' klicken. Der Browser versucht dann, ")
+    print("   studgo://oauth/callback?code=... zu öffnen, und zeigt eine")
+    print("   Fehlerseite — das ist richtig so, das Schema kennt nur das iPhone.")
+    print()
+    print("3) Die studgo://-Adresse aus der Adresszeile kopieren.")
+    print("   Firefox behält sie dort stehen. Falls dein Browser sie verschluckt:")
+    print("   Entwicklerwerkzeuge (F12) → Netzwerk-Tab öffnen, bevor du auf")
+    print("   'Zugriff erlauben' klickst — der 302 auf /authorize trägt die")
+    print("   Adresse im Location-Header.\n")
 
-    if "code=" in pasted:
-        q = urllib.parse.parse_qs(urllib.parse.urlparse(pasted).query)
-        code = q["code"][0]
-        if q.get("state", [state])[0] != state:
-            sys.exit("FEHLER: state stimmt nicht überein (CSRF-Schutz).")
+    for attempt in range(3):
+        pasted = input("studgo://-Adresse oder nur der code: ")
+        code, problem = extract_code(pasted, state)
+        if code:
+            break
+        print(f"\n   {problem}\n")
     else:
-        code = pasted
+        sys.exit("Abgebrochen.")
 
     tok = post_form(TOKEN, {
         "grant_type": "authorization_code",
@@ -102,11 +148,15 @@ def cmd_login():
     })
     save_token(tok)
     print(f"\nOK — Token gespeichert in {TOKEN_FILE}")
-    print(f"   expires_in: {tok.get('expires_in')}s, refresh_token: {'ja' if tok.get('refresh_token') else 'nein'}")
+    print(f"   gültig für {tok.get('expires_in')}s, "
+          f"refresh_token: {'ja' if tok.get('refresh_token') else 'nein'}")
+    print("\n   Weiter mit:  ./tools/studip-cli.py whoami")
 
 
 def cmd_refresh():
-    tok = json.loads(TOKEN_FILE.read_text())
+    tok = load_token()
+    if not tok.get("refresh_token"):
+        sys.exit("Kein refresh_token vorhanden — bitte neu anmelden.")
     new = post_form(TOKEN, {
         "grant_type": "refresh_token",
         "client_id": ENV["STUDIP_CLIENT_ID"],
@@ -117,8 +167,14 @@ def cmd_refresh():
     print(f"OK — erneuert, expires_in: {new.get('expires_in')}s")
 
 
+def load_token():
+    if not TOKEN_FILE.exists():
+        sys.exit("Noch nicht angemeldet — zuerst: ./tools/studip-cli.py login")
+    return json.loads(TOKEN_FILE.read_text())
+
+
 def api_get(path):
-    tok = json.loads(TOKEN_FILE.read_text())
+    tok = load_token()
     url = path if path.startswith("http") else API + (path if path.startswith("/") else "/" + path)
     req = urllib.request.Request(url, headers={
         "Authorization": f"Bearer {tok['access_token']}",
