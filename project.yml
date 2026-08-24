@@ -50,15 +50,19 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.maxpaasch.studgo.oauth
             CFBundleURLSchemes: [studgo]
+    # Enthält client_id, client_secret und die Build-Nummer; erzeugt von
+    # tools/bootstrap-secrets.sh bzw. von Codemagic.
+    #
+    # Muss `configFiles` heißen. Unter `settings.configs.<Name>.xcconfig`
+    # notiert — was naheliegt — legt XcodeGen stattdessen stumm eine
+    # Build-Einstellung namens "xcconfig" an: Die Datei wird dann nie
+    # eingebunden, $(STUDIP_CLIENT_ID) im Info.plist bleibt leer und die
+    # Anmeldung schlägt zur Laufzeit fehl, ohne dass der Build etwas merkt.
+    configFiles:
+      Debug: Config/Secrets.xcconfig
+      Release: Config/Secrets.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.maxpaasch.studgo
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-      configs:
-        # Enthält client_id, client_secret und die Build-Nummer.
-        # Wird von tools/bootstrap-secrets.sh bzw. von Codemagic erzeugt.
-        Debug:
-          xcconfig: Config/Secrets.xcconfig
-        Release:
-          xcconfig: Config/Secrets.xcconfig
