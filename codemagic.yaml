@@ -339,11 +339,28 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
-        # Erst nach dem ersten erfolgreichen Upload befüllen, sonst schlägt
-        # die Verteilung fehl, weil die Gruppe noch nicht existiert.
-        # beta_groups:
-        #   - Interne Tester
+
+        # Nur hochladen, nicht zur Prüfung anmelden.
+        #
+        # `submit_to_testflight: true` meldet den Build zur **Beta-Prüfung für
+        # externe Tester** an. Das verlangt vollständige Testangaben
+        # (Feedback-Adresse, Kontaktperson mit Telefonnummer) und schlägt ohne
+        # sie fehl — der Build ist zu dem Zeitpunkt längst hochgeladen und
+        # verarbeitet, es scheitert nur die Anmeldung.
+        #
+        # Interne Tester brauchen all das nicht: Sie bekommen jeden fertig
+        # verarbeiteten Build automatisch, ohne Prüfung und ohne Wartezeit.
+        # Für den eigenen Test auf dem eigenen Gerät ist das der richtige Weg.
+        submit_to_testflight: false
+
+        # Soll die App später an Kommilitoninnen und Kommilitonen gehen, sind
+        # zwei Dinge nötig: die Testangaben unter TestFlight → Testinformation
+        # ausfüllen, und hier auf `true` stellen. Dann prüft Apple jede erste
+        # Version einer Build-Reihe (üblicherweise ein bis zwei Tage).
+
+        # Nicht setzen, solange nichts zur Prüfung geht: Eine App-Store-
+        # Einreichung ist etwas anderes als ein TestFlight-Upload.
+        submit_to_app_store: false
       email:
         recipients:
           - maximilian.elias.paasch@gmail.com

@@ -218,6 +218,34 @@ git push origin v1.0.0
 Der erste `testflight`-Lauf legt über `app-store-connect fetch-signing-files
 --create` automatisch Distributionszertifikat und Provisioning-Profil an.
 
+## Auf dem eigenen iPhone testen (TestFlight, intern)
+
+Interne Tester brauchen **keine** Beta-Prüfung und keine Testangaben. Sie
+bekommen jeden fertig verarbeiteten Build automatisch. Einmalig einzurichten:
+
+1. App Store Connect → **StudGo** → **TestFlight** → links **Interne Tests**
+2. Gruppe anlegen (Name frei, z. B. „Intern")
+3. Sich selbst als Tester hinzufügen — dafür genügt eine Rolle im Team,
+   Account Holder reicht
+4. Den verarbeiteten Build der Gruppe zuweisen (spätere Builds gehen
+   automatisch an die Gruppe)
+5. Auf dem iPhone die **TestFlight**-App öffnen — StudGo erscheint dort
+
+Der Status der App-Store-Version („In Vorbereitung zur Übermittlung") hat mit
+TestFlight nichts zu tun; für interne Tests muss nichts eingereicht werden.
+
+### Später an andere verteilen
+
+Für **externe** Tester verlangt Apple eine Beta-Prüfung und dafür
+vollständige Angaben unter TestFlight → **Testinformation**:
+
+- Feedback-E-Mail-Adresse
+- Kontaktperson für die Prüfung: Vor- und Nachname, Telefonnummer, E-Mail
+
+Sind die hinterlegt, in `codemagic.yaml` `submit_to_testflight: true` setzen.
+Ohne die Angaben scheitert dieser Schritt — der Build ist dann zwar hochgeladen
+und verarbeitet, nur die Anmeldung zur Prüfung schlägt fehl.
+
 ## Nach dem ersten Upload
 
 Sobald in App Store Connect eine TestFlight-Gruppe existiert, kann in
