@@ -29,6 +29,17 @@ enum Format {
         return date.formatted(.dateTime.day().month(.abbreviated).year())
     }
 
+    /// "Mo, 3. Nov" — kompakt genug für eine Zeile neben anderen Angaben.
+    static func dayShort(_ date: Date) -> String {
+        date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+    }
+
+    /// Minuten ab Mitternacht als Uhrzeit — die Beschriftung der
+    /// Stundenleiste im Wochenraster.
+    static func clock(minutes: Int) -> String {
+        String(format: "%02d:%02d", minutes / 60, minutes % 60)
+    }
+
     static func dayHeader(_ date: Date) -> String {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) { return "Heute" }

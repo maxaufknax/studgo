@@ -19,6 +19,7 @@ struct CourseDetailView: View {
     @State private var events = Loadable<[CourseEvent]>()
     @State private var news = Loadable<[NewsItem]>()
     @State private var participants = Loadable<[Participant]>()
+    @State private var writingTo: Participant?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,8 +35,11 @@ struct CourseDetailView: View {
             case .people: people
             }
         }
-        .navigationTitle(course.title)
+        .navigationTitle(course.shortTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $writingTo) { participant in
+            ComposeMessageView(presetRecipientID: participant.userID)
+        }
         .task(id: tab) { await loadCurrentTab() }
     }
 
@@ -44,63 +48,77 @@ struct CourseDetailView: View {
     private var overview: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(course.title).font(.headline)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(course.shortTitle)
+                        .font(.headline)
                     if let subtitle = course.subtitle {
                         Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
                     }
+                    HStack(spacing: 5) {
+                        if let number = course.courseNumber {
+                            Chip(text: number, color: Tint.color(course.id))
+                        }
+                        if let type = auth.courseTypeName(course.typeID) {
+                            Chip(text: type, color: Tint.color(course.id))
+                        }
+                    }
                 }
                 .padding(.vertical, 4)
+                .listRowBackground(Tint.surface(course.id))
             }
 
-            Section("Eckdaten") {
-                if let number = course.courseNumber {
-                    LabeledContent("Nummer", value: number)
-                }
-                if let type = course.courseType {
-                    LabeledContent("Art", value: type)
-                }
-                if let location = course.location {
-                    LabeledContent("Ort", value: location)
+            if course.location != nil {
+                Section("Eckdaten") {
+                    if let location = course.location {
+                        LabeledContent("Ort", value: location)
+                    }
                 }
             }
 
             if let description = course.description?.strippingHTML, !description.isEmpty {
                 Section("Beschreibung") {
-                    Text(description).font(.callout)
+                    Text(description).font(.callout).textSelection(.enabled)
+                }
+            }
+
+            if let extra = course.miscellaneous?.strippingHTML, !extra.isEmpty {
+                Section("Sonstiges") {
+                    Text(extra).font(.callout).textSelection(.enabled)
                 }
             }
         }
+        .listStyle(.insetGrouped)
     }
 
     // MARK: - Termine
 
     private var dates: some View {
         let all = events.value ?? []
-        let upcoming = all.filter { $0.end >= Date() }
-        let past = all.filter { $0.end < Date() }.reversed().map { $0 }
+        let upcoming = all.filter { !$0.isOver }
+        let past = all.filter { $0.isOver }.reversed().map { $0 }
 
         return List {
             if !upcoming.isEmpty {
                 Section("Anstehend") {
-                    ForEach(upcoming) { EventRow(event: $0, showDay: true) }
+                    ForEach(upcoming) { EventRow(event: $0, showDay: true, preferTopic: true) }
                 }
             }
             if !past.isEmpty {
                 Section("Vergangen") {
-                    ForEach(past.prefix(20)) { EventRow(event: $0, showDay: true) }
+                    ForEach(past.prefix(30)) { EventRow(event: $0, showDay: true, preferTopic: true) }
                 }
             }
         }
+        .listStyle(.insetGrouped)
         .overlay {
             StateOverlay(isLoading: events.isLoading,
                          errorMessage: events.errorMessage,
                          isEmpty: all.isEmpty,
                          emptyText: "Keine Termine",
                          emptySymbol: "calendar",
-                         retry: { Task { await load(.dates) } })
+                         retry: { Task { await load(.dates, fresh: true) } })
         }
-        .refreshable { await load(.dates) }
+        .refreshable { await load(.dates, fresh: true) }
     }
 
     // MARK: - Aushang
@@ -109,6 +127,7 @@ struct CourseDetailView: View {
         List(news.value ?? []) { item in
             NavigationLink(value: item) { NewsRow(item: item) }
         }
+        .listStyle(.insetGrouped)
         .navigationDestination(for: NewsItem.self) { NewsDetailView(item: $0) }
         .overlay {
             StateOverlay(isLoading: news.isLoading,
@@ -116,60 +135,80 @@ struct CourseDetailView: View {
                          isEmpty: (news.value ?? []).isEmpty,
                          emptyText: "Keine Ankündigungen",
                          emptySymbol: "megaphone",
-                         retry: { Task { await load(.news) } })
+                         retry: { Task { await load(.news, fresh: true) } })
         }
-        .refreshable { await load(.news) }
+        .refreshable { await load(.news, fresh: true) }
     }
 
     // MARK: - Personen
 
-    private var people: some View {
-        let grouped = Dictionary(grouping: participants.value ?? []) { $0.role ?? "Weitere" }
-            .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
+    /// Nach Rolle gruppiert, Lehrende zuerst. Alphabetisch sortiert stünde
+    /// "Lehrende" hinter "Lesende" — deshalb die eigene Rangfolge.
+    private var groupedParticipants: [(role: String, people: [Participant])] {
+        Dictionary(grouping: participants.value ?? []) { $0.role }
+            .map { (role: $0.key, people: $0.value) }
+            .sorted { ($0.people.first?.roleRank ?? 9) < ($1.people.first?.roleRank ?? 9) }
+    }
 
-        return List {
-            ForEach(grouped, id: \.key) { group in
-                Section("\(group.key) (\(group.value.count))") {
-                    ForEach(group.value) { member in
-                        HStack(spacing: 12) {
-                            InitialsBadge(initials: member.initials, size: 34)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(member.name)
-                                if let username = member.username {
-                                    Text("@\(username)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+    private var people: some View {
+        List {
+            ForEach(groupedParticipants, id: \.role) { group in
+                Section("\(group.role) (\(group.people.count))") {
+                    ForEach(group.people) { member in
+                        Button {
+                            writingTo = member
+                        } label: {
+                            HStack(spacing: 12) {
+                                InitialsBadge(initials: member.initials, size: 34)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(member.name).foregroundStyle(.primary)
+                                    if let label = member.label {
+                                        Text(label)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    } else if let username = member.username {
+                                        Text("@\(username)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
+                                Spacer(minLength: 0)
+                                Image(systemName: "square.and.pencil")
+                                    .font(.caption)
+                                    .foregroundStyle(.tint)
                             }
                         }
+                        .buttonStyle(.plain)
+                        .disabled(member.userID == nil)
                     }
                 }
             }
         }
+        .listStyle(.insetGrouped)
         .overlay {
             StateOverlay(isLoading: participants.isLoading,
                          errorMessage: participants.errorMessage,
                          isEmpty: (participants.value ?? []).isEmpty,
                          emptyText: "Keine Teilnehmendenliste",
                          emptySymbol: "person.2",
-                         retry: { Task { await load(.people) } })
+                         retry: { Task { await load(.people, fresh: true) } })
         }
-        .refreshable { await load(.people) }
+        .refreshable { await load(.people, fresh: true) }
     }
 
     // MARK: - Laden
 
     private func loadCurrentTab() async {
         switch tab {
-        case .dates where events.value == nil: await load(.dates)
-        case .news where news.value == nil: await load(.news)
-        case .people where participants.value == nil: await load(.people)
+        case .dates where events.value == nil: await load(.dates, fresh: false)
+        case .news where news.value == nil: await load(.news, fresh: false)
+        case .people where participants.value == nil: await load(.people, fresh: false)
         default: break
         }
     }
 
-    private func load(_ target: Tab) async {
-        let client = auth.client
+    private func load(_ target: Tab, fresh: Bool) async {
+        let client = fresh ? auth.freshClient : auth.client
         switch target {
         case .dates:
             await events.load { try await client.events(for: course) }
@@ -180,12 +219,5 @@ struct CourseDetailView: View {
         default:
             break
         }
-    }
-}
-
-extension Participant {
-    var initials: String {
-        let parts = name.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init)
-        return parts.isEmpty ? "?" : parts.joined()
     }
 }

@@ -9,6 +9,8 @@ final class Loadable<Value> {
     var errorMessage: String?
     var isLoading = false
 
+    var hasValue: Bool { value != nil }
+
     @MainActor
     func load(_ operation: @escaping () async throws -> Value) async {
         isLoading = value == nil
@@ -16,14 +18,18 @@ final class Loadable<Value> {
         do {
             value = try await operation()
         } catch {
+            // Ein vorhandener Stand bleibt stehen: bei einem gescheiterten
+            // Nachladen ist der alte Inhalt mehr wert als eine leere Seite.
             errorMessage = error.localizedDescription
         }
         isLoading = false
     }
 }
 
-/// Überlagert eine Liste mit Spinner, Fehler oder Leerhinweis — je nachdem,
-/// was gerade zutrifft. Liegen Daten vor, bleibt sie unsichtbar.
+/// Überlagert eine Liste mit Spinner, Fehler oder Leerhinweis — aber nur,
+/// solange nichts anzuzeigen ist. Liegen Daten vor, bleibt sie unsichtbar:
+/// ein fehlgeschlagenes Nachladen darf den bereits gezeigten Inhalt nicht
+/// hinter einer Fehlermeldung verschwinden lassen.
 struct StateOverlay: View {
     let isLoading: Bool
     let errorMessage: String?
@@ -33,7 +39,9 @@ struct StateOverlay: View {
     var retry: (() -> Void)?
 
     var body: some View {
-        if isLoading {
+        if !isEmpty {
+            EmptyView()
+        } else if isLoading {
             ProgressView()
         } else if let errorMessage {
             ContentUnavailableView {
@@ -45,7 +53,7 @@ struct StateOverlay: View {
                     Button("Erneut versuchen", action: retry)
                 }
             }
-        } else if isEmpty {
+        } else {
             ContentUnavailableView(emptyText, systemImage: emptySymbol)
         }
     }
@@ -62,16 +70,8 @@ struct InitialsBadge: View {
             .font(.system(size: size * 0.38, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
-            .background(Circle().fill(color))
+            .background(Circle().fill(Tint.color(initials)))
             .accessibilityHidden(true)
-    }
-
-    /// Farbe aus den Initialen ableiten, damit dieselbe Person immer
-    /// dieselbe Farbe bekommt.
-    private var color: Color {
-        let palette: [Color] = [.blue, .indigo, .purple, .teal, .orange, .pink, .green]
-        let hash = initials.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }
-        return palette[abs(hash) % palette.count]
     }
 }
 
@@ -114,21 +114,90 @@ extension RowLabel where Trailing == EmptyView {
 }
 
 /// Farbiger Balken links am Eintrag — ordnet Termine visuell ihrer
-/// Veranstaltung zu, ohne dass ein Farbschema gepflegt werden muss.
+/// Veranstaltung zu, ohne dass ein Farbschema gepflegt werden müsste.
 struct AccentBar: View {
     let seed: String
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 2)
-            .fill(Self.color(for: seed))
+        RoundedRectangle(cornerRadius: 2, style: .continuous)
+            .fill(Tint.color(seed))
             .frame(width: 4)
             .accessibilityHidden(true)
     }
+}
 
-    static func color(for seed: String) -> Color {
-        let palette: [Color] = [.blue, .indigo, .purple, .teal, .orange, .pink, .green, .mint]
-        let hash = seed.unicodeScalars.reduce(0) { $0 &+ Int($1.value) &* 31 }
-        return palette[abs(hash) % palette.count]
+/// Uhrzeitspalte links am Termin: Beginn kräftig, Ende darunter zurückgenommen.
+/// Dadurch lassen sich untereinander stehende Termine mit einem Blick
+/// zeitlich einordnen, ohne dass die Zeile in Text ertrinkt.
+struct TimeColumn: View {
+    let start: Date
+    let end: Date
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text(start, format: .dateTime.hour().minute())
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+            Text(end, format: .dateTime.hour().minute())
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .frame(width: 46, alignment: .trailing)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Format.timeRange(start, end))
+    }
+}
+
+/// Ein Termin als Listenzeile: Uhrzeit, Kursfarbe, Titel, Ort.
+struct EventRow: View {
+    let event: CourseEvent
+    /// In Tageslisten ist das Datum schon in der Überschrift — dort wäre es
+    /// in jeder Zeile Wiederholung.
+    var showDay = false
+    /// In der Terminliste einer Veranstaltung steht in `title` deren Name.
+    /// Dort trägt das Thema der Sitzung die Information.
+    var preferTopic = false
+
+    private var headline: String {
+        if preferTopic, let topic = event.topic { return topic }
+        return event.title
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            TimeColumn(start: event.start, end: event.end)
+
+            AccentBar(seed: event.tintSeed)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(headline)
+                    .font(.subheadline.weight(.medium))
+                    .strikethrough(event.isCancelled)
+                    .foregroundStyle(event.isCancelled ? .secondary : .primary)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    if let location = event.location {
+                        Label(location, systemImage: "mappin.and.ellipse")
+                            .lineLimit(1)
+                    }
+                    if showDay {
+                        Label(Format.dayShort(event.start), systemImage: "calendar")
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+                if event.isCancelled {
+                    Chip(text: "Fällt aus", symbol: "xmark.circle.fill", color: .red)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 3)
+        .accessibilityElement(children: .combine)
     }
 }
 

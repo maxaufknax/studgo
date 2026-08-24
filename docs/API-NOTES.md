@@ -1,6 +1,7 @@
 # Stud.IP LUH — API- & OAuth2-Befunde
 
-Stand: 2026-08-24. Alle Angaben durch direkte Requests gegen den Live-Server verifiziert.
+Stand: 2026-08-24. Alle Angaben durch direkte Requests gegen den Live-Server
+sowie gegen die Schema- und Route-Quellen von Stud.IP 6.0 verifiziert.
 
 ## Server
 
@@ -109,6 +110,35 @@ diese drei Punkte kosten sonst leicht einen halben Tag:
 Weitere Filter: `/v1/users/{id}/schedule` nimmt `filter[timestamp]` zur
 Semesterwahl (Standard: laufendes Semester), `/v1/users` nimmt
 `filter[search]` mit **mindestens drei Zeichen**.
+
+## Attributtypen, die anders sind als der Name vermuten lässt
+
+Aus den Schemas (`lib/classes/JsonApi/Schemas/`) gegengelesen. Jeder dieser
+Punkte lässt im Client stillschweigend ein Feld leer — ohne Fehlermeldung.
+
+| Ressource | Attribut | Fallstrick |
+| --- | --- | --- |
+| `courses` | `course-type` | **`(int)`**, nicht String — die ID einer Veranstaltungsart. Als String gelesen ist das Feld immer `nil`. Klartext über `GET /v1/sem-types` (`name`), die Belegung ist je Installation anders. |
+| `file-refs` | `is-downloadable` | Nur vorhanden, **wenn** `getFolderType()` etwas liefert. Fehlt es und man liest es als `false`, sperrt der Client Dateien, die der Server sehr wohl herausgibt. Im Zweifel erlauben. |
+| `course-memberships` | `label` | Meist leer — das ist die frei gepflegte Funktionsbezeichnung. Die Rolle steckt in `permission` (`dozent`, `tutor`, `autor`, `user`) und will für die Anzeige übersetzt werden. |
+| `course-events` | `title` / `description` | `title` ist der **Veranstaltungsname** (in einer Terminliste also in jeder Zeile derselbe), `description` das **Thema der Sitzung**. Für die Liste zählt `description`. |
+| `calendar-events` | `owner` | Zeigt auf **`users` oder `courses`**. Wer die ID ungeprüft als Kursbezug nimmt, ordnet private Termine einer Veranstaltung zu. Immer den `type` mitlesen. |
+| `seminar-cycle-dates` | `owner` | Zeigt auf die **Veranstaltung** — damit lässt sich ein Stundenplanblock seinem Kurs zuordnen. Bei `schedule-entries` zeigt `owner` dagegen auf die *Person*. |
+| `messages` | `sender` | Im **Postausgang** ist das die eigene Person. Dort trägt nur `include=recipients` eine Information. |
+
+## Filter, die es tatsächlich gibt
+
+Aus den Route-Klassen (`$allowedFilteringParameters`) verifiziert:
+
+| Route | Filter |
+| --- | --- |
+| `/v1/users/{id}/courses` | `filter[semester]` = Semester-ID. **Ohne** Filter kommen *alle je belegten* Veranstaltungen zurück, über mehrere Jahre. |
+| `/v1/users/{id}/schedule` | `filter[timestamp]` wählt das Semester (Standard: laufendes) |
+| `/v1/users/{id}/events` | `filter[timestamp]` verschiebt das feste Zwei-Wochen-Fenster |
+| `/v1/users` | `filter[search]`, mindestens drei Zeichen |
+
+`/v1/users/{id}/schedule` verlangt `canEditUser` — der Stundenplan **anderer**
+Personen ist nicht abrufbar, `me` funktioniert.
 
 ## Schreibende Aufrufe
 

@@ -3,6 +3,9 @@ import SwiftUI
 /// Nachricht verfassen — als Neuanlage oder als Antwort auf eine erhaltene.
 struct ComposeMessageView: View {
     var replyTo: Message?
+    /// Aus der Teilnehmendenliste heraus steht der Empfänger schon fest —
+    /// bekannt ist dort aber nur die ID, der Datensatz muss nachgeladen werden.
+    var presetRecipientID: String?
     var onSent: (() async -> Void)?
 
     @Environment(AuthStore.self) private var auth
@@ -14,6 +17,12 @@ struct ComposeMessageView: View {
     @State private var isSending = false
     @State private var errorMessage: String?
     @State private var isPickingRecipient = false
+
+    /// Verhindert, dass ein angefangener Text durch ein Wischen verloren geht.
+    private var hasDraft: Bool {
+        !subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     private var canSend: Bool {
         !recipients.isEmpty
@@ -65,6 +74,7 @@ struct ComposeMessageView: View {
                 }
             }
             .navigationTitle(replyTo == nil ? "Neue Nachricht" : "Antworten")
+            .interactiveDismissDisabled(hasDraft)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -86,21 +96,24 @@ struct ComposeMessageView: View {
                     }
                 }
             }
-            .task { prefillFromReply() }
+            .task { await prefill() }
         }
     }
 
-    /// Bei einer Antwort stehen Empfänger und Betreff bereits fest.
-    private func prefillFromReply() {
-        guard let replyTo, recipients.isEmpty, subject.isEmpty else { return }
-        subject = replyTo.subject.hasPrefix("Re:") ? replyTo.subject : "Re: \(replyTo.subject)"
-        guard let senderID = replyTo.senderID else { return }
-        Task {
-            // Der Absender steckt in der Liste nur als Name — für den Versand
-            // wird die Nutzer-Ressource gebraucht.
-            if let user = try? await auth.client.user(id: senderID) {
-                recipients = [user]
-            }
+    /// Bei einer Antwort stehen Empfänger und Betreff bereits fest; aus der
+    /// Teilnehmendenliste heraus zumindest der Empfänger.
+    private func prefill() async {
+        guard recipients.isEmpty else { return }
+
+        if let replyTo, subject.isEmpty {
+            subject = replyTo.subject.hasPrefix("Re:") ? replyTo.subject : "Re: \(replyTo.subject)"
+        }
+
+        // In der Liste steht vom Gegenüber nur der Name — für den Versand
+        // braucht Stud.IP die Nutzer-Ressource.
+        guard let id = presetRecipientID ?? replyTo?.senderID else { return }
+        if let user = try? await auth.client.user(id: id) {
+            recipients = [user]
         }
     }
 

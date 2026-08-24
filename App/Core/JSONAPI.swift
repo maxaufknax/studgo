@@ -41,6 +41,11 @@ struct JSONAPIDocument {
         guard let key = resource.relationshipKey(name) else { return nil }
         return included[key]
     }
+
+    /// Dasselbe für to-many — nicht aufgelöste Gegenstücke fallen weg.
+    func relatedList(_ name: String, of resource: Resource) -> [Resource] {
+        resource.relatedKeys(name).compactMap { included[$0] }
+    }
 }
 
 struct Resource {
@@ -62,13 +67,26 @@ struct Resource {
     }
 
     func bool(_ key: String) -> Bool {
-        if let value = attributes[key] as? Bool { return value }
-        if let value = attributes[key] as? NSNumber { return value.boolValue }
-        return false
+        optionalBool(key) ?? false
     }
 
+    /// Unterscheidet „steht auf false" von „steht gar nicht in der Antwort".
+    /// Stud.IP blendet Attribute je nach Rechtelage aus — `is-downloadable`
+    /// etwa fehlt ganz, wenn der Ordnertyp nicht ermittelt werden kann.
+    /// Als `false` gelesen sperrte das Dateien, die sich sehr wohl laden lassen.
+    func optionalBool(_ key: String) -> Bool? {
+        if let value = attributes[key] as? Bool { return value }
+        if let value = attributes[key] as? NSNumber { return value.boolValue }
+        return nil
+    }
+
+    /// Stud.IP liefert Zahlen mal als JSON-Zahl, mal als Zeichenkette
+    /// (`course-type` etwa ist im Schema ein `(int)`, `filesize` ebenso) —
+    /// beides muss hier ankommen.
     func int(_ key: String) -> Int? {
-        (attributes[key] as? NSNumber)?.intValue
+        if let number = attributes[key] as? NSNumber { return number.intValue }
+        if let text = attributes[key] as? String { return Int(text) }
+        return nil
     }
 
     /// Stud.IP formatiert Zeitstempel durchgängig als ISO 8601 mit Zeitzone.
@@ -78,15 +96,33 @@ struct Resource {
     }
 
     func relationshipKey(_ name: String) -> String? {
-        guard let relation = relationships[name] as? [String: Any],
-              let data = relation["data"] as? [String: Any],
-              let type = data["type"] as? String,
-              let id = data["id"] as? String else { return nil }
+        guard let (type, id) = relatedReference(name) else { return nil }
         return "\(type):\(id)"
     }
 
     func relatedID(_ name: String) -> String? {
-        relationshipKey(name)?.split(separator: ":").last.map(String.init)
+        relatedReference(name)?.id
+    }
+
+    /// Typ **und** ID der Gegenseite. Der Typ zählt dort, wo derselbe
+    /// Beziehungsname auf Verschiedenes zeigen kann: `owner` eines
+    /// `calendar-events` ist mal eine Veranstaltung, mal die eigene Person.
+    func relatedReference(_ name: String) -> (type: String, id: String)? {
+        guard let relation = relationships[name] as? [String: Any],
+              let data = relation["data"] as? [String: Any],
+              let type = data["type"] as? String,
+              let id = data["id"] as? String else { return nil }
+        return (type, id)
+    }
+
+    /// Gegenstücke einer to-many-Beziehung, etwa die Empfänger einer Nachricht.
+    func relatedKeys(_ name: String) -> [String] {
+        guard let relation = relationships[name] as? [String: Any],
+              let list = relation["data"] as? [[String: Any]] else { return [] }
+        return list.compactMap {
+            guard let type = $0["type"] as? String, let id = $0["id"] as? String else { return nil }
+            return "\(type):\(id)"
+        }
     }
 }
 
@@ -102,17 +138,33 @@ enum APIError: LocalizedError {
     case http(Int, String?)
     case decoding(String)
     case jsonAPI([String])
+    /// Kein Netz und nichts im Zwischenspeicher — das ist kein Serverfehler
+    /// und soll auch nicht wie einer aussehen.
+    case offline
+
+    /// Trennt „das Token ist hinüber" von allen anderen Fehlern: nur darauf
+    /// meldet die App von sich aus ab.
+    var isUnauthorized: Bool {
+        if case .http(let code, _) = self { return code == 401 }
+        return false
+    }
 
     var errorDescription: String? {
         switch self {
         case .http(401, _):
             return "Die Sitzung ist abgelaufen. Bitte erneut anmelden."
+        case .http(403, _):
+            return "Für diesen Bereich fehlen die Rechte."
+        case .http(404, _):
+            return "Nicht gefunden — vielleicht wurde der Eintrag entfernt."
         case .http(let code, let detail):
             return detail.map { "Serverfehler \(code): \($0)" } ?? "Serverfehler \(code)"
         case .decoding(let reason):
             return "Die Antwort von Stud.IP war unlesbar: \(reason)"
         case .jsonAPI(let messages):
             return messages.isEmpty ? "Stud.IP hat einen Fehler gemeldet." : messages.joined(separator: "\n")
+        case .offline:
+            return "Keine Verbindung zu Stud.IP."
         }
     }
 }

@@ -25,14 +25,14 @@ struct FolderBrowserView: View {
                          isEmpty: (folders.value ?? []).isEmpty,
                          emptyText: "Keine Dateien freigegeben",
                          emptySymbol: "folder",
-                         retry: { Task { await reload() } })
+                         retry: { Task { await reload(fresh: true) } })
         }
-        .refreshable { await reload() }
-        .task { if folders.value == nil { await reload() } }
+        .refreshable { await reload(fresh: true) }
+        .task { if folders.value == nil { await reload(fresh: false) } }
     }
 
-    private func reload() async {
-        let client = auth.client
+    private func reload(fresh: Bool) async {
+        let client = fresh ? auth.freshClient : auth.client
         await folders.load { try await client.rootFolders(of: course) }
     }
 }
@@ -77,16 +77,16 @@ struct FolderContentView: View {
                          isEmpty: isEmpty,
                          emptyText: "Ordner ist leer",
                          emptySymbol: "folder",
-                         retry: { Task { await reload() } })
+                         retry: { Task { await reload(fresh: true) } })
         }
         .navigationTitle(folder.name)
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await reload() }
-        .task { if files.value == nil { await reload() } }
+        .refreshable { await reload(fresh: true) }
+        .task { if files.value == nil { await reload(fresh: false) } }
     }
 
-    private func reload() async {
-        let client = auth.client
+    private func reload(fresh: Bool) async {
+        let client = fresh ? auth.freshClient : auth.client
         async let children: Void = subfolders.load { try await client.subfolders(of: folder) }
         async let contents: Void = files.load { try await client.files(in: folder) }
         _ = await (children, contents)

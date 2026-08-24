@@ -32,9 +32,14 @@ struct Course: Identifiable, Equatable {
     let title: String
     let subtitle: String?
     let courseNumber: String?
-    let courseType: String?
+    /// `course-type` ist im Stud.IP-Schema ein `(int)` — die ID einer
+    /// Veranstaltungsart, die je Installation anders belegt ist. Den Klartext
+    /// dazu ("Vorlesung", "Seminar") liefert `/v1/sem-types`; als String
+    /// gelesen war das Feld immer `nil` und die Art nie sichtbar.
+    let typeID: Int?
     let location: String?
     let description: String?
+    let miscellaneous: String?
 
     init?(_ resource: Resource) {
         guard resource.type == "courses" else { return nil }
@@ -42,9 +47,31 @@ struct Course: Identifiable, Equatable {
         title = resource.string("title") ?? "Ohne Titel"
         subtitle = resource.string("subtitle")?.nilIfEmpty
         courseNumber = resource.string("course-number")?.nilIfEmpty
-        courseType = resource.string("course-type")?.nilIfEmpty
+        typeID = resource.int("course-type")
         location = resource.string("location")?.nilIfEmpty
         description = resource.string("description")?.nilIfEmpty
+        miscellaneous = resource.string("miscellaneous")?.nilIfEmpty
+    }
+
+    /// Kürzt den Titel um eine vorangestellte Veranstaltungsnummer — Stud.IP
+    /// trägt sie an manchen Stellen doppelt.
+    var shortTitle: String {
+        guard let courseNumber, title.hasPrefix(courseNumber) else { return title }
+        return title.dropFirst(courseNumber.count)
+            .trimmingCharacters(in: CharacterSet(charactersIn: " -–:"))
+            .nilIfEmpty ?? title
+    }
+}
+
+/// Klartext zu den Veranstaltungsarten aus `/v1/sem-types`.
+struct SemType: Identifiable, Equatable {
+    let id: String
+    let name: String
+
+    init?(_ resource: Resource) {
+        guard resource.type == "sem-types" else { return nil }
+        id = resource.id
+        name = resource.string("name")?.nilIfEmpty ?? ""
     }
 }
 
@@ -64,6 +91,10 @@ struct ScheduleEntry: Identifiable, Equatable {
     let end: String
     let location: String?
     let isCourse: Bool
+    /// Bei `seminar-cycle-dates` zeigt `owner` auf die Veranstaltung. Damit
+    /// bekommt der Block im Stundenplan dieselbe Farbe wie der Kurs in der
+    /// Kursliste — und lässt sich von dort aus öffnen.
+    let courseID: String?
 
     init?(_ resource: Resource) {
         let courseCycle = resource.type == "seminar-cycle-dates"
@@ -75,22 +106,39 @@ struct ScheduleEntry: Identifiable, Equatable {
         start = resource.string("start") ?? "00:00"
         end = resource.string("end") ?? "00:00"
         isCourse = courseCycle
+        let owner = resource.relatedReference("owner")
+        courseID = owner?.type == "courses" ? owner?.id : nil
         // `locations` ist eine Liste von Raumnamen; mehr als der erste passt
         // in eine Listenzeile ohnehin nicht.
         location = (resource.attributes["locations"] as? [String])?
             .first?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
     }
 
-    /// Die Tabelle beginnt bewusst bei 0 und endet doppelt auf Sonntag: so
-    /// stimmt die Beschriftung sowohl für Stud.IPs 1 = Montag … 7 = Sonntag
-    /// als auch für Datenbestände, die bei 0 = Sonntag zählen.
+    /// Stud.IP zählt 1 = Montag … 7 = Sonntag, ältere Bestände schreiben für
+    /// Sonntag eine 0. Alles Weitere rechnet mit dieser einen Lesart.
+    var normalizedWeekday: Int {
+        weekday == 0 ? 7 : min(max(weekday, 1), 7)
+    }
+
     var weekdayName: String {
-        let names = ["Sonntag", "Montag", "Dienstag", "Mittwoch",
-                     "Donnerstag", "Freitag", "Samstag", "Sonntag"]
-        return names.indices.contains(weekday) ? names[weekday] : "Unbekannt"
+        TimetableView.fullName(normalizedWeekday)
     }
 
     var timeRange: String { "\(start) – \(end)" }
+
+    /// Seed für die Kursfarbe — bevorzugt die Veranstaltung, damit derselbe
+    /// Kurs überall gleich eingefärbt ist.
+    var tintSeed: String { courseID ?? title }
+
+    /// "14:15" → 855. Das Wochenraster rechnet in Minuten ab Mitternacht.
+    static func minutes(_ clock: String) -> Int {
+        let parts = clock.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return 0 }
+        return parts[0] * 60 + parts[1]
+    }
+
+    var startMinutes: Int { Self.minutes(start) }
+    var endMinutes: Int { max(Self.minutes(end), startMinutes + 30) }
 }
 
 /// Ein konkreter Termin mit Datum.
@@ -108,6 +156,9 @@ struct CourseEvent: Identifiable, Equatable {
     let location: String?
     let category: String?
     let isCancelled: Bool
+    /// Nur gesetzt, wenn `owner` wirklich auf eine Veranstaltung zeigt: bei
+    /// `calendar-events` ist der Besitzer oft die eigene Person, und ein
+    /// Nutzer-Kürzel als Kursbezug wäre schlicht falsch.
     let courseID: String?
 
     init?(_ resource: Resource) {
@@ -122,8 +173,39 @@ struct CourseEvent: Identifiable, Equatable {
         category = resource.string("categories")?.nilIfEmpty
         // Nur `course-events` kennen ausgefallene Termine.
         isCancelled = resource.bool("is-cancelled")
-        courseID = resource.relatedID("owner")
+        let owner = resource.relatedReference("owner")
+        courseID = owner?.type == "courses" ? owner?.id : nil
     }
+
+    /// Bei `course-events` steht im Titel der Veranstaltungsname und im
+    /// Beschreibungsfeld das Thema der Sitzung. In der Terminliste einer
+    /// Veranstaltung ist deshalb das Thema die eigentliche Information.
+    var topic: String? { description?.strippingHTML.nilIfEmpty }
+
+    /// Macht aus einem wiederkehrenden Stundenplaneintrag die konkrete
+    /// Sitzung eines Tages.
+    ///
+    /// Nötig, weil `/v1/users/{id}/events` nur den **persönlichen** Kalender
+    /// liefert (die Route filtert auf `range_id = user`); Veranstaltungstermine
+    /// hängen am Kurs. Ohne diese Ableitung bliebe der Startbildschirm für die
+    /// meisten Studierenden leer, obwohl der Stundenplan voll ist.
+    init(entry: ScheduleEntry, on day: Date) {
+        id = "plan-\(entry.id)-\(Int(day.timeIntervalSince1970))"
+        title = entry.title
+        description = entry.description
+        start = day.addingTimeInterval(TimeInterval(entry.startMinutes * 60))
+        end = day.addingTimeInterval(TimeInterval(entry.endMinutes * 60))
+        location = entry.location
+        category = nil
+        // Ob eine Sitzung ausfällt, weiß nur `/v1/courses/{id}/events` —
+        // das wäre eine Anfrage je Veranstaltung.
+        isCancelled = false
+        courseID = entry.courseID
+    }
+
+    var tintSeed: String { courseID ?? title }
+
+    var isOver: Bool { end < Date() }
 }
 
 struct Message: Identifiable, Equatable {
@@ -134,8 +216,12 @@ struct Message: Identifiable, Equatable {
     let isRead: Bool
     let senderName: String?
     let senderID: String?
+    /// Im Postausgang stünde als Absender die eigene Person — dort trägt
+    /// erst die Empfängerliste eine Information.
+    let recipientNames: [String]
+    let isUrgent: Bool
 
-    init?(_ resource: Resource, sender: Resource? = nil) {
+    init?(_ resource: Resource, sender: Resource? = nil, recipients: [Resource] = []) {
         guard resource.type == "messages" else { return nil }
         id = resource.id
         subject = resource.string("subject")?.nilIfEmpty ?? "(kein Betreff)"
@@ -144,7 +230,22 @@ struct Message: Identifiable, Equatable {
         isRead = resource.bool("is-read")
         senderName = sender.flatMap { $0.string("formatted-name") ?? $0.string("username") }
         senderID = sender?.id ?? resource.relatedID("sender")
+        recipientNames = recipients.compactMap {
+            ($0.string("formatted-name") ?? $0.string("username"))?.nilIfEmpty
+        }
+        isUrgent = (resource.string("priority") ?? "").lowercased() == "high"
     }
+
+    /// Wer in der Liste zu zeigen ist — je nach Fach die Gegenseite.
+    func counterpart(outgoing: Bool) -> String? {
+        guard outgoing else { return senderName }
+        guard let first = recipientNames.first else { return nil }
+        return recipientNames.count > 1
+            ? "\(first) +\(recipientNames.count - 1)"
+            : first
+    }
+
+    var preview: String { body.strippingHTML }
 }
 
 struct NewsItem: Identifiable, Equatable {
@@ -169,6 +270,8 @@ struct Semester: Identifiable, Equatable {
     let title: String
     let start: Date?
     let end: Date?
+    let lectureStart: Date?
+    let lectureEnd: Date?
     let isCurrent: Bool
 
     init?(_ resource: Resource) {
@@ -177,7 +280,15 @@ struct Semester: Identifiable, Equatable {
         title = resource.string("title") ?? ""
         start = resource.date("start")
         end = resource.date("end")
+        lectureStart = resource.date("start-of-lectures")
+        lectureEnd = resource.date("end-of-lectures")
         isCurrent = resource.bool("is-current")
+    }
+
+    /// Läuft die Vorlesungszeit gerade?
+    var isLecturePeriod: Bool {
+        guard let lectureStart, let lectureEnd else { return false }
+        return (lectureStart...lectureEnd).contains(Date())
     }
 }
 
@@ -233,7 +344,11 @@ struct FileRef: Identifiable, Equatable, Hashable {
         mimeType = resource.string("mime-type")?.nilIfEmpty
         size = resource.int("filesize")
         changedAt = resource.date("chdate")
-        isDownloadable = resource.bool("is-downloadable")
+        // Stud.IP liefert das Attribut nur mit, wenn es den Ordnertyp
+        // auflösen kann. Fehlt es, wäre `false` die falsche Annahme — die
+        // Datei ließe sich dann in der App nicht öffnen, obwohl der Server
+        // sie herausgibt. Im Zweifel also erlauben und den Server entscheiden.
+        isDownloadable = resource.optionalBool("is-downloadable") ?? true
     }
 
     var formattedSize: String? {
@@ -264,13 +379,48 @@ struct Participant: Identifiable, Equatable {
     let id: String
     let name: String
     let username: String?
-    let role: String?
+    let userID: String?
+    /// Die Funktionsbezeichnung der Veranstaltung, sofern gepflegt
+    /// ("Übungsleitung"). Meist leer — dann trägt die Rolle.
+    let label: String?
+    let permission: String
 
     init?(membership: Resource, user: Resource?) {
         guard membership.type == "course-memberships" else { return nil }
         id = membership.id
         name = user?.string("formatted-name") ?? user?.string("username") ?? "Unbekannt"
         username = user?.string("username")
-        role = membership.string("label")?.nilIfEmpty ?? membership.string("permission")?.nilIfEmpty
+        userID = user?.id
+        label = membership.string("label")?.nilIfEmpty
+        permission = membership.string("permission")?.nilIfEmpty ?? "user"
+    }
+
+    /// `permission` ist die rohe Stud.IP-Stufe ("dozent", "tutor", "autor").
+    /// Ungefiltert stand das so in der Teilnehmendenliste — hier der Klartext.
+    var role: String {
+        switch permission {
+        case "dozent": return "Lehrende"
+        case "tutor": return "Tutorinnen und Tutoren"
+        case "autor": return "Studierende"
+        case "user": return "Lesende"
+        default: return "Weitere"
+        }
+    }
+
+    /// Lehrende zuerst, Lesende zuletzt — alphabetisch wäre "Lehrende"
+    /// hinter "Lesende" gelandet.
+    var roleRank: Int {
+        switch permission {
+        case "dozent": return 0
+        case "tutor": return 1
+        case "autor": return 2
+        case "user": return 3
+        default: return 4
+        }
+    }
+
+    var initials: String {
+        let parts = name.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init)
+        return parts.isEmpty ? "?" : parts.joined()
     }
 }

@@ -14,6 +14,8 @@ struct RootView: View {
             }
         case .signedOut:
             LoginView()
+        case .unavailable(let message):
+            UnreachableView(message: message)
         case .signedIn(let user):
             MainTabView(user: user)
                 // Beim Kontowechsel alle Ansichten frisch aufbauen.
@@ -24,6 +26,7 @@ struct RootView: View {
 
 struct MainTabView: View {
     let user: StudIPUser
+    @Environment(AuthStore.self) private var auth
 
     var body: some View {
         TabView {
@@ -35,8 +38,46 @@ struct MainTabView: View {
                 .tabItem { Label("Kurse", systemImage: "books.vertical") }
             MessagesView(user: user)
                 .tabItem { Label("Nachrichten", systemImage: "envelope") }
+                .badge(auth.unreadCount)
             MoreView(user: user)
                 .tabItem { Label("Mehr", systemImage: "ellipsis.circle") }
+        }
+        .task { await auth.loadSemTypes() }
+    }
+}
+
+/// Angemeldet, aber der Server antwortet nicht — etwa beim ersten Start ohne
+/// Empfang. Abmelden wäre hier die falsche Antwort: die Sitzung ist in
+/// Ordnung, nur die Leitung nicht.
+struct UnreachableView: View {
+    let message: String
+    @Environment(AuthStore.self) private var auth
+    @State private var isRetrying = false
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("Stud.IP nicht erreichbar", systemImage: "wifi.exclamationmark")
+        } description: {
+            Text(message)
+        } actions: {
+            Button {
+                Task {
+                    isRetrying = true
+                    await auth.retryProfile()
+                    isRetrying = false
+                }
+            } label: {
+                if isRetrying {
+                    ProgressView()
+                } else {
+                    Text("Erneut versuchen")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isRetrying)
+
+            Button("Abmelden", role: .destructive) { auth.signOut() }
+                .font(.footnote)
         }
     }
 }

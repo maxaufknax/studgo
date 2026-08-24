@@ -102,6 +102,12 @@ workflows:
         - push
         - pull_request
     scripts:
+      - name: Syntaxprüfung der Swift-Quellen
+        script: |
+          # Läuft in Sekunden und bricht ab, bevor eine halbe Xcode-Bauzeit
+          # für eine vergessene Klammer draufgeht.
+          python3 tools/swift-sanity.py App
+
       - name: XcodeGen bereitstellen
         script: which xcodegen || brew install xcodegen
       - name: Platzhalter-Secrets schreiben

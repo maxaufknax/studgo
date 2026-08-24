@@ -5,6 +5,35 @@ import Foundation
 struct StudIPClient {
     let tokenProvider: () async throws -> String
 
+    /// Wird gerufen, wenn der Server 401 meldet. Der `AuthStore` beendet
+    /// daraufhin die Sitzung — ohne das bliebe die App in jedem Tab mit
+    /// "Sitzung abgelaufen" stehen, ohne Weg zurück zur Anmeldung.
+    var onUnauthorized: (() async -> Void)? = nil
+
+    /// Steuert, ob eine gespeicherte Antwort genügt. Beim ersten Aufbau einer
+    /// Ansicht ja — dann steht der letzte Stand sofort da. Beim Herunterziehen
+    /// nein: dort erwartet man, dass wirklich der Server gefragt wird.
+    var revalidates = false
+
+    var fresh: StudIPClient {
+        var copy = self
+        copy.revalidates = true
+        return copy
+    }
+
+    /// Eigene Sitzung mit knappem Zeitlimit: die Standardgrenze von 60
+    /// Sekunden fühlt sich bei schlechtem Empfang wie ein Hänger an.
+    /// Der eingebaute URL-Cache bleibt aus — zwischengespeichert wird in
+    /// `ResponseCache`, wo die App die Regeln selbst in der Hand hat.
+    private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 20
+        configuration.timeoutIntervalForResource = 60
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.urlCache = nil
+        return URLSession(configuration: configuration)
+    }()
+
     // MARK: - Profil
 
     func currentUser() async throws -> StudIPUser {
@@ -25,9 +54,30 @@ struct StudIPClient {
 
     // MARK: - Veranstaltungen
 
-    func courses(for userID: String) async throws -> [Course] {
-        try await get("/v1/users/\(userID)/courses", limit: 200)
+    /// Ohne Semesterangabe liefert Stud.IP **alle** je belegten
+    /// Veranstaltungen — über mehrere Studienjahre wird das schnell
+    /// unübersichtlich. `filter[semester]` grenzt serverseitig ein.
+    func courses(for userID: String, semester: String? = nil) async throws -> [Course] {
+        var extra: [URLQueryItem] = []
+        if let semester {
+            extra.append(URLQueryItem(name: "filter[semester]", value: semester))
+        }
+        return try await get("/v1/users/\(userID)/courses", limit: 300, extra: extra)
             .resources.compactMap(Course.init)
+    }
+
+    func course(id: String) async throws -> Course {
+        let document = try await get("/v1/courses/\(id)")
+        guard let resource = document.first, let course = Course(resource) else {
+            throw APIError.decoding("Veranstaltung konnte nicht gelesen werden")
+        }
+        return course
+    }
+
+    /// Klartext zu `course-type`. Die Zuordnung ist je Stud.IP-Installation
+    /// anders belegt, sie muss also vom Server kommen.
+    func semTypes() async throws -> [SemType] {
+        try await get("/v1/sem-types", limit: 200).resources.compactMap(SemType.init)
     }
 
     func participants(of course: Course) async throws -> [Participant] {
@@ -35,7 +85,11 @@ struct StudIPClient {
                                     limit: 500, include: ["user"])
         return document.resources
             .compactMap { Participant(membership: $0, user: document.related("user", of: $0)) }
-            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            .sorted {
+                $0.roleRank != $1.roleRank
+                    ? $0.roleRank < $1.roleRank
+                    : $0.name.localizedStandardCompare($1.name) == .orderedAscending
+            }
     }
 
     // MARK: - Termine
@@ -85,17 +139,27 @@ struct StudIPClient {
     // MARK: - Nachrichten
 
     func inbox(for userID: String) async throws -> [Message] {
-        try await messages(at: "/v1/users/\(userID)/inbox")
+        try await messages(at: "/v1/users/\(userID)/inbox", outgoing: false)
     }
 
     func outbox(for userID: String) async throws -> [Message] {
-        try await messages(at: "/v1/users/\(userID)/outbox")
+        try await messages(at: "/v1/users/\(userID)/outbox", outgoing: true)
     }
 
-    private func messages(at path: String) async throws -> [Message] {
-        let document = try await get(path, limit: 100, include: ["sender"])
+    private func messages(at path: String, outgoing: Bool) async throws -> [Message] {
+        // Im Postausgang ist der Absender immer man selbst — dort zählt die
+        // Empfängerliste, und die kommt nur mit `include` mit.
+        let wanted = outgoing ? ["sender", "recipients"] : ["sender"]
+        let document = try await documentAllowingMissingIncludes(path: path,
+                                                                 limit: 100,
+                                                                 include: wanted,
+                                                                 fallback: [])
         return document.resources
-            .compactMap { Message($0, sender: document.related("sender", of: $0)) }
+            .compactMap {
+                Message($0,
+                        sender: document.related("sender", of: $0),
+                        recipients: document.relatedList("recipients", of: $0))
+            }
             .sorted { ($0.sentAt ?? .distantPast) > ($1.sentAt ?? .distantPast) }
     }
 
@@ -145,7 +209,10 @@ struct StudIPClient {
     }
 
     private func news(at path: String) async throws -> [NewsItem] {
-        let document = try await get(path, limit: 100, include: ["author"])
+        let document = try await documentAllowingMissingIncludes(path: path,
+                                                                 limit: 100,
+                                                                 include: ["author"],
+                                                                 fallback: [])
         return document.resources
             .compactMap { NewsItem($0, author: document.related("author", of: $0)) }
             .sorted { ($0.publishedAt ?? .distantPast) > ($1.publishedAt ?? .distantPast) }
@@ -176,7 +243,7 @@ struct StudIPClient {
                                           + "/v1/file-refs/\(file.id)/content")!)
         request.setValue("Bearer \(try await tokenProvider())", forHTTPHeaderField: "Authorization")
 
-        let (temporaryURL, response) = try await URLSession.shared.download(for: request)
+        let (temporaryURL, response) = try await Self.session.download(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.decoding("Keine HTTP-Antwort")
         }
@@ -201,12 +268,18 @@ struct StudIPClient {
 
     func searchUsers(_ term: String) async throws -> [StudIPUser] {
         guard term.count >= 3 else { return [] }
-        return try await get("/v1/users", limit: 25,
-                             extra: [URLQueryItem(name: "filter[search]", value: term)])
+        return try await fresh.get("/v1/users", limit: 25,
+                                   extra: [URLQueryItem(name: "filter[search]", value: term)])
             .resources.compactMap(StudIPUser.init)
     }
 
     // MARK: - Transport
+
+    private func url(path: String, query: [URLQueryItem]) -> URL {
+        var components = URLComponents(string: AppConfig.apiRoot.absoluteString + path)!
+        components.queryItems = query.isEmpty ? nil : query
+        return components.url!
+    }
 
     private func get(_ path: String,
                      limit: Int? = nil,
@@ -217,39 +290,86 @@ struct StudIPClient {
         if !include.isEmpty {
             query.append(URLQueryItem(name: "include", value: include.joined(separator: ",")))
         }
-        return try await perform(request(method: "GET", path: path, query: query))
+
+        let address = url(path: path, query: query)
+        let key = address.absoluteString
+
+        // Der Zwischenspeicher wird **vor** dem Token gefragt: sonst liefe ein
+        // abgelaufener Access-Token ohne Netz in einen Fehler, obwohl die
+        // Antwort längst auf der Platte liegt.
+        if !revalidates, let hit = ResponseCache.load(for: key), hit.age < ResponseCache.maxAge,
+           let document = try? JSONAPIDocument(data: hit.data) {
+            return document
+        }
+
+        do {
+            var request = URLRequest(url: address)
+            request.httpMethod = "GET"
+            request.setValue("Bearer \(try await tokenProvider())",
+                             forHTTPHeaderField: "Authorization")
+            request.setValue("application/vnd.api+json", forHTTPHeaderField: "Accept")
+
+            let data = try await perform(request)
+            ResponseCache.store(data, for: key)
+            guard !data.isEmpty else { return JSONAPIDocument.empty }
+            return try JSONAPIDocument(data: data)
+        } catch {
+            // Ohne Verbindung zählt jeder gespeicherte Stand, auch ein alter.
+            if error.isConnectivityFailure {
+                if let hit = ResponseCache.load(for: key),
+                   let document = try? JSONAPIDocument(data: hit.data) {
+                    return document
+                }
+                throw APIError.offline
+            }
+            throw error
+        }
+    }
+
+    /// Manche Beziehungen sind je nach Rechtelage nicht mitlieferbar; Stud.IP
+    /// beantwortet ein unerlaubtes `include` dann mit 400. Das darf nicht die
+    /// ganze Liste kosten — im Zweifel eben ohne die Zusatzdaten.
+    private func documentAllowingMissingIncludes(path: String,
+                                                 limit: Int,
+                                                 include: [String],
+                                                 fallback: [String]) async throws -> JSONAPIDocument {
+        do {
+            return try await get(path, limit: limit, include: include)
+        } catch let error as APIError {
+            guard case .http(400, _) = error else { throw error }
+            return try await get(path, limit: limit, include: fallback)
+        }
     }
 
     @discardableResult
     private func send(_ method: String, _ path: String, body: [String: Any]) async throws -> JSONAPIDocument {
-        var urlRequest = try await request(method: method, path: path, query: [])
-        urlRequest.setValue("application/vnd.api+json", forHTTPHeaderField: "Content-Type")
-        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
-        return try await perform(urlRequest)
-    }
-
-    private func request(method: String, path: String, query: [URLQueryItem]) async throws -> URLRequest {
-        var components = URLComponents(string: AppConfig.apiRoot.absoluteString + path)!
-        components.queryItems = query.isEmpty ? nil : query
-
-        var request = URLRequest(url: components.url!)
+        var request = URLRequest(url: url(path: path, query: []))
         request.httpMethod = method
         request.setValue("Bearer \(try await tokenProvider())", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.api+json", forHTTPHeaderField: "Accept")
-        return request
+        request.setValue("application/vnd.api+json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        do {
+            let data = try await perform(request)
+            // 204 und leere Antworten sind bei PATCH/POST gültig.
+            guard !data.isEmpty else { return JSONAPIDocument.empty }
+            return try JSONAPIDocument(data: data)
+        } catch {
+            throw error.isConnectivityFailure ? APIError.offline : error
+        }
     }
 
-    private func perform(_ request: URLRequest) async throws -> JSONAPIDocument {
-        let (data, response) = try await URLSession.shared.data(for: request)
+    private func perform(_ request: URLRequest) async throws -> Data {
+        let (data, response) = try await Self.session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.decoding("Keine HTTP-Antwort")
         }
         guard (200..<300).contains(http.statusCode) else {
+            if http.statusCode == 401 { await onUnauthorized?() }
             throw error(status: http.statusCode, body: data)
         }
-        // 204 und leere Antworten sind bei PATCH/POST gültig.
-        guard !data.isEmpty else { return JSONAPIDocument.empty }
-        return try JSONAPIDocument(data: data)
+        return data
     }
 
     /// Die JSON:API meldet Fehler strukturiert im Body; am OAuth-nahen Rand
@@ -264,6 +384,23 @@ struct StudIPClient {
     }
 }
 
+extension Error {
+    /// Unterscheidet „kein Netz" von einem echten Fehler des Servers. Nur im
+    /// ersten Fall lohnt der Griff zum Zwischenspeicher.
+    var isConnectivityFailure: Bool {
+        guard let urlError = self as? URLError else { return false }
+        switch urlError.code {
+        case .notConnectedToInternet, .networkConnectionLost, .timedOut,
+             .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed,
+             .internationalRoamingOff, .dataNotAllowed, .secureConnectionFailed,
+             .resourceUnavailable:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 private extension String {
     /// Stud.IP-Dateinamen können Zeichen enthalten, die im Dateisystem stören.
     var sanitizedFileName: String {
@@ -274,7 +411,7 @@ private extension String {
     }
 }
 
-private extension JSONAPIDocument {
+extension JSONAPIDocument {
     /// Für Antworten ohne Body (etwa nach einem PATCH).
     static var empty: JSONAPIDocument {
         // swiftlint:disable:next force_try

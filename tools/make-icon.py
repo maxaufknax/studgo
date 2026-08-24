@@ -14,10 +14,17 @@ from pathlib import Path
 SIZE = 1024
 SUBSAMPLES = 4  # vertikale Überabtastung pro Pixelzeile
 
-# Farbverlauf: tiefes Indigo nach kräftigem Blau (kontrastreich in Hell und Dunkel)
-TOP = (36, 42, 122)
-BOTTOM = (14, 104, 190)
-INK = (255, 255, 255)
+# Ein Satz Farben je Erscheinungsbild. iOS 18 zeigt auf dem Hoheitsbildschirm
+# je nach Einstellung eine helle, eine dunkle oder eine eingefärbte Fassung;
+# ohne eigene Vorlagen rechnet das System sie sich selbst aus, meist schlechter.
+VARIANTS = {
+    # hell: tiefes Indigo nach kräftigem Blau
+    "": {"top": (36, 42, 122), "bottom": (14, 104, 190), "ink": (255, 255, 255)},
+    # dunkel: dieselbe Achse, deutlich abgedunkelt
+    "-dark": {"top": (12, 14, 46), "bottom": (7, 44, 88), "ink": (236, 242, 255)},
+    # eingefärbt: iOS liest nur die Helligkeit und legt den Farbton selbst an
+    "-tinted": {"top": (10, 10, 10), "bottom": (58, 58, 58), "ink": (255, 255, 255)},
+}
 
 
 def lerp(a, b, t):
@@ -96,14 +103,17 @@ def cap_shapes():
         y = 646 - 46 * math.sin(math.pi * t)
         body.append((x, y))
     board = [(150, 404), (512, 250), (874, 404), (512, 558)]
-    tassel_cord = [(856, 400), (886, 412), (886, 596), (856, 596)]
-    tassel_knot = circle(871, 632, 42)
+    # Die Schnur beginnt ein Stück *innerhalb* des Bretts und tritt unten aus
+    # ihm heraus. An der äußersten Spitze ist das Brett unendlich dünn — dort
+    # angesetzt stand die Schnur darüber hinaus und riss eine sichtbare Kerbe
+    # in die Silhouette.
+    tassel_cord = [(819, 396), (841, 396), (841, 592), (819, 592)]
+    tassel_knot = circle(830, 628, 44)
     # Die Quaste zieht das Gewicht nach rechts, das gleicht die Verschiebung aus.
     return [translate(shape, -18, 46) for shape in (body, board, tassel_cord, tassel_knot)]
 
 
-def render():
-    cov = coverage(cap_shapes(), SIZE, SIZE)
+def render(palette, cov):
     raw = bytearray()
     for y in range(SIZE):
         raw.append(0)  # Filter-Byte je Zeile
@@ -111,12 +121,13 @@ def render():
         row_base = y * SIZE
         for x in range(SIZE):
             t = min(1.0, max(0.0, (x * 0.35 + y * 0.65) / SIZE))
-            r, g, b = lerp(TOP, BOTTOM, t)
+            r, g, b = lerp(palette["top"], palette["bottom"], t)
             a = min(1.0, cov[row_base + x])
             if a:
-                r = round(r + (INK[0] - r) * a)
-                g = round(g + (INK[1] - g) * a)
-                b = round(b + (INK[2] - b) * a)
+                ink = palette["ink"]
+                r = round(r + (ink[0] - r) * a)
+                g = round(g + (ink[1] - g) * a)
+                b = round(b + (ink[2] - b) * a)
             raw += bytes((r, g, b))
     return bytes(raw)
 
@@ -135,7 +146,14 @@ def write_png(path, raw, size):
 
 
 if __name__ == "__main__":
-    target = Path(__file__).resolve().parent.parent / "App/Resources/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    write_png(target, render(), SIZE)
-    print(f"{target.relative_to(target.parents[4])} — {target.stat().st_size / 1024:.0f} KB")
+    folder = (Path(__file__).resolve().parent.parent
+              / "App/Resources/Assets.xcassets/AppIcon.appiconset")
+    folder.mkdir(parents=True, exist_ok=True)
+
+    # Die Deckungsmaske ist für alle Fassungen dieselbe — einmal rastern reicht.
+    cov = coverage(cap_shapes(), SIZE, SIZE)
+
+    for suffix, palette in VARIANTS.items():
+        target = folder / f"icon-1024{suffix}.png"
+        write_png(target, render(palette, cov), SIZE)
+        print(f"{target.name} — {target.stat().st_size / 1024:.0f} KB")

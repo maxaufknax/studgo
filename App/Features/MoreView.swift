@@ -5,6 +5,7 @@ struct MoreView: View {
     let user: StudIPUser
     @Environment(AuthStore.self) private var auth
     @State private var showsSignOutConfirmation = false
+    @State private var didClearCache = false
 
     var body: some View {
         NavigationStack {
@@ -18,6 +19,7 @@ struct MoreView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
+                        Spacer(minLength: 0)
                     }
                     .padding(.vertical, 6)
                     .accessibilityElement(children: .combine)
@@ -44,6 +46,19 @@ struct MoreView: View {
                 }
 
                 Section {
+                    Button {
+                        ResponseCache.clear()
+                        didClearCache = true
+                    } label: {
+                        RowLabel(symbol: didClearCache ? "checkmark.circle" : "arrow.clockwise.circle",
+                                 title: didClearCache ? "Zwischenspeicher geleert" : "Zwischenspeicher leeren")
+                    }
+                    .disabled(didClearCache)
+                } footer: {
+                    Text("StudGo hält die zuletzt geladenen Listen auf dem Gerät vor, damit die App sofort startet und auch ohne Empfang etwas anzeigt.")
+                }
+
+                Section {
                     NavigationLink {
                         AboutView()
                     } label: {
@@ -59,9 +74,10 @@ struct MoreView: View {
                         showsSignOutConfirmation = true
                     }
                 } footer: {
-                    Text("Beim Abmelden werden die lokal gespeicherten Zugangstoken aus der Keychain gelöscht.")
+                    Text("Beim Abmelden werden die Zugangstoken aus der Keychain und alle zwischengespeicherten Daten gelöscht.")
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("Mehr")
             .confirmationDialog("Wirklich abmelden?",
                                 isPresented: $showsSignOutConfirmation,
@@ -83,16 +99,14 @@ struct SemesterListView: View {
 
     var body: some View {
         List(sorted) { semester in
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text(semester.title).font(.body.weight(.medium))
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
+                    Text(semester.title).font(.subheadline.weight(.medium))
                     if semester.isCurrent {
-                        Text("aktuell")
-                            .font(.caption2.bold())
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(.tint.opacity(0.15)))
-                            .foregroundStyle(.tint)
+                        Chip(text: "aktuell", color: .accentColor)
+                    }
+                    if semester.isLecturePeriod {
+                        Chip(text: "Vorlesungszeit", symbol: "book", color: .green)
                     }
                 }
                 if let start = semester.start, let end = semester.end {
@@ -100,25 +114,31 @@ struct SemesterListView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                if let from = semester.lectureStart, let to = semester.lectureEnd {
+                    Text("Vorlesungen: \(from.formatted(.dateTime.day().month())) – \(to.formatted(.dateTime.day().month()))")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
             .padding(.vertical, 2)
         }
+        .listStyle(.insetGrouped)
         .overlay {
             StateOverlay(isLoading: semesters.isLoading,
                          errorMessage: semesters.errorMessage,
                          isEmpty: sorted.isEmpty,
                          emptyText: "Keine Semester",
                          emptySymbol: "calendar",
-                         retry: { Task { await reload() } })
+                         retry: { Task { await reload(fresh: true) } })
         }
         .navigationTitle("Semester")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await reload() }
-        .task { if semesters.value == nil { await reload() } }
+        .refreshable { await reload(fresh: true) }
+        .task { if semesters.value == nil { await reload(fresh: false) } }
     }
 
-    private func reload() async {
-        let client = auth.client
+    private func reload(fresh: Bool) async {
+        let client = fresh ? auth.freshClient : auth.client
         await semesters.load { try await client.semesters() }
     }
 }
@@ -143,12 +163,13 @@ struct AboutView: View {
             }
 
             Section("Datenschutz") {
-                Text("StudGo hat kein eigenes Backend. Die App spricht ausschließlich direkt mit \(AppConfig.baseURL.host() ?? "dem Uni-Server"). Zugangstoken liegen in der Keychain dieses Geräts, heruntergeladene Dateien im temporären Bereich der App. Es werden keine Daten an Dritte übertragen und keine Analyse- oder Tracking-Dienste eingesetzt.")
+                Text("StudGo hat kein eigenes Backend. Die App spricht ausschließlich direkt mit \(AppConfig.baseURL.host() ?? "dem Uni-Server"). Zugangstoken liegen in der Keychain dieses Geräts, zwischengespeicherte Listen und heruntergeladene Dateien im App-eigenen Bereich. Es werden keine Daten an Dritte übertragen und keine Analyse- oder Tracking-Dienste eingesetzt.")
                     .font(.callout)
             }
 
             Section("Version") {
                 LabeledContent("App", value: version)
+                LabeledContent("Stud.IP", value: "JSON:API v1")
             }
 
             Section("Projekt") {
@@ -160,6 +181,7 @@ struct AboutView: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("Über StudGo")
         .navigationBarTitleDisplayMode(.inline)
     }

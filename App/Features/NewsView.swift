@@ -26,24 +26,25 @@ struct NewsView: View {
             List(current.value ?? []) { item in
                 NavigationLink(value: item) { NewsRow(item: item) }
             }
+            .listStyle(.insetGrouped)
             .overlay {
                 StateOverlay(isLoading: current.isLoading,
                              errorMessage: current.errorMessage,
                              isEmpty: (current.value ?? []).isEmpty,
                              emptyText: "Keine Ankündigungen",
                              emptySymbol: "megaphone",
-                             retry: { Task { await reload() } })
+                             retry: { Task { await reload(fresh: true) } })
             }
         }
         .navigationDestination(for: NewsItem.self) { NewsDetailView(item: $0) }
         .navigationTitle("Ankündigungen")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await reload() }
-        .task(id: scope) { if current.value == nil { await reload() } }
+        .refreshable { await reload(fresh: true) }
+        .task(id: scope) { if current.value == nil { await reload(fresh: false) } }
     }
 
-    private func reload() async {
-        let client = auth.client
+    private func reload(fresh: Bool) async {
+        let client = fresh ? auth.freshClient : auth.client
         switch scope {
         case .personal: await personal.load { try await client.news(for: user.id) }
         case .global: await global.load { try await client.globalNews() }
@@ -97,6 +98,7 @@ struct NewsDetailView: View {
 
                 Text(item.content.strippingHTML)
                     .font(.body)
+                    .lineSpacing(3)
                     .textSelection(.enabled)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

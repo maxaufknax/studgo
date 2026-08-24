@@ -10,26 +10,43 @@ Quelloffenes Studierendenprojekt, keine offizielle App der Universität.
 
 | Bereich | Inhalt |
 | --- | --- |
-| **Heute** | Termine des Tages, die nächsten Veranstaltungen, ungelesene Nachrichten, neue Ankündigungen |
-| **Plan** | Stundenplan als Woche und als datierte Terminliste |
-| **Kurse** | Veranstaltungen mit Suche; je Kurs Info, Termine, Aushang, Dateien und Teilnehmende |
+| **Heute** | Was gerade läuft oder als Nächstes ansteht, mit Countdown; der restliche Tag, die nächsten Termine, ungelesene Nachrichten, neue Ankündigungen |
+| **Plan** | Stundenplan als **Wochenraster** mit Kursfarben und Überschneidungen — dazu die datierte Terminliste |
+| **Kurse** | Veranstaltungen des laufenden Semesters (umschaltbar) mit Suche; je Kurs Info, Termine, Aushang, Dateien und Teilnehmende |
 | **Dateien** | Ordner durchblättern, herunterladen, in der Systemvorschau öffnen und teilen |
-| **Nachrichten** | Posteingang und Gesendet, Volltextsuche, Lesen, Antworten, Verfassen mit Personensuche |
-| **Mehr** | Profil, Ankündigungen der Uni, Semesterübersicht, Datenschutzhinweise, Abmelden |
+| **Nachrichten** | Posteingang und Gesendet, Volltextsuche, Lesen, Antworten, Verfassen mit Personensuche; ungelesene als Kennzeichen am Tab |
+| **Mehr** | Profil, Ankündigungen der Uni, Semesterübersicht, Zwischenspeicher, Datenschutzhinweise, Abmelden |
 
 Anmeldung über **OAuth2 Authorization Code Flow mit PKCE** in einer
 `ASWebAuthenticationSession` — das Passwort sieht die App nie.
 
+Jede Veranstaltung bekommt eine aus ihrer ID abgeleitete Farbe, die in
+Stundenplan, Terminliste und Kursliste dieselbe ist.
+
+### Ohne Empfang
+
+Antworten der API landen in einem Zwischenspeicher auf dem Gerät
+(`App/Core/ResponseCache.swift`). Die App startet damit sofort mit dem letzten
+Stand statt mit fünf Ladekreiseln, und in der Bahn ohne Netz bleibt sie
+benutzbar. „Nach unten ziehen" fragt immer den Server. Beim Abmelden wird der
+Zwischenspeicher mit den Tokens zusammen gelöscht.
+
 ## Aufbau
 
 ```
-App/Core        OAuth2, Keychain, JSON:API-Transport, Formatierung
+App/Core        OAuth2, Keychain, JSON:API-Transport, Zwischenspeicher,
+                Farb- und Formsprache, Formatierung
 App/Models      Domänenmodelle (Attributnamen aus den Stud.IP-6.0-Schemas)
 App/Features    SwiftUI-Ansichten
 App/Resources   Assets, Datenschutzmanifest
 docs/           API-Befunde, Codemagic-Anleitung, Schriftverkehr mit der ZQS
-tools/          Dev-CLI, Icon-Generator, Secrets-Bootstrap
+tools/          Dev-CLI, Icon-Generator, Secrets-Bootstrap, Syntaxprüfung
 ```
+
+Auf dem Entwicklungsrechner (Linux) gibt es keinen Swift-Compiler. Vor jedem
+Push prüft deshalb `./tools/swift-sanity.py App` die Quellen auf unausgeglichene
+Klammern und offene String-Literale — das fängt die Fehlerklassen ab, für die
+sonst ein ganzer Codemagic-Durchlauf draufginge.
 
 ## Bauen
 
