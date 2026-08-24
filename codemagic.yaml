@@ -41,34 +41,55 @@ definitions:
         set -eo pipefail
         # Sammelt **alle** fehlenden Angaben auf einmal und meldet sie
         # zusammen. Einzeln geprüft kostet jede vergessene Variable einen
-        # eigenen Build-Durchlauf — und die Fehler tauchen erst nacheinander
-        # auf, je weiter die Pipeline kommt.
+        # eigenen Build-Durchlauf.
         problems=""
         note() { problems="$problems\n  - $1"; }
-
-        # Aus der Variablen eine PEM-Datei machen.
-        #
-        # `tr -d` ist der Kern: Wird die 2272 Zeichen lange base64-Zeile beim
-        # Kopieren aus einem Terminal umgebrochen, dekodiert sie **ohne
-        # Fehlermeldung** zu einem abgeschnittenen Schlüssel. Der Fehler fiele
-        # dann erst als "kein gültiger RSA-Schlüssel" auf, ohne Hinweis auf die
-        # Ursache. Wer stattdessen gleich den PEM-Text einträgt, wird ebenfalls
-        # bedient.
-        write_cert_key() {
-          if printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | grep -q "PRIVATE KEY"; then
-            printf '%s\n' "$CERTIFICATE_PRIVATE_KEY_B64" > /tmp/cert_key.pem
-          else
-            printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | tr -d '[:space:]' \
-              | openssl base64 -d -A -out /tmp/cert_key.pem
-          fi
-        }
-
 
         [ -n "${STUDIP_CLIENT_ID:-}" ]     || note "STUDIP_CLIENT_ID fehlt — Wert: 15"
         [ -n "${STUDIP_CLIENT_SECRET:-}" ] || note "STUDIP_CLIENT_SECRET fehlt — aus der ZQS-Mail, secure ✅"
 
-        if [ -z "${CERTIFICATE_PRIVATE_KEY_B64:-}" ]; then
-          note "CERTIFICATE_PRIVATE_KEY_B64 fehlt — secure ✅ (siehe .secrets/cert_key.b64)"
+        # Zertifikatsschlüssel. Zwei Formen sind erlaubt:
+        #   CERTIFICATE_PRIVATE_KEY      — der PEM-Text selbst (bevorzugt)
+        #   CERTIFICATE_PRIVATE_KEY_B64  — derselbe Text als base64
+        # Der PEM-Text ist die verlässlichere Wahl: Er besteht aus kurzen
+        # Zeilen, die beim Kopieren nicht umbrechen, und eine unvollständige
+        # Übertragung sieht man sofort an der fehlenden END-Zeile. Die
+        # base64-Fassung ist eine einzige Zeile mit über 2000 Zeichen — bricht
+        # sie beim Kopieren um oder wird sie abgeschnitten, entsteht daraus
+        # klaglos Datenmüll.
+        key_source=""
+        key_raw=""
+        if [ -n "${CERTIFICATE_PRIVATE_KEY:-}" ]; then
+          key_source="CERTIFICATE_PRIVATE_KEY"; key_raw="$CERTIFICATE_PRIVATE_KEY"
+        elif [ -n "${CERTIFICATE_PRIVATE_KEY_B64:-}" ]; then
+          key_source="CERTIFICATE_PRIVATE_KEY_B64"; key_raw="$CERTIFICATE_PRIVATE_KEY_B64"
+        fi
+
+        if [ -z "$key_source" ]; then
+          note "Zertifikatsschlüssel fehlt — CERTIFICATE_PRIVATE_KEY (PEM-Text) anlegen, secure ✅"
+        else
+          if printf '%s' "$key_raw" | grep -q -- "-----BEGIN"; then
+            printf '%s\n' "$key_raw" > /tmp/cert_key.pem
+            echo "Schlüssel aus $key_source: PEM-Text, ${#key_raw} Zeichen."
+          else
+            printf '%s' "$key_raw" | tr -d '[:space:]' \
+              | openssl base64 -d -A -out /tmp/cert_key.pem 2>/dev/null || true
+            echo "Schlüssel aus $key_source: base64, ${#key_raw} Zeichen (erwartet ~2272)."
+          fi
+
+          # Genau das prüft app-store-connect auch: Der Text muss mit
+          # "-----BEGIN " anfangen. Alles andere lehnt es mit "Not a valid
+          # certificate private key" ab — sechs Schritte später.
+          if ! head -c 11 /tmp/cert_key.pem 2>/dev/null | grep -q -- "-----BEGIN"; then
+            note "Der Zertifikatsschlüssel ergibt keinen PEM-Text (beginnt nicht mit '-----BEGIN')."
+            note "  → Wert ist vermutlich abgeschnitten. Besser CERTIFICATE_PRIVATE_KEY"
+            note "    mit dem PEM-Text belegen: cat .secrets/cert_key.pem"
+          elif ! openssl rsa -in /tmp/cert_key.pem -noout -check >/dev/null 2>&1 \
+               && ! openssl pkey -in /tmp/cert_key.pem -noout >/dev/null 2>&1; then
+            note "PEM erkannt, aber es ist kein lesbarer RSA-Schlüssel — unvollständig übertragen?"
+          else
+            echo "✓ Zertifikatsschlüssel gelesen ($(head -1 /tmp/cert_key.pem))."
+          fi
         fi
 
         if [ -n "$problems" ]; then
@@ -77,19 +98,7 @@ definitions:
           printf "%b\n" "$problems"
           exit 1
         fi
-        echo "✓ client_id und client_secret sind gesetzt."
-
-        # Den Schlüssel nur *prüfen*, nicht darüber richten: Wird er hier
-        # fälschlich verworfen, blockiert das einen Build, der gelaufen wäre.
-        # Das letzte Wort hat app-store-connect im Signaturschritt.
-        write_cert_key
-        if openssl rsa -in /tmp/cert_key.pem -noout -check >/dev/null 2>&1 \
-           || openssl pkey -in /tmp/cert_key.pem -noout >/dev/null 2>&1; then
-          echo "✓ Zertifikatsschlüssel gelesen."
-        else
-          echo "!! Warnung: Der Zertifikatsschlüssel ließ sich hier nicht lesen."
-          echo "!! Kein Abbruch — maßgeblich ist der Signaturschritt weiter unten."
-        fi
+        echo "✓ Alle Voraussetzungen erfüllt."
 
         # Rein informativ: Ohne App-Datensatz in App Store Connect scheitert
         # erst der Upload ganz am Ende. Schlägt der Aufruf fehl, ist das kein
@@ -192,11 +201,12 @@ definitions:
         # Derselbe Schlüssel bei jedem Lauf ist Absicht: Apple begrenzt die
         # Zahl der Verteilzertifikate je Konto. Ein frisch erzeugter Schlüssel
         # verbrauchte bei jedem Build einen weiteren Platz.
-        # Identisch zum ersten Schritt — siehe dort, warum der Leerraum weg muss.
-        if printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | grep -q "PRIVATE KEY"; then
-          printf '%s\n' "$CERTIFICATE_PRIVATE_KEY_B64" > /tmp/cert_key.pem
+        # Identisch zum ersten Schritt — siehe dort zu den beiden Formen.
+        key_raw="${CERTIFICATE_PRIVATE_KEY:-${CERTIFICATE_PRIVATE_KEY_B64:-}}"
+        if printf '%s' "$key_raw" | grep -q -- "-----BEGIN"; then
+          printf '%s\n' "$key_raw" > /tmp/cert_key.pem
         else
-          printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | tr -d '[:space:]' \
+          printf '%s' "$key_raw" | tr -d '[:space:]' \
             | openssl base64 -d -A -out /tmp/cert_key.pem
         fi
 
