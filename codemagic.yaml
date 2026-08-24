@@ -75,6 +75,34 @@ definitions:
         xcodegen generate
         test -d "$XCODE_PROJECT"
 
+    - name: Prüfen, dass die Secrets am Ziel ankommen
+      script: |
+        set -eo pipefail
+        # Beweist, dass Config/Secrets.xcconfig wirklich am Target hängt.
+        # Tut sie das nicht, bleibt $(STUDIP_CLIENT_ID) im Info.plist leer und
+        # CFBundleVersion auf 1 stehen: Die App baut, lädt hoch — und scheitert
+        # dann auf dem Gerät bei der Anmeldung, während der zweite Upload an
+        # der doppelten Build-Nummer hängenbleibt. Beides ohne jede Warnung.
+        set +e
+        xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" \
+          -configuration Release -showBuildSettings > /tmp/buildsettings.txt 2>/dev/null
+        rc=$?
+        set -e
+        if [ $rc -ne 0 ]; then
+          echo "!! Build-Einstellungen nicht auslesbar — Prüfung übersprungen."
+        else
+          CLIENT_ID=$(awk -F' = ' '/ STUDIP_CLIENT_ID = /{print $2; exit}' /tmp/buildsettings.txt)
+          BUILD_NO=$(awk -F' = ' '/ CURRENT_PROJECT_VERSION = /{print $2; exit}' /tmp/buildsettings.txt)
+          echo "STUDIP_CLIENT_ID        = ${CLIENT_ID:-<leer>}"
+          echo "CURRENT_PROJECT_VERSION = ${BUILD_NO:-<leer>}"
+          if [ -z "$CLIENT_ID" ]; then
+            echo "!! Config/Secrets.xcconfig hängt nicht am Target."
+            echo "!! In project.yml gehört das unter 'configFiles:', nicht unter"
+            echo "!! 'settings.configs.<Name>.xcconfig'."
+            exit 1
+          fi
+        fi
+
     - name: Signatur einrichten (Zertifikat und Profil anlegen)
       script: |
         set -eo pipefail

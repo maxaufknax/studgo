@@ -123,6 +123,28 @@ Verteilzertifikate je Konto; ein jedes Mal frisch erzeugter Schlüssel
 verbrauchte bei jedem Build einen weiteren Platz. Aus demselben Grund hat auch
 PocketADM seinen Schlüssel einmalig hinterlegt.
 
+### xcconfig gehört unter `configFiles`
+
+In `project.yml` wird `Config/Secrets.xcconfig` über
+
+```yaml
+targets:
+  StudGo:
+    configFiles:
+      Debug: Config/Secrets.xcconfig
+      Release: Config/Secrets.xcconfig
+```
+
+eingebunden — **nicht** über `settings.configs.<Name>.xcconfig`. Letzteres
+sieht plausibel aus, ist aber kein XcodeGen-Schlüssel: Daraus wird stumm eine
+Build-Einstellung *namens* „xcconfig", die Datei bleibt außen vor. Der Build
+läuft dann durch, aber `$(STUDIP_CLIENT_ID)` im Info.plist bleibt leer (die
+Anmeldung scheitert erst auf dem Gerät) und `CFBundleVersion` steht fest auf
+`1` (der zweite Upload wird von Apple abgelehnt).
+
+Der Schritt „Prüfen, dass die Secrets am Ziel ankommen" liest die
+Build-Einstellungen aus und bricht ab, falls das je wieder passiert.
+
 ### Warum kein `ios_signing:`-Block
 
 Naheliegend wäre
