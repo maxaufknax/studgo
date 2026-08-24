@@ -38,8 +38,17 @@ targets:
         CFBundleDevelopmentRegion: de
         UILaunchScreen:
           UIColorName: LaunchBackground
+        # Alle vier, obwohl die App fürs Hochformat auf dem iPhone gedacht ist.
+        # Seit iOS 26 laufen auch reine iPhone-Apps auf iPad und Mac in frei
+        # veränderbaren Fenstern; Apples Upload-Prüfung lehnt eine
+        # eingeschränkte Liste deshalb mit Fehler 90474 ab. Auf iPhones mit
+        # Face ID benutzt das System das Kopfüber-Format ohnehin nie, und quer
+        # ist der Stundenplan sogar besser lesbar.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         # Erspart bei jedem Upload die Frage nach der Exportkontrolle:
