@@ -36,6 +36,49 @@ definitions:
         - studip_oauth
 
   build_scripts: &build_scripts
+    - name: Voraussetzungen prüfen
+      script: |
+        set -eo pipefail
+        # Sammelt **alle** fehlenden Angaben auf einmal und meldet sie
+        # zusammen. Einzeln geprüft kostet jede vergessene Variable einen
+        # eigenen Build-Durchlauf — und die Fehler tauchen erst nacheinander
+        # auf, je weiter die Pipeline kommt.
+        problems=""
+        note() { problems="$problems\n  - $1"; }
+
+        [ -n "${STUDIP_CLIENT_ID:-}" ]     || note "STUDIP_CLIENT_ID fehlt — Wert: 15"
+        [ -n "${STUDIP_CLIENT_SECRET:-}" ] || note "STUDIP_CLIENT_SECRET fehlt — aus der ZQS-Mail, secure ✅"
+
+        if [ -z "${CERTIFICATE_PRIVATE_KEY_B64:-}" ]; then
+          note "CERTIFICATE_PRIVATE_KEY_B64 fehlt — secure ✅ (siehe .secrets/cert_key.b64)"
+        elif ! printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" \
+               | openssl base64 -d -A -out /tmp/cert_key.pem 2>/dev/null; then
+          note "CERTIFICATE_PRIVATE_KEY_B64 ist kein gültiges base64 — muss EINE Zeile ohne Umbrüche sein"
+        elif ! openssl rsa -in /tmp/cert_key.pem -noout -check >/dev/null 2>&1; then
+          note "CERTIFICATE_PRIVATE_KEY_B64 ergibt keinen gültigen RSA-Schlüssel"
+        fi
+
+        if [ -n "$problems" ]; then
+          echo "!! Codemagic → Applications → StudGo → Environment variables,"
+          echo "!! Gruppe 'studip_oauth':"
+          printf "%b\n" "$problems"
+          exit 1
+        fi
+        echo "✓ client_id, client_secret und Zertifikatsschlüssel sind gesetzt."
+
+        # Rein informativ: Ohne App-Datensatz in App Store Connect scheitert
+        # erst der Upload ganz am Ende. Schlägt der Aufruf fehl, ist das kein
+        # Grund abzubrechen — dann sagt eben der Upload Bescheid.
+        if app-store-connect apps list > /tmp/asc_apps.json 2>/dev/null; then
+          if grep -q "$BUNDLE_ID" /tmp/asc_apps.json; then
+            echo "✓ App-Datensatz für $BUNDLE_ID gefunden."
+          else
+            echo "!! Achtung: In App Store Connect gibt es keine App mit der"
+            echo "!! Bundle-ID $BUNDLE_ID. Der Build läuft durch, aber der"
+            echo "!! Upload am Ende wird scheitern. Jetzt anlegen lohnt sich."
+          fi
+        fi
+
     - name: XcodeGen bereitstellen
       script: |
         # Die meisten Images bringen XcodeGen mit; falls nicht, nachinstallieren.
@@ -58,22 +101,6 @@ definitions:
     - name: Secrets und Build-Nummer in xcconfig schreiben
       script: |
         set -e
-        # Erst prüfen, dann schreiben: Fehlt eine der Variablen, entstünde
-        # sonst eine xcconfig mit leeren Werten. Die App baute durch, liefe
-        # aber auf dem Gerät in "Client authentication failed".
-        missing=""
-        [ -n "${STUDIP_CLIENT_ID:-}" ]     || missing="$missing STUDIP_CLIENT_ID"
-        [ -n "${STUDIP_CLIENT_SECRET:-}" ] || missing="$missing STUDIP_CLIENT_SECRET"
-        if [ -n "$missing" ]; then
-          echo "!! Diese Umgebungsvariablen fehlen oder sind leer:$missing"
-          echo "!!"
-          echo "!! Codemagic → Applications → StudGo → Environment variables,"
-          echo "!! Gruppe 'studip_oauth':"
-          echo "!!   STUDIP_CLIENT_ID      = 15            (secure nicht nötig)"
-          echo "!!   STUDIP_CLIENT_SECRET  = <aus der ZQS-Mail>   secure ✅"
-          exit 1
-        fi
-
         # Die Datei liegt bewusst nicht im Repo — sie entsteht hier aus den
         # verschlüsselten Codemagic-Variablen.
         mkdir -p Config
@@ -140,12 +167,7 @@ definitions:
         # Derselbe Schlüssel bei jedem Lauf ist Absicht: Apple begrenzt die
         # Zahl der Verteilzertifikate je Konto. Ein frisch erzeugter Schlüssel
         # verbrauchte bei jedem Build einen weiteren Platz.
-        if [ -z "${CERTIFICATE_PRIVATE_KEY_B64:-}" ]; then
-          echo "!! CERTIFICATE_PRIVATE_KEY_B64 fehlt."
-          echo "!! In Codemagic → App → Environment variables → Gruppe studip_oauth"
-          echo "!! als *secure* Variable anlegen (siehe docs/CODEMAGIC.md)."
-          exit 1
-        fi
+        # Vorhandensein und Gültigkeit hat der erste Schritt schon geprüft.
         printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | openssl base64 -d -A -out /tmp/cert_key.pem
 
         keychain initialize
