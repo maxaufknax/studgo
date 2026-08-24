@@ -116,15 +116,29 @@ workflows:
           XCCONFIG
       - name: Projekt erzeugen und für den Simulator bauen
         script: |
-          set -e
+          set -eo pipefail
           xcodegen generate
+          mkdir -p build/logs
+          # xcbeautify macht die Ausgabe lesbar, das Rohlog bleibt als
+          # Artefakt erhalten. pipefail sorgt dafür, dass ein Baufehler
+          # nicht vom Formatierer verschluckt wird.
+          FORMATTER=cat
+          command -v xcbeautify >/dev/null && FORMATTER=xcbeautify
           xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" \
             -destination "generic/platform=iOS Simulator" \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            build 2>&1 | tee build/logs/xcodebuild.log | $FORMATTER
+
+      - name: Warnungen zusammenfassen
+        script: |
+          # Läuft auch nach einem Fehlschlag nicht ins Leere: der Schritt
+          # meldet immer Erfolg, er berichtet nur.
+          grep -E "warning:" build/logs/xcodebuild.log \
+            | sed 's|/Users/builder/clone/||' | sort -u | head -60 \
+            || echo "Keine Warnungen."
     artifacts:
-      - /tmp/xcodebuild_logs/*.log
+      - build/logs/*.log
 
   testflight:
     name: 2 · TestFlight (Apple-Einrichtung nötig)
