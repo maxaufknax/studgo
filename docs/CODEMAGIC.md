@@ -6,7 +6,7 @@ hochgeladen. Ein eigener Mac ist dafür nicht nötig.
 ## Einmalige Vorbereitung bei Apple
 
 1. **Apple Developer Program** — Mitgliedschaft muss aktiv sein (99 €/Jahr).
-2. **Bundle-ID registrieren**: `com.maxpaasch.studgo`
+2. **Bundle-ID registrieren**: `de.maxaufknax.studgo`
    (Developer Portal → Identifiers → App IDs → App).
    Keine besonderen Capabilities nötig — StudGo braucht weder Push noch
    App Groups noch iCloud.
@@ -89,7 +89,7 @@ einen Build-Durchlauf — deshalb besser alle vier vorher abhaken.
 | --- | --- | --- |
 | `App Store Connect integration "…" does not exist` | Schlüssel in Codemagic nicht angelegt, anders benannt, oder in einem anderen Team als die App | Schritt 2 oben — Name in `codemagic.yaml` an den tatsächlichen anpassen, nicht umgekehrt |
 | `Group studip_oauth does not exist` | Variablengruppe fehlt | Schritt 3 oben |
-| `No suitable application records were found` / Upload scheitert | App-Datensatz in App Store Connect fehlt | App dort anlegen (Plattform iOS, Bundle-ID `com.maxpaasch.studgo`) |
+| `No suitable application records were found` / Upload scheitert | App-Datensatz in App Store Connect fehlt | App dort anlegen (Plattform iOS, Bundle-ID `de.maxaufknax.studgo`) |
 | `Bundle identifier ... not found` beim Signieren | Bundle-ID im Developer Portal nicht registriert | Identifiers → App IDs → App anlegen |
 | `Cannot save Signing Certificates without certificate private key` | `CERTIFICATE_PRIVATE_KEY_B64` fehlt — Apple gibt den privaten Schlüssel zum Zertifikat nicht heraus | Variable anlegen, siehe unten |
 | `No matching profiles found for bundle identifier … "app_store"` | Es wurde nur nach vorhandenen Profilen gesucht (`ios_signing:`-Block), statt eines anzulegen | Behoben: Die Pipeline legt Zertifikat und Profil per `--create` selbst an |
@@ -153,7 +153,7 @@ Naheliegend wäre
 environment:
   ios_signing:
     distribution_type: app_store
-    bundle_identifier: com.maxpaasch.studgo
+    bundle_identifier: de.maxaufknax.studgo
 ```
 
 Das ist hier aber **falsch**: Dieser Block *holt* nur bereits vorhandene

@@ -6,7 +6,7 @@
 #   2. Variablengruppe "studip_oauth" mit STUDIP_CLIENT_ID,
 #      STUDIP_CLIENT_SECRET und CERTIFICATE_PRIVATE_KEY_B64
 #      (die letzten beiden als "secure" markieren)
-#   3. Bundle-ID com.maxpaasch.studgo im Apple Developer Portal registrieren
+#   3. Bundle-ID de.maxaufknax.studgo im Apple Developer Portal registrieren
 #      und die App in App Store Connect anlegen
 
 definitions:
@@ -27,7 +27,7 @@ definitions:
       # `fetch-signing-files --create` im Signaturschritt weiter unten.
       # Dasselbe steht so in PocketADMs Pipeline, die auf diesem Konto läuft.
       vars:
-        BUNDLE_ID: "com.maxpaasch.studgo"
+        BUNDLE_ID: "de.maxaufknax.studgo"
         XCODE_SCHEME: "StudGo"
         XCODE_PROJECT: "StudGo.xcodeproj"
       groups:
@@ -58,6 +58,22 @@ definitions:
     - name: Secrets und Build-Nummer in xcconfig schreiben
       script: |
         set -e
+        # Erst prüfen, dann schreiben: Fehlt eine der Variablen, entstünde
+        # sonst eine xcconfig mit leeren Werten. Die App baute durch, liefe
+        # aber auf dem Gerät in "Client authentication failed".
+        missing=""
+        [ -n "${STUDIP_CLIENT_ID:-}" ]     || missing="$missing STUDIP_CLIENT_ID"
+        [ -n "${STUDIP_CLIENT_SECRET:-}" ] || missing="$missing STUDIP_CLIENT_SECRET"
+        if [ -n "$missing" ]; then
+          echo "!! Diese Umgebungsvariablen fehlen oder sind leer:$missing"
+          echo "!!"
+          echo "!! Codemagic → Applications → StudGo → Environment variables,"
+          echo "!! Gruppe 'studip_oauth':"
+          echo "!!   STUDIP_CLIENT_ID      = 15            (secure nicht nötig)"
+          echo "!!   STUDIP_CLIENT_SECRET  = <aus der ZQS-Mail>   secure ✅"
+          exit 1
+        fi
+
         # Die Datei liegt bewusst nicht im Repo — sie entsteht hier aus den
         # verschlüsselten Codemagic-Variablen.
         mkdir -p Config
@@ -96,9 +112,18 @@ definitions:
           echo "STUDIP_CLIENT_ID        = ${CLIENT_ID:-<leer>}"
           echo "CURRENT_PROJECT_VERSION = ${BUILD_NO:-<leer>}"
           if [ -z "$CLIENT_ID" ]; then
-            echo "!! Config/Secrets.xcconfig hängt nicht am Target."
-            echo "!! In project.yml gehört das unter 'configFiles:', nicht unter"
-            echo "!! 'settings.configs.<Name>.xcconfig'."
+            # Zwei sehr verschiedene Ursachen, die sich an der Build-Nummer
+            # auseinanderhalten lassen: Steht dort nicht die 1 aus
+            # project.yml, ist die xcconfig eingebunden und nur der Wert leer.
+            if [ -n "$BUILD_NO" ] && [ "$BUILD_NO" != "1" ]; then
+              echo "!! Die xcconfig hängt am Target (CURRENT_PROJECT_VERSION = $BUILD_NO),"
+              echo "!! aber STUDIP_CLIENT_ID ist leer — die Variable fehlt in Codemagic."
+              echo "!! Applications → StudGo → Environment variables → studip_oauth"
+            else
+              echo "!! Weder client_id noch Build-Nummer kommen an: Config/Secrets.xcconfig"
+              echo "!! hängt nicht am Target. In project.yml gehört das unter"
+              echo "!! 'configFiles:', nicht unter 'settings.configs.<Name>.xcconfig'."
+            fi
             exit 1
           fi
         fi

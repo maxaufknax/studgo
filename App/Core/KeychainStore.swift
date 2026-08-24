@@ -3,7 +3,7 @@ import Security
 
 /// Persistiert das Token-Set in der iOS-Keychain — nichts verlässt das Gerät.
 enum KeychainStore {
-    private static let service = "com.maxpaasch.studgo.tokens"
+    private static let service = "de.maxaufknax.studgo.tokens"
     private static let account = "studip.uni-hannover.de"
 
     static func save(_ tokens: TokenSet) throws {
