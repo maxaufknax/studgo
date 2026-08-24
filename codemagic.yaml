@@ -4,7 +4,7 @@
 #   1. App-Store-Connect-Schlüssel als Integration anlegen — vorhanden ist
 #      bereits "PocketADM ASC key", der für alle Apps des Kontos gilt
 #   2. Variablengruppe "studip_oauth" mit STUDIP_CLIENT_ID,
-#      STUDIP_CLIENT_SECRET und CERTIFICATE_PRIVATE_KEY_B64
+#      STUDIP_CLIENT_SECRET und CERTIFICATE_PRIVATE_KEY
 #      (die letzten beiden als "secure" markieren)
 #   3. Bundle-ID de.maxaufknax.studgo im Apple Developer Portal registrieren
 #      und die App in App Store Connect anlegen
@@ -32,7 +32,7 @@ definitions:
         XCODE_PROJECT: "StudGo.xcodeproj"
       groups:
         # Enthält STUDIP_CLIENT_ID, STUDIP_CLIENT_SECRET **und**
-        # CERTIFICATE_PRIVATE_KEY_B64 (alle drei "secure" außer der ID).
+        # CERTIFICATE_PRIVATE_KEY (die letzten beiden "secure").
         - studip_oauth
 
   build_scripts: &build_scripts
