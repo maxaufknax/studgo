@@ -106,17 +106,37 @@ app-store-connect fetch-signing-files "$BUNDLE_ID" \
   --type IOS_APP_STORE --certificate-key @file:/tmp/cert_key.pem --create
 ```
 
-und die Variable **`CERTIFICATE_PRIVATE_KEY_B64`** (base64 eines RSA-2048-
-Schlüssels, einzeilig) gehört als *secure* Variable in die Gruppe
-`studip_oauth`. Erzeugen lässt sie sich mit
+Der Schlüssel gehört als *secure* Variable in die Gruppe `studip_oauth`.
+Zwei Formen werden gelesen:
+
+| Variable | Inhalt | |
+| --- | --- | --- |
+| `CERTIFICATE_PRIVATE_KEY` | der **PEM-Text** selbst | empfohlen |
+| `CERTIFICATE_PRIVATE_KEY_B64` | derselbe Text als base64 | Altbestand |
+
+**Nimm den PEM-Text.** Er besteht aus rund dreißig kurzen Zeilen, die beim
+Kopieren nicht umbrechen, und eine unvollständige Übertragung erkennt man
+sofort an der fehlenden `-----END`-Zeile. Die base64-Fassung ist dagegen eine
+einzige Zeile mit über 2000 Zeichen: Bricht sie beim Kopieren um oder wird sie
+abgeschnitten, entsteht daraus klaglos Datenmüll, und der Fehler zeigt sich
+erst sechs Schritte später als `Not a valid certificate private key`.
+
+Für dieses Projekt liegt der Schlüssel bereits unter `.secrets/cert_key.pem`
+(gitignored):
+
+```bash
+cat /srv/cloud-server/studgo/.secrets/cert_key.pem   # → CERTIFICATE_PRIVATE_KEY
+```
+
+Neu erzeugen ginge mit
 
 ```bash
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out cert_key.pem
-base64 -w0 cert_key.pem
 ```
 
-Für dieses Projekt liegt der Schlüssel bereits unter `.secrets/cert_key.pem`
-(gitignored), die fertige Zeile in `.secrets/cert_key.b64`.
+Der Prüfschritt „Voraussetzungen prüfen" meldet die erkannte Form und die
+Zeichenzahl. Steht dort deutlich weniger als erwartet, ist der Wert
+abgeschnitten.
 
 **Denselben Schlüssel bei jedem Lauf verwenden.** Apple begrenzt die Zahl der
 Verteilzertifikate je Konto; ein jedes Mal frisch erzeugter Schlüssel
