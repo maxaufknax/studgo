@@ -46,16 +46,29 @@ definitions:
         problems=""
         note() { problems="$problems\n  - $1"; }
 
+        # Aus der Variablen eine PEM-Datei machen.
+        #
+        # `tr -d` ist der Kern: Wird die 2272 Zeichen lange base64-Zeile beim
+        # Kopieren aus einem Terminal umgebrochen, dekodiert sie **ohne
+        # Fehlermeldung** zu einem abgeschnittenen Schlüssel. Der Fehler fiele
+        # dann erst als "kein gültiger RSA-Schlüssel" auf, ohne Hinweis auf die
+        # Ursache. Wer stattdessen gleich den PEM-Text einträgt, wird ebenfalls
+        # bedient.
+        write_cert_key() {
+          if printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | grep -q "PRIVATE KEY"; then
+            printf '%s\n' "$CERTIFICATE_PRIVATE_KEY_B64" > /tmp/cert_key.pem
+          else
+            printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | tr -d '[:space:]' \
+              | openssl base64 -d -A -out /tmp/cert_key.pem
+          fi
+        }
+
+
         [ -n "${STUDIP_CLIENT_ID:-}" ]     || note "STUDIP_CLIENT_ID fehlt — Wert: 15"
         [ -n "${STUDIP_CLIENT_SECRET:-}" ] || note "STUDIP_CLIENT_SECRET fehlt — aus der ZQS-Mail, secure ✅"
 
         if [ -z "${CERTIFICATE_PRIVATE_KEY_B64:-}" ]; then
           note "CERTIFICATE_PRIVATE_KEY_B64 fehlt — secure ✅ (siehe .secrets/cert_key.b64)"
-        elif ! printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" \
-               | openssl base64 -d -A -out /tmp/cert_key.pem 2>/dev/null; then
-          note "CERTIFICATE_PRIVATE_KEY_B64 ist kein gültiges base64 — muss EINE Zeile ohne Umbrüche sein"
-        elif ! openssl rsa -in /tmp/cert_key.pem -noout -check >/dev/null 2>&1; then
-          note "CERTIFICATE_PRIVATE_KEY_B64 ergibt keinen gültigen RSA-Schlüssel"
         fi
 
         if [ -n "$problems" ]; then
@@ -64,7 +77,19 @@ definitions:
           printf "%b\n" "$problems"
           exit 1
         fi
-        echo "✓ client_id, client_secret und Zertifikatsschlüssel sind gesetzt."
+        echo "✓ client_id und client_secret sind gesetzt."
+
+        # Den Schlüssel nur *prüfen*, nicht darüber richten: Wird er hier
+        # fälschlich verworfen, blockiert das einen Build, der gelaufen wäre.
+        # Das letzte Wort hat app-store-connect im Signaturschritt.
+        write_cert_key
+        if openssl rsa -in /tmp/cert_key.pem -noout -check >/dev/null 2>&1 \
+           || openssl pkey -in /tmp/cert_key.pem -noout >/dev/null 2>&1; then
+          echo "✓ Zertifikatsschlüssel gelesen."
+        else
+          echo "!! Warnung: Der Zertifikatsschlüssel ließ sich hier nicht lesen."
+          echo "!! Kein Abbruch — maßgeblich ist der Signaturschritt weiter unten."
+        fi
 
         # Rein informativ: Ohne App-Datensatz in App Store Connect scheitert
         # erst der Upload ganz am Ende. Schlägt der Aufruf fehl, ist das kein
@@ -167,8 +192,13 @@ definitions:
         # Derselbe Schlüssel bei jedem Lauf ist Absicht: Apple begrenzt die
         # Zahl der Verteilzertifikate je Konto. Ein frisch erzeugter Schlüssel
         # verbrauchte bei jedem Build einen weiteren Platz.
-        # Vorhandensein und Gültigkeit hat der erste Schritt schon geprüft.
-        printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | openssl base64 -d -A -out /tmp/cert_key.pem
+        # Identisch zum ersten Schritt — siehe dort, warum der Leerraum weg muss.
+        if printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | grep -q "PRIVATE KEY"; then
+          printf '%s\n' "$CERTIFICATE_PRIVATE_KEY_B64" > /tmp/cert_key.pem
+        else
+          printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | tr -d '[:space:]' \
+            | openssl base64 -d -A -out /tmp/cert_key.pem
+        fi
 
         keychain initialize
         app-store-connect fetch-signing-files "$BUNDLE_ID" \
