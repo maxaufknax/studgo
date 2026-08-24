@@ -57,8 +57,8 @@ passe stattdessen die Zeile `app_store_connect:` in `codemagic.yaml` an.
 
 | Auslöser | Workflow | Voraussetzungen | Ergebnis |
 | --- | --- | --- | --- |
-| Push oder Pull Request | `check` | keine | baut für den Simulator, kein Upload — merkt Kompilierfehler früh |
-| Tag `v*`, z. B. `v1.0.0` | `testflight` | alles oben | signierte IPA, Upload nach TestFlight |
+| Push oder Pull Request | `check` („1 · Build-Prüfung") | keine | baut für den Simulator, kein Upload — merkt Kompilierfehler früh |
+| Tag `v*`, z. B. `v1.0.0` | `testflight` („2 · TestFlight") | alles oben | signierte IPA, Upload nach TestFlight |
 
 ```bash
 git tag v1.0.0

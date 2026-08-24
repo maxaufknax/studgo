@@ -84,38 +84,12 @@ definitions:
     - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
 
 workflows:
-  testflight:
-    name: StudGo — TestFlight
-    <<: *ios_setup
-    triggering:
-      events:
-        - tag
-      tag_patterns:
-        - pattern: "v*"
-          include: true
-    scripts: *build_scripts
-    artifacts: *build_artifacts
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
-        # Erst nach dem ersten erfolgreichen Upload befüllen, sonst schlägt
-        # die Verteilung fehl, weil die Gruppe noch nicht existiert.
-        # beta_groups:
-        #   - Interne Tester
-      email:
-        recipients:
-          - maximilian.elias.paasch@gmail.com
-        notify:
-          success: true
-          failure: true
-
   # Läuft bei jedem Push und prüft nur, ob die App überhaupt baut — ohne
   # Signatur, ohne Upload. Bewusst ohne Integrationen und ohne
   # Variablengruppen, damit dieser Workflow sofort startet, während die
   # Apple-Einrichtung noch aussteht.
   check:
-    name: StudGo — Build-Prüfung
+    name: 1 · Build-Prüfung (ohne Apple-Konto)
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
@@ -151,3 +125,29 @@ workflows:
             build
     artifacts:
       - /tmp/xcodebuild_logs/*.log
+
+  testflight:
+    name: 2 · TestFlight (Apple-Einrichtung nötig)
+    <<: *ios_setup
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+          include: true
+    scripts: *build_scripts
+    artifacts: *build_artifacts
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # Erst nach dem ersten erfolgreichen Upload befüllen, sonst schlägt
+        # die Verteilung fehl, weil die Gruppe noch nicht existiert.
+        # beta_groups:
+        #   - Interne Tester
+      email:
+        recipients:
+          - maximilian.elias.paasch@gmail.com
+        notify:
+          success: true
+          failure: true
