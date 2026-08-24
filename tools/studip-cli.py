@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """StudGo Dev-CLI — OAuth2-Flow gegen Stud.IP LUH testen und die JSON:API erkunden.
 
-  ./tools/studip-cli.py login            # PKCE-Flow, Token holen
+  ./tools/studip-cli.py login            # PKCE-Flow über den Browser
+  ./tools/studip-cli.py login --cookie   # ohne Browser, via Sitzungscookie
   ./tools/studip-cli.py refresh          # Access-Token erneuern
   ./tools/studip-cli.py get /v1/users/me # authentifizierter API-Call
   ./tools/studip-cli.py whoami
 """
-import base64, hashlib, json, os, secrets, sys, urllib.parse, urllib.request, urllib.error
+import base64, hashlib, json, re, secrets, sys, urllib.parse, urllib.request, urllib.error
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -63,6 +64,88 @@ def save_token(tok):
     TOKEN_FILE.chmod(0o600)
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Weiterleitungen nicht folgen — der Location-Header ist das Ziel."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def http(url, cookie, data=None):
+    """Ein Request mit Stud.IP-Sitzungscookie, ohne Weiterleitung zu folgen.
+
+    Gibt (status, headers, body) zurück; ein 302 ist hier Erfolg, kein Fehler.
+    """
+    opener = urllib.request.build_opener(NoRedirect)
+    req = urllib.request.Request(url, data=data)
+    req.add_header("Cookie", cookie)
+    req.add_header("User-Agent", "StudGo-DevCLI")
+    if data:
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    try:
+        with opener.open(req, timeout=30) as r:
+            return r.status, r.headers, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.headers, e.read().decode("utf-8", "replace")
+
+
+def approve_form(html):
+    """Aus der Zustimmungsseite die versteckten Felder des Erlauben-Formulars.
+
+    Die Seite trägt zwei Formulare auf denselben Endpunkt; das Ablehnen-
+    Formular erkennt man am Feld `_method` mit dem Wert delete.
+    """
+    fields = None
+    for form in re.findall(r"<form\b.*?</form>", html, re.S | re.I):
+        hidden = dict(re.findall(
+            r'<input[^>]+type="hidden"[^>]+name="([^"]+)"[^>]+value="([^"]*)"', form))
+        if "auth_token" not in hidden:
+            continue
+        if hidden.get("_method", "").lower() == "delete":
+            continue
+        fields = hidden
+    return fields
+
+
+def code_via_cookie(authorize_url, cookie):
+    """Holt den Autorisierungscode ohne Browser: Zustimmungsseite abrufen,
+    Formular absenden, Code aus dem Location-Header lesen."""
+    status, headers, body = http(authorize_url, cookie)
+
+    if status in (301, 302, 303, 307, 308):
+        location = headers.get("Location", "")
+        # Ohne gültige Sitzung schickt Stud.IP zur Anmeldemaske statt zum Client.
+        if "/dispatch.php/login" in location:
+            raise SystemExit(
+                "Stud.IP leitet zur Anmeldung um — der Cookie gehört zu keiner "
+                "angemeldeten Sitzung.\n"
+                "  Bist du im Browser wirklich eingeloggt? Und hast du den "
+                "kompletten Wert der cookie-Zeile kopiert, nicht nur einen Teil?")
+        return location
+
+    if status != 200:
+        raise SystemExit(f"Authorize antwortete mit HTTP {status}: {studip_error(body)}")
+
+    if "Autorisierungsanfrage" not in body and "auth_token" not in body:
+        raise SystemExit(
+            "Stud.IP hat keine Zustimmungsseite geliefert — vermutlich ist der "
+            "Cookie abgelaufen oder gehört zu keiner angemeldeten Sitzung.")
+
+    fields = approve_form(body)
+    if not fields:
+        raise SystemExit("Das Erlauben-Formular war in der Antwort nicht auffindbar.")
+
+    fields["allow"] = "1"
+    status, headers, body = http(authorize_url, cookie,
+                                 data=urllib.parse.urlencode(fields).encode())
+
+    location = headers.get("Location")
+    if not location:
+        raise SystemExit(f"Kein Location-Header nach dem Absenden (HTTP {status}): "
+                         f"{studip_error(body)}")
+    return location
+
+
 def extract_code(pasted, state):
     """Nimmt Redirect-URL, Query-Fragment oder blanken Code entgegen.
 
@@ -103,7 +186,7 @@ def extract_code(pasted, state):
     return params["code"][0], None
 
 
-def cmd_login():
+def cmd_login(use_cookie=False):
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(48)).rstrip(b"=").decode()
     challenge = base64.urlsafe_b64encode(
         hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
@@ -117,26 +200,10 @@ def cmd_login():
         "code_challenge": challenge,
         "code_challenge_method": "S256",
     }
-    print("\n1) Diese URL im Browser öffnen (dort bei Stud.IP eingeloggt sein):\n")
-    print(f"   {AUTHORIZE}?{urllib.parse.urlencode(params)}\n")
-    print("2) 'Zugriff erlauben' klicken. Der Browser versucht dann, ")
-    print("   studgo://oauth/callback?code=... zu öffnen, und zeigt eine")
-    print("   Fehlerseite — das ist richtig so, das Schema kennt nur das iPhone.")
-    print()
-    print("3) Die studgo://-Adresse aus der Adresszeile kopieren.")
-    print("   Firefox behält sie dort stehen. Falls dein Browser sie verschluckt:")
-    print("   Entwicklerwerkzeuge (F12) → Netzwerk-Tab öffnen, bevor du auf")
-    print("   'Zugriff erlauben' klickst — der 302 auf /authorize trägt die")
-    print("   Adresse im Location-Header.\n")
+    authorize_url = f"{AUTHORIZE}?{urllib.parse.urlencode(params)}"
 
-    for attempt in range(3):
-        pasted = input("studgo://-Adresse oder nur der code: ")
-        code, problem = extract_code(pasted, state)
-        if code:
-            break
-        print(f"\n   {problem}\n")
-    else:
-        sys.exit("Abgebrochen.")
+    code = (login_with_cookie(authorize_url, state) if use_cookie
+            else login_with_browser(authorize_url, state))
 
     tok = post_form(TOKEN, {
         "grant_type": "authorization_code",
@@ -151,6 +218,57 @@ def cmd_login():
     print(f"   gültig für {tok.get('expires_in')}s, "
           f"refresh_token: {'ja' if tok.get('refresh_token') else 'nein'}")
     print("\n   Weiter mit:  ./tools/studip-cli.py whoami")
+
+
+def login_with_cookie(authorize_url, state):
+    """Ohne Browser: mit der bestehenden Stud.IP-Sitzung zustimmen.
+
+    Nötig, weil Browser die Weiterleitung auf studgo:// kommentarlos
+    verwerfen — der Code ist dann zwar erzeugt, aber nirgends ablesbar.
+    """
+    print("""
+So kommst du an den Cookie:
+
+  1. studip.uni-hannover.de im Browser öffnen und normal anmelden
+  2. F12 → Reiter "Netzwerk", dann die Seite neu laden
+  3. Irgendeinen Eintrag anklicken → "Kopfzeilen" / "Headers"
+  4. Unter den Anfrage-Headern die Zeile  cookie:  suchen
+     und ihren kompletten Wert kopieren
+
+Der Cookie ist nur für diese Sitzung gültig und wird nirgends gespeichert.
+""")
+    cookie = input("Cookie-Wert einfügen: ").strip()
+    if not cookie:
+        sys.exit("Kein Cookie angegeben.")
+    if cookie.lower().startswith("cookie:"):
+        cookie = cookie.split(":", 1)[1].strip()
+
+    print("\nZustimmung wird abgeholt…")
+    location = code_via_cookie(authorize_url, cookie)
+    code, problem = extract_code(location, state)
+    if not code:
+        sys.exit(f"Rückleitung nicht verwertbar: {problem}\n  {location}")
+    print(f"Code erhalten: {code[:8]}…")
+    return code
+
+
+def login_with_browser(authorize_url, state):
+    print("\n1) Diese URL im Browser öffnen (dort bei Stud.IP eingeloggt sein):\n")
+    print(f"   {authorize_url}\n")
+    print("2) 'Zugriff erlauben' klicken. Der Browser springt dann auf")
+    print("   studgo://oauth/callback?code=... — viele Browser zeigen das")
+    print("   kommentarlos gar nicht an. Passiert nach dem Klick scheinbar")
+    print("   nichts, brich hier ab und nutze stattdessen:")
+    print("       ./tools/studip-cli.py login --cookie\n")
+    print("3) Sonst die studgo://-Adresse aus der Adresszeile kopieren.\n")
+
+    for _ in range(3):
+        pasted = input("studgo://-Adresse oder nur der code: ")
+        code, problem = extract_code(pasted, state)
+        if code:
+            return code
+        print(f"\n   {problem}\n")
+    sys.exit("Abgebrochen.")
 
 
 def cmd_refresh():
@@ -192,7 +310,7 @@ def main():
         sys.exit(__doc__)
     cmd = sys.argv[1]
     if cmd == "login":
-        cmd_login()
+        cmd_login(use_cookie="--cookie" in sys.argv[2:])
     elif cmd == "refresh":
         cmd_refresh()
     elif cmd == "get":

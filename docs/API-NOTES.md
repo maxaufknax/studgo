@@ -143,3 +143,30 @@ curl -s "$G/files/lib%2Fclasses%2FJsonApi%2FSchemas%2FUser.php/raw?ref=6.0"
 ```
 
 Branch `6.0` entspricht der an der LUH installierten Version.
+
+## OAuth-Zustimmung ohne Browser
+
+Browser verwerfen die Weiterleitung auf `studgo://oauth/callback` kommentarlos —
+der Code entsteht, ist aber nirgends ablesbar. Für Tests am Rechner deshalb
+`./tools/studip-cli.py login --cookie`: Das Tool spielt die Zustimmungsseite
+mit der bestehenden Stud.IP-Sitzung selbst durch.
+
+Ablauf (aus `app/controllers/api/oauth2/authorize.php` und
+`app/views/api/oauth2/authorize.php`):
+
+1. `GET /dispatch.php/api/oauth2/authorize?…` mit Sitzungscookie
+   → HTML-Zustimmungsseite. Ohne gültige Sitzung stattdessen 302 auf
+   `/dispatch.php/login`.
+2. Die Seite trägt **zwei** Formulare auf denselben Endpunkt. Das Ablehnen-
+   Formular erkennt man am versteckten Feld `_method=delete`; das andere ist
+   „Erlauben". Nötige Felder: `security_token` (CSRF), `auth_token`, `state`,
+   `client_id`.
+3. `POST` dieser Felder → **302 mit `Location: studgo://oauth/callback?code=…`**
+
+Die Zustimmung wird **nicht gemerkt** — die Seite erscheint bei jedem Durchlauf
+erneut. `auth_token` liegt in der Session und muss aus derselben Antwort
+stammen, ein Vorrat an Codes lässt sich also nicht anlegen.
+
+Sobald die ZQS die Loopback-Redirect-URI `http://127.0.0.1:8765/callback`
+freischaltet, entfällt der Cookie-Umweg — dann kann das Tool einen lokalen
+Listener aufmachen und den Code direkt entgegennehmen.
