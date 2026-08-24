@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- StudGo sammelt keine Daten: Es gibt kein eigenes Backend, kein Tracking
+         und keine Analyse-SDKs. Der einzige Netzwerkpartner ist der Uni-Server,
+         bei dem sich die Nutzenden selbst anmelden. -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <!-- ResponseCache liest das Änderungsdatum seiner eigenen Dateien
+             (NSURLContentModificationDateKey), um das Alter eines Eintrags zu
+             bestimmen. Das ist eine "required reason API"; ohne diese Angabe
+             beanstandet App Store Connect den Upload mit ITMS-91053.
+             C617.1 = Zeitstempel von Dateien im eigenen App-Container. -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>C617.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
