@@ -110,8 +110,10 @@ workflows:
           success: true
           failure: true
 
-  # Läuft bei jedem Push und prüft nur, ob die App überhaupt baut —
-  # ohne Signatur, ohne Upload.
+  # Läuft bei jedem Push und prüft nur, ob die App überhaupt baut — ohne
+  # Signatur, ohne Upload. Bewusst ohne Integrationen und ohne
+  # Variablengruppen, damit dieser Workflow sofort startet, während die
+  # Apple-Einrichtung noch aussteht.
   check:
     name: StudGo — Build-Prüfung
     instance_type: mac_mini_m2
@@ -121,8 +123,6 @@ workflows:
       vars:
         XCODE_SCHEME: "StudGo"
         XCODE_PROJECT: "StudGo.xcodeproj"
-      groups:
-        - studip_oauth
     triggering:
       events:
         - push
@@ -132,10 +132,12 @@ workflows:
         script: which xcodegen || brew install xcodegen
       - name: Platzhalter-Secrets schreiben
         script: |
+          # Nur zum Kompilieren — echte Werte kommen ausschließlich im
+          # testflight-Workflow aus den verschlüsselten Variablen.
           mkdir -p Config
           cat > Config/Secrets.xcconfig <<XCCONFIG
-          STUDIP_CLIENT_ID = ${STUDIP_CLIENT_ID:-0}
-          STUDIP_CLIENT_SECRET = ${STUDIP_CLIENT_SECRET:-}
+          STUDIP_CLIENT_ID = 0
+          STUDIP_CLIENT_SECRET =
           CURRENT_PROJECT_VERSION = ${BUILD_NUMBER:-1}
           XCCONFIG
       - name: Projekt erzeugen und für den Simulator bauen

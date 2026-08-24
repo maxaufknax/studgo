@@ -36,12 +36,29 @@ hochgeladen. Ein eigener Mac ist dafür nicht nötig.
    Connect) als weitere Variable. Ist sie gesetzt, zählt die Pipeline die
    Build-Nummer automatisch von der letzten TestFlight-Version hoch.
 
+## Reihenfolge
+
+Der Workflow **`check`** braucht **nichts** von alldem — keine Integration, keine
+Variablengruppe, keinen Apple-Account. Er lässt sich sofort starten und zeigt
+innerhalb weniger Minuten, ob die App überhaupt kompiliert. Erst für
+`testflight` sind die Punkte oben nötig.
+
+Startet man `testflight`, bevor die Integration angelegt ist, bricht der Build
+sofort mit `App Store Connect integration "StudGo ASC" does not exist` ab.
+Derselbe Fehlertyp tritt bei einer fehlenden Variablengruppe auf
+(`Group studip_oauth does not exist`). Beides sind Einrichtungsfehler in
+Codemagic, keine Probleme im Code.
+
+Wichtig: Der Integrationsname in Codemagic muss **exakt** `StudGo ASC` lauten —
+Groß- und Kleinschreibung inklusive. Heißt die Integration bei dir anders,
+passe stattdessen die Zeile `app_store_connect:` in `codemagic.yaml` an.
+
 ## Bauen
 
-| Auslöser | Workflow | Ergebnis |
-| --- | --- | --- |
-| Push oder Pull Request | `check` | baut für den Simulator, kein Upload — merkt Kompilierfehler früh |
-| Tag `v*`, z. B. `v1.0.0` | `testflight` | signierte IPA, Upload nach TestFlight |
+| Auslöser | Workflow | Voraussetzungen | Ergebnis |
+| --- | --- | --- | --- |
+| Push oder Pull Request | `check` | keine | baut für den Simulator, kein Upload — merkt Kompilierfehler früh |
+| Tag `v*`, z. B. `v1.0.0` | `testflight` | alles oben | signierte IPA, Upload nach TestFlight |
 
 ```bash
 git tag v1.0.0
