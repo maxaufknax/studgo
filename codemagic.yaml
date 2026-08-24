@@ -1,7 +1,8 @@
 # Codemagic-Pipeline für StudGo — baut die iOS-App ohne lokalen Mac.
 #
 # Einmalige Einrichtung in Codemagic (siehe docs/CODEMAGIC.md):
-#   1. App Store Connect API-Key als Integration anlegen, Name: "StudGo ASC"
+#   1. App-Store-Connect-Schlüssel als Integration anlegen — vorhanden ist
+#      bereits "PocketADM ASC key", der für alle Apps des Kontos gilt
 #   2. Variablengruppe "studip_oauth" mit STUDIP_CLIENT_ID und
 #      STUDIP_CLIENT_SECRET (letzteres als "secure" markieren)
 #   3. Bundle-ID com.maxpaasch.studgo im Apple Developer Portal registrieren
@@ -11,7 +12,11 @@ definitions:
     instance_type: mac_mini_m2
     max_build_duration: 45
     integrations:
-      app_store_connect: StudGo ASC
+      # Der Schlüssel gehört zum Apple-Entwicklerkonto, nicht zu einer App —
+      # dieselbe Integration bedient auch PocketADM. Deshalb steht hier
+      # dessen Name: Ein Umbenennen in Codemagic würde den anderen Build
+      # zerreißen, eine zweite Integration wäre derselbe Schlüssel doppelt.
+      app_store_connect: "PocketADM ASC key"
     environment:
       xcode: latest
       vars:
