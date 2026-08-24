@@ -89,7 +89,8 @@ einen Build-Durchlauf — deshalb besser alle vier vorher abhaken.
 | --- | --- | --- |
 | `App Store Connect integration "…" does not exist` | Schlüssel in Codemagic nicht angelegt, anders benannt, oder in einem anderen Team als die App | Schritt 2 oben — Name in `codemagic.yaml` an den tatsächlichen anpassen, nicht umgekehrt |
 | `Group studip_oauth does not exist` | Variablengruppe fehlt | Schritt 3 oben |
-| `No suitable application records were found` / Upload scheitert | App-Datensatz in App Store Connect fehlt | App dort anlegen (Plattform iOS, Bundle-ID `de.maxaufknax.studgo`) |
+| `Cannot determine the Apple ID from Bundle ID` | App-Datensatz in App Store Connect fehlt | App dort anlegen (Plattform iOS, Bundle-ID `de.maxaufknax.studgo`) |
+| `Invalid bundle … UISupportedInterfaceOrientations` (Fehler 90474) | Nicht alle vier Ausrichtungen deklariert | In `project.yml` alle vier eintragen — **auch bei reinen iPhone-Apps**, siehe unten |
 | `Bundle identifier ... not found` beim Signieren | Bundle-ID im Developer Portal nicht registriert | Identifiers → App IDs → App anlegen |
 | `Cannot save Signing Certificates without certificate private key` | `CERTIFICATE_PRIVATE_KEY_B64` fehlt — Apple gibt den privaten Schlüssel zum Zertifikat nicht heraus | Variable anlegen, siehe unten |
 | `No matching profiles found for bundle identifier … "app_store"` | Es wurde nur nach vorhandenen Profilen gesucht (`ios_signing:`-Block), statt eines anzulegen | Behoben: Die Pipeline legt Zertifikat und Profil per `--create` selbst an |
@@ -142,6 +143,21 @@ abgeschnitten.
 Verteilzertifikate je Konto; ein jedes Mal frisch erzeugter Schlüssel
 verbrauchte bei jedem Build einen weiteren Platz. Aus demselben Grund hat auch
 PocketADM seinen Schlüssel einmalig hinterlegt.
+
+### Alle vier Ausrichtungen deklarieren
+
+Seit iOS 26 laufen auch reine iPhone-Apps auf iPad und Mac in frei
+veränderbaren Fenstern. Apples Upload-Prüfung verlangt deshalb in
+`UISupportedInterfaceOrientations` **alle vier** Werte und lehnt eine kürzere
+Liste mit Fehler 90474 ab — unabhängig davon, dass `TARGETED_DEVICE_FAMILY`
+auf `1` (nur iPhone) steht.
+
+Der Archivlauf warnt vorher: `All interface orientations must be supported
+unless the app requires full screen.` Diese Warnung ist **kein Schönheits-
+fehler**, sondern die Vorankündigung einer abgelehnten Auslieferung.
+
+`UIRequiresFullScreen` ist in iPadOS 26 abgekündigt und keine verlässliche
+Ausweichlösung mehr.
 
 ### xcconfig gehört unter `configFiles`
 
