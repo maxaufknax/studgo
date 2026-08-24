@@ -1,0 +1,25 @@
+# Secrets — NIEMALS committen
+.env
+.env.local
+Config/Secrets.xcconfig
+*.p12
+*.p8
+*.mobileprovision
+*.cer
+tools/.token.json
+
+# Xcode (Projekt wird von XcodeGen erzeugt)
+StudGo.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+
+# System
+.DS_Store
+
+# Arbeitsdokumente, die nicht öffentlich gehören
+__pycache__/
+docs/mail-*.md

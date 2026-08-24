@@ -1,0 +1,151 @@
+# Codemagic-Pipeline für StudGo — baut die iOS-App ohne lokalen Mac.
+#
+# Einmalige Einrichtung in Codemagic (siehe docs/CODEMAGIC.md):
+#   1. App Store Connect API-Key als Integration anlegen, Name: "StudGo ASC"
+#   2. Variablengruppe "studip_oauth" mit STUDIP_CLIENT_ID und
+#      STUDIP_CLIENT_SECRET (letzteres als "secure" markieren)
+#   3. Bundle-ID com.maxpaasch.studgo im Apple Developer Portal registrieren
+
+definitions:
+  ios_setup: &ios_setup
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    integrations:
+      app_store_connect: StudGo ASC
+    environment:
+      xcode: latest
+      vars:
+        BUNDLE_ID: "com.maxpaasch.studgo"
+        XCODE_SCHEME: "StudGo"
+        XCODE_PROJECT: "StudGo.xcodeproj"
+      groups:
+        - studip_oauth
+
+  build_scripts: &build_scripts
+    - name: XcodeGen bereitstellen
+      script: |
+        # Die meisten Images bringen XcodeGen mit; falls nicht, nachinstallieren.
+        which xcodegen || brew install xcodegen
+        xcodegen --version
+
+    - name: Build-Nummer bestimmen
+      script: |
+        set -e
+        NEW_BUILD="${BUILD_NUMBER:-1}"
+        if [ -n "${APP_STORE_APPLE_ID:-}" ]; then
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || true)
+          if [ -n "$LATEST" ]; then
+            NEW_BUILD=$((LATEST + 1))
+          fi
+        fi
+        echo "Build-Nummer: $NEW_BUILD"
+        echo "STUDGO_BUILD_NUMBER=$NEW_BUILD" >> "$CM_ENV"
+
+    - name: Secrets und Build-Nummer in xcconfig schreiben
+      script: |
+        set -e
+        # Die Datei liegt bewusst nicht im Repo — sie entsteht hier aus den
+        # verschlüsselten Codemagic-Variablen.
+        mkdir -p Config
+        cat > Config/Secrets.xcconfig <<XCCONFIG
+        STUDIP_CLIENT_ID = ${STUDIP_CLIENT_ID}
+        STUDIP_CLIENT_SECRET = ${STUDIP_CLIENT_SECRET}
+        CURRENT_PROJECT_VERSION = ${STUDGO_BUILD_NUMBER}
+        XCCONFIG
+        # Kontrolle ohne das Secret zu protokollieren
+        grep -v CLIENT_SECRET Config/Secrets.xcconfig
+
+    - name: Xcode-Projekt erzeugen
+      script: |
+        set -e
+        xcodegen generate
+        test -d "$XCODE_PROJECT"
+
+    - name: Signaturdateien holen und anwenden
+      script: |
+        set -e
+        keychain initialize
+        app-store-connect fetch-signing-files "$BUNDLE_ID" \
+          --type IOS_APP_STORE --create
+        keychain add-certificates
+        # Muss nach xcodegen laufen, sonst gibt es kein Projekt zum Anpassen.
+        xcode-project use-profiles
+
+    - name: IPA bauen
+      script: |
+        set -e
+        xcode-project build-ipa \
+          --project "$XCODE_PROJECT" \
+          --scheme "$XCODE_SCHEME"
+
+  build_artifacts: &build_artifacts
+    - build/ios/ipa/*.ipa
+    - /tmp/xcodebuild_logs/*.log
+    - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+workflows:
+  testflight:
+    name: StudGo — TestFlight
+    <<: *ios_setup
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+          include: true
+    scripts: *build_scripts
+    artifacts: *build_artifacts
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # Erst nach dem ersten erfolgreichen Upload befüllen, sonst schlägt
+        # die Verteilung fehl, weil die Gruppe noch nicht existiert.
+        # beta_groups:
+        #   - Interne Tester
+      email:
+        recipients:
+          - maximilian.elias.paasch@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  # Läuft bei jedem Push und prüft nur, ob die App überhaupt baut —
+  # ohne Signatur, ohne Upload.
+  check:
+    name: StudGo — Build-Prüfung
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+      vars:
+        XCODE_SCHEME: "StudGo"
+        XCODE_PROJECT: "StudGo.xcodeproj"
+      groups:
+        - studip_oauth
+    triggering:
+      events:
+        - push
+        - pull_request
+    scripts:
+      - name: XcodeGen bereitstellen
+        script: which xcodegen || brew install xcodegen
+      - name: Platzhalter-Secrets schreiben
+        script: |
+          mkdir -p Config
+          cat > Config/Secrets.xcconfig <<XCCONFIG
+          STUDIP_CLIENT_ID = ${STUDIP_CLIENT_ID:-0}
+          STUDIP_CLIENT_SECRET = ${STUDIP_CLIENT_SECRET:-}
+          CURRENT_PROJECT_VERSION = ${BUILD_NUMBER:-1}
+          XCCONFIG
+      - name: Projekt erzeugen und für den Simulator bauen
+        script: |
+          set -e
+          xcodegen generate
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" \
+            -destination "generic/platform=iOS Simulator" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+    artifacts:
+      - /tmp/xcodebuild_logs/*.log
