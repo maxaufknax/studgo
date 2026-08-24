@@ -20,9 +20,28 @@ hochgeladen. Ein eigener Mac ist dafür nicht nötig.
 ## Einrichtung bei Codemagic
 
 1. Repository verbinden (GitHub-App autorisieren, `maxaufknax/studgo` auswählen).
-2. **Teams → Integrations → App Store Connect**: neue Integration mit dem Namen
-   **`StudGo ASC`** anlegen (dieser Name steht so in `codemagic.yaml`) und
-   Issuer ID, Key ID sowie die `.p8`-Datei hinterlegen.
+2. **App-Store-Connect-Schlüssel in Codemagic hinterlegen.** Der Weg ist
+   tiefer verschachtelt, als man erwartet:
+
+   > Codemagic → **Teams** → *dein Konto bzw. Team* → **Integrations** →
+   > **App Store Connect** → **Manage keys** → **+ Add key**
+
+   Dort ausfüllen: **Name** = `StudGo ASC`, dazu Issuer ID, Key ID und die
+   `.p8`-Datei. Der **Name** ist das Feld, das `codemagic.yaml` sucht.
+
+   Zwei Fallen dabei:
+
+   - Auch ohne Team gibt es in Codemagic einen Eintrag **„Personal Account"**
+     unter *Teams* — dort liegen die Integrationen eines Einzelkontos. Wer nur
+     in den App-Einstellungen sucht, findet die Stelle nicht.
+   - Der Schlüssel muss **in demselben Team liegen wie die App**. Ist das
+     Repository unter „Personal Account" verbunden, der Schlüssel aber in einem
+     echten Team hinterlegt (oder umgekehrt), meldet der Build weiterhin
+     `does not exist` — obwohl der Schlüssel sichtbar existiert.
+
+   Einen App-Store-Connect-API-Key bei **Apple** zu erzeugen genügt nicht; er
+   muss zusätzlich in Codemagic eingetragen werden. Das sind zwei getrennte
+   Schritte.
 3. **App settings → Environment variables**: Gruppe **`studip_oauth`** anlegen mit
 
    | Variable | Wert | Secure |
@@ -44,14 +63,29 @@ innerhalb weniger Minuten, ob die App überhaupt kompiliert. Erst für
 `testflight` sind die Punkte oben nötig.
 
 Startet man `testflight`, bevor die Integration angelegt ist, bricht der Build
-sofort mit `App Store Connect integration "StudGo ASC" does not exist` ab.
-Derselbe Fehlertyp tritt bei einer fehlenden Variablengruppe auf
-(`Group studip_oauth does not exist`). Beides sind Einrichtungsfehler in
-Codemagic, keine Probleme im Code.
+sofort ab — **noch bevor eine einzige Zeile Code angefasst wird**. Solche
+Abbrüche sagen nichts über die App aus.
 
-Wichtig: Der Integrationsname in Codemagic muss **exakt** `StudGo ASC` lauten —
-Groß- und Kleinschreibung inklusive. Heißt die Integration bei dir anders,
-passe stattdessen die Zeile `app_store_connect:` in `codemagic.yaml` an.
+Der Integrationsname muss **exakt** `StudGo ASC` lauten, Groß- und
+Kleinschreibung sowie das Leerzeichen inklusive. Heißt der Schlüssel bei dir
+anders, ist es einfacher, die Zeile `app_store_connect:` in `codemagic.yaml`
+anzupassen, als ihn umzubenennen.
+
+## Fehlermeldungen und was dahintersteckt
+
+Die Einrichtung hat vier Tore. Sie melden sich einzeln, jedes kostet sonst
+einen Build-Durchlauf — deshalb besser alle vier vorher abhaken.
+
+| Meldung | Ursache | Abhilfe |
+| --- | --- | --- |
+| `App Store Connect integration "StudGo ASC" does not exist` | Schlüssel in Codemagic nicht angelegt, anders benannt, oder in einem anderen Team als die App | Schritt 2 oben |
+| `Group studip_oauth does not exist` | Variablengruppe fehlt | Schritt 3 oben |
+| `No suitable application records were found` / Upload scheitert | App-Datensatz in App Store Connect fehlt | App dort anlegen (Plattform iOS, Bundle-ID `com.maxpaasch.studgo`) |
+| `Bundle identifier ... not found` beim Signieren | Bundle-ID im Developer Portal nicht registriert | Identifiers → App IDs → App anlegen |
+
+Vor dem ersten `testflight`-Lauf sollten also **alle vier** stehen: Schlüssel in
+Codemagic, Variablengruppe, Bundle-ID im Developer Portal, App-Datensatz in
+App Store Connect.
 
 ## Bauen
 
