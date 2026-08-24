@@ -91,11 +91,41 @@ einen Build-Durchlauf — deshalb besser alle vier vorher abhaken.
 | `Group studip_oauth does not exist` | Variablengruppe fehlt | Schritt 3 oben |
 | `No suitable application records were found` / Upload scheitert | App-Datensatz in App Store Connect fehlt | App dort anlegen (Plattform iOS, Bundle-ID `com.maxpaasch.studgo`) |
 | `Bundle identifier ... not found` beim Signieren | Bundle-ID im Developer Portal nicht registriert | Identifiers → App IDs → App anlegen |
-| `Cannot save Signing Certificates without certificate private key` | Das Skript ging den **manuellen** Signierweg (`keychain initialize` + `fetch-signing-files --create`), der zusätzlich `CERTIFICATE_PRIVATE_KEY` verlangt | Behoben: Die Pipeline nutzt jetzt `environment.ios_signing` (siehe unten) |
+| `Cannot save Signing Certificates without certificate private key` | `CERTIFICATE_PRIVATE_KEY_B64` fehlt — Apple gibt den privaten Schlüssel zum Zertifikat nicht heraus | Variable anlegen, siehe unten |
+| `No matching profiles found for bundle identifier … "app_store"` | Es wurde nur nach vorhandenen Profilen gesucht (`ios_signing:`-Block), statt eines anzulegen | Behoben: Die Pipeline legt Zertifikat und Profil per `--create` selbst an |
 
-### Signierung läuft automatisch
+### Signierung: der Zertifikats-Schlüssel
 
-`codemagic.yaml` enthält
+Apples API kann ein Verteilzertifikat **anlegen**, den zugehörigen privaten
+Schlüssel gibt sie aber **niemals heraus**. Der muss also von dir kommen.
+
+Deshalb steht im Signaturschritt
+
+```bash
+app-store-connect fetch-signing-files "$BUNDLE_ID" \
+  --type IOS_APP_STORE --certificate-key @file:/tmp/cert_key.pem --create
+```
+
+und die Variable **`CERTIFICATE_PRIVATE_KEY_B64`** (base64 eines RSA-2048-
+Schlüssels, einzeilig) gehört als *secure* Variable in die Gruppe
+`studip_oauth`. Erzeugen lässt sie sich mit
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out cert_key.pem
+base64 -w0 cert_key.pem
+```
+
+Für dieses Projekt liegt der Schlüssel bereits unter `.secrets/cert_key.pem`
+(gitignored), die fertige Zeile in `.secrets/cert_key.b64`.
+
+**Denselben Schlüssel bei jedem Lauf verwenden.** Apple begrenzt die Zahl der
+Verteilzertifikate je Konto; ein jedes Mal frisch erzeugter Schlüssel
+verbrauchte bei jedem Build einen weiteren Platz. Aus demselben Grund hat auch
+PocketADM seinen Schlüssel einmalig hinterlegt.
+
+### Warum kein `ios_signing:`-Block
+
+Naheliegend wäre
 
 ```yaml
 environment:
@@ -104,14 +134,12 @@ environment:
     bundle_identifier: com.maxpaasch.studgo
 ```
 
-Damit besorgt Codemagic Zertifikat und Provisioning-Profil selbst über den
-ASC-Schlüssel und legt beides in den Schlüsselbund der Baumaschine. Im Skript
-bleibt nur `xcode-project use-profiles`, und zwar **nach** `xcodegen generate`.
-
-Ein `CERTIFICATE_PRIVATE_KEY` wird dafür **nicht** gebraucht — der ist nur beim
-manuellen Weg nötig. Und ihn bei jedem Lauf neu zu erzeugen wäre keine Lösung,
-sondern ein Problem: Apple erlaubt nur wenige Verteilzertifikate je Konto, und
-dieses Kontingent teilt sich StudGo mit PocketADM.
+Das ist hier aber **falsch**: Dieser Block *holt* nur bereits vorhandene
+Profile. Bei einer neuen App gibt es keine, und der Build bricht sofort ab mit
+`No matching profiles found for bundle identifier … and distribution type
+"app_store"`. Angelegt werden Zertifikat und Profil erst durch
+`fetch-signing-files --create` — also über das Skript. PocketADMs Pipeline
+verzichtet aus demselben Grund auf den Block.
 
 Vor dem ersten `testflight`-Lauf sollten also **alle vier** stehen: Schlüssel in
 Codemagic, Variablengruppe, Bundle-ID im Developer Portal, App-Datensatz in
