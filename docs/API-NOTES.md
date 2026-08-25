@@ -234,6 +234,28 @@ der läuft in einem eigenen Prozess, die App sieht weder Sitzung noch Eingaben.
 | **Einrichtungen** | `/v1/users/{id}/institute-memberships`, `/v1/institutes/{id}` | `Institute` |
 | **Eigene Mitgliedschaft** | `/v1/users/{id}/course-memberships`, `PATCH /v1/course-memberships/{id}` | `CourseMembership` |
 
+### Nachtrag: Community-Routen (ebenfalls 2026-08-25)
+
+| Bereich | Routen | Besonderheit |
+| --- | --- | --- |
+| **Kontakte pflegen** | `POST` / `DELETE` `/v1/users/{id}/relationships/contacts` | Body ist eine **Liste von Ressourcenkennungen** (`{"data":[{"type":"users","id":"…"}]}`), kein Objekt. Antwort ist `204` ohne Inhalt. Erlaubt nur für das eigene Konto (`canEditUser`). |
+| **Studiengruppen** | `GET /v1/studygroup-proposals` | Nimmt **nur `page[limit]`**, kein `page[offset]` — ein Offset ist ein 400. Standard sind 4 Vorschläge. Liefert `courses`, keine eigene Ressource. |
+| **Sprechstunden** | `GET /v1/{courses\|institutes\|users}/{id}/consultations` → `GET /v1/consultation-blocks/{id}/slots` → `POST /v1/consultation-slots/{id}/bookings` | Filter `current` / `expired` sind **`0`/`1`**, nicht `true`/`false`. Ist der Termin schon vergeben, antwortet Stud.IP mit **`409 Conflict`**. |
+
+Die Buchung will die Person **als Beziehung**, nicht als Attribut:
+
+```jsonc
+// POST /v1/consultation-slots/{id}/bookings
+{"data":{"type":"consultation-bookings",
+         "attributes":{"reason":"…"},
+         "relationships":{
+           "user":{"data":{"type":"users","id":"…"}},
+           "slot":{"data":{"type":"consultation-slots","id":"…"}}}}}
+```
+
+Ohne `relationships.user` lehnt `BookingsCreate::validateResourceDocument` mit
+„No user relationship defined for booking" ab.
+
 ### Fallstricke in diesen Bereichen
 
 - **`blubber-threads`** unterscheidet über `context-type` zwischen `private`
@@ -254,6 +276,10 @@ der läuft in einem eigenen Prozess, die App sieht weder Sitzung noch Eingaben.
   Zeichen** und akzeptiert bei `filter[fields]` nur
   `all`, `title_lecturer_number`, `title`, `sub_title`, `lecturer`, `number`,
   `comment`, `scope`. Alles andere ist ein 400.
+- **`consultation-slots`** benennt seine Zeitfelder **`start_time` und
+  `end_time` mit Unterstrich** — als einzige Ressource der ganzen API, überall
+  sonst gilt der Bindestrich. Wer `start-time` liest, bekommt `nil` und eine
+  Terminliste ohne Uhrzeiten.
 - **`course-memberships`**: `visible` liefert Stud.IP nur mit, wenn man die
   Liste der eigenen Mitgliedschaften abruft oder die Veranstaltung leiten darf.
   Fehlt das Feld, ist `yes` die richtige Annahme.
