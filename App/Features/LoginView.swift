@@ -3,14 +3,14 @@ import SwiftUI
 struct LoginView: View {
     @Environment(AuthStore.self) private var auth
 
-    private static let brand = Color(red: 0.05, green: 0.24, blue: 0.55)
+    private static let brand = Brand.deep
 
     var body: some View {
         ZStack {
-            // Ruhiger Verlauf statt einer weißen Fläche — dieselben Töne wie
-            // im App-Symbol, damit Start und Symbol zusammengehören.
-            LinearGradient(colors: [Color(red: 0.14, green: 0.16, blue: 0.48),
-                                    Color(red: 0.05, green: 0.41, blue: 0.75)],
+            // Dieselbe Achse wie Logo und App-Symbol: fast Schwarz nach
+            // Logoblau. Vorher lief hier ein Indigo-Verlauf, der mit beidem
+            // nichts zu tun hatte.
+            LinearGradient(colors: [Brand.night, Brand.deep],
                            startPoint: .topLeading,
                            endPoint: .bottomTrailing)
                 .ignoresSafeArea()
@@ -33,21 +33,16 @@ struct LoginView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 24)
 
-            Image(systemName: "graduationcap.fill")
-                .font(.system(size: 66))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.2), radius: 12, y: 6)
-
-            Text("StudGo")
-                .font(.system(size: 40, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .padding(.top, 18)
+            // Das echte Logo statt Symbol plus gesetzter Wortmarke: Die
+            // Nachbildung traf weder die Schrift noch das Blau.
+            AppLogoView(size: 132, cornerRadius: 30)
+                .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
 
             Text("Stud.IP der Leibniz Universität Hannover —\naufs Wesentliche reduziert.")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
-                .padding(.top, 6)
+                .padding(.top, 18)
                 .padding(.horizontal, 32)
 
             Spacer(minLength: 32)

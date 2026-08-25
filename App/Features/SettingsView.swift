@@ -206,13 +206,17 @@ struct AboutView: View {
     var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("StudGo").font(.title2.bold())
-                    Text("Ein quelloffenes Studierendenprojekt für Stud.IP an der Leibniz Universität Hannover. Keine offizielle App der Universität.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                HStack(alignment: .top, spacing: 14) {
+                    AppLogoView(size: 62, cornerRadius: 14)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("StudGo").font(.title3.bold())
+                        Text("Ein quelloffenes Studierendenprojekt für Stud.IP an der Leibniz Universität Hannover. Keine offizielle App der Universität.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 6)
             }
 
             Section("Datenschutz") {

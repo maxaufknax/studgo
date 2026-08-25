@@ -17,11 +17,15 @@ SUBSAMPLES = 4  # vertikale Überabtastung pro Pixelzeile
 # Ein Satz Farben je Erscheinungsbild. iOS 18 zeigt auf dem Hoheitsbildschirm
 # je nach Einstellung eine helle, eine dunkle oder eine eingefärbte Fassung;
 # ohne eigene Vorlagen rechnet das System sie sich selbst aus, meist schlechter.
+# Die Achse führt von fast Schwarz zum Blau der Wortmarke (#38B6FF): Damit
+# stehen Symbol und Logo (App/Resources/Assets.xcassets/AppLogo.imageset)
+# erkennbar in derselben Farbwelt. Das vorige Indigo hatte mit dem Logo
+# nichts zu tun — nebeneinander sahen sie nach zwei Programmen aus.
 VARIANTS = {
-    # hell: tiefes Indigo nach kräftigem Blau
-    "": {"top": (36, 42, 122), "bottom": (14, 104, 190), "ink": (255, 255, 255)},
+    # hell: fast Schwarz nach Logoblau
+    "": {"top": (10, 14, 34), "bottom": (33, 130, 220), "ink": (255, 255, 255)},
     # dunkel: dieselbe Achse, deutlich abgedunkelt
-    "-dark": {"top": (12, 14, 46), "bottom": (7, 44, 88), "ink": (236, 242, 255)},
+    "-dark": {"top": (4, 5, 12), "bottom": (16, 74, 142), "ink": (240, 247, 255)},
     # eingefärbt: iOS liest nur die Helligkeit und legt den Farbton selbst an
     "-tinted": {"top": (10, 10, 10), "bottom": (58, 58, 58), "ink": (255, 255, 255)},
 }
