@@ -55,6 +55,64 @@ extension StudIPClient {
             .sorted { ($0.latestActivity ?? .distantPast) > ($1.latestActivity ?? .distantPast) }
     }
 
+    /// Die Fäden fürs Postfach — mit Rückfallebene.
+    ///
+    /// **Warum das nicht ein Aufruf ist:** `/v1/blubber-threads` fasst in
+    /// `BlubberThread::findMyGlobalThreads()` fünf Unterabfragen zusammen und
+    /// wirft in `Schemas/BlubberThread::getContextRelationship()` einen
+    /// `InternalServerError`, sobald ein Faden auf eine gelöschte
+    /// Veranstaltung zeigt — was am Semesterende regelmäßig vorkommt. Ein
+    /// einziger verwaister Faden nimmt dann die **ganze** Liste mit, und im
+    /// Postfach stand plötzlich null statt zwei Unterhaltungen.
+    ///
+    /// Deshalb: Kommt von der Sammelroute nichts (oder ein Fehler), werden die
+    /// Fäden der belegten Veranstaltungen einzeln geholt. Jede dieser Routen
+    /// betrifft nur einen Kurs — ein kaputter Datensatz kostet dann höchstens
+    /// diesen einen.
+    func personalBlubberThreads(for userID: String, limit: Int = 80) async throws -> [BlubberThread] {
+        var collected: [String: BlubberThread] = [:]
+        var firstFailure: Error?
+
+        do {
+            for thread in try await blubberThreads(.all, limit: limit)
+            where thread.context != .publicStream {
+                collected[thread.id] = thread
+            }
+        } catch {
+            firstFailure = error
+        }
+
+        if collected.isEmpty {
+            for thread in await courseThreadsFallback(for: userID) {
+                collected[thread.id] = thread
+            }
+        }
+
+        if collected.isEmpty, let firstFailure { throw firstFailure }
+        return collected.values
+            .sorted { ($0.latestActivity ?? .distantPast) > ($1.latestActivity ?? .distantPast) }
+    }
+
+    /// Die Blubber-Fäden der belegten Veranstaltungen, einzeln geholt.
+    ///
+    /// Bewusst auf eine Handvoll Kurse begrenzt und fehlertolerant: Das hier
+    /// ist die Rückfallebene, kein Ersatz für die Sammelroute. Wer 40
+    /// Veranstaltungen belegt hat, soll nicht 40 Anfragen auslösen.
+    private func courseThreadsFallback(for userID: String, courseLimit: Int = 12) async -> [BlubberThread] {
+        guard let courses = try? await self.courses(for: userID) else { return [] }
+
+        // Nacheinander statt in einer Task-Gruppe: Der Client trägt zwei
+        // Closures (Tokenbeschaffung, 401-Meldung), die nicht `Sendable` sind.
+        // Für eine Rückfallebene, die nur greift, wenn ohnehin nichts kam, ist
+        // die Nebenläufigkeit den Umbau nicht wert.
+        var found: [BlubberThread] = []
+        for course in courses.prefix(courseLimit) {
+            guard !Task.isCancelled else { break }
+            found += (try? await blubberThreads(.course(id: course.id), limit: 20)) ?? []
+        }
+        return found
+    }
+
     /// Ein Ausschnitt aus einem Blubber-Verlauf, älteste zuerst gesetzt.
     struct BlubberPage {
         let comments: [BlubberComment]

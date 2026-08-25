@@ -1,49 +1,34 @@
 import SwiftUI
 
-/// Alles, was über den eigenen Stundenplan hinausgeht: was in den belegten
-/// Veranstaltungen passiert, der öffentliche Blubber-Strom, das
-/// Vorlesungsverzeichnis, Kontakte und Einrichtungen.
+/// Das Verzeichnis der Universität und was in den belegten Veranstaltungen
+/// passiert.
+///
+/// Der **öffentliche Blubber-Strom** stand hier bis 1.2.0 mit einer eigenen
+/// Karte. Er ist jetzt eine Auswahl in „Postfach → Chats": Dort liegen ohnehin
+/// alle Unterhaltungen, und der Strom lud an dieser Stelle eine der teuersten
+/// Routen der ganzen API (`getPublicThreads()` holt *alle* öffentlichen Fäden
+/// der Installation und siebt sie erst danach in PHP), nur damit vier Zeilen
+/// im Bild stehen. Wer den Campus-Reiter öffnete, wartete darauf mit.
 struct CampusView: View {
     let user: StudIPUser
     @Environment(AuthStore.self) private var auth
 
     @State private var activities = Loadable<[ActivityItem]>()
-    @State private var publicThreads = Loadable<[BlubberThread]>()
-    @State private var isWritingThread = false
 
     private var recentActivities: [ActivityItem] {
         Array((activities.value ?? []).prefix(6))
     }
 
-    private var recentThreads: [BlubberThread] {
-        Array((publicThreads.value ?? []).prefix(4))
-    }
-
     var body: some View {
-        NavigationStack {
+        StudGoStack {
             List {
                 meSection
                 activitySection
-                blubberSection
                 directorySection
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Campus")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        isWritingThread = true
-                    } label: {
-                        Image(systemName: "square.and.pencil")
-                    }
-                    .accessibilityLabel("Neuen Blubber-Faden schreiben")
-                }
-            }
-            .sheet(isPresented: $isWritingThread) {
-                NewBlubberThreadView { await reload(fresh: true) }
-            }
-            .studGoDestinations()
             .refreshable { await reload(fresh: true) }
             .task { if activities.value == nil { await reload(fresh: false) } }
         }
@@ -86,32 +71,6 @@ struct CampusView: View {
             Text("Was passiert")
         } footer: {
             Text("Neue Dateien, Forenbeiträge und Ankündigungen aus den belegten Veranstaltungen.")
-        }
-    }
-
-    // MARK: - Blubber
-
-    private var blubberSection: some View {
-        Section {
-            if recentThreads.isEmpty {
-                CampusPlaceholderRow(isLoading: publicThreads.isLoading,
-                                     message: publicThreads.errorMessage
-                                        ?? "Im öffentlichen Strom ist es still",
-                                     symbol: "globe.europe.africa")
-            } else {
-                ForEach(recentThreads) { thread in
-                    NavigationLink(value: thread) {
-                        BlubberThreadRow(thread: thread)
-                    }
-                }
-                NavigationLink {
-                    PublicBlubberView()
-                } label: {
-                    RowLabel(symbol: "bubble.left.and.bubble.right", title: "Alle öffentlichen Fäden")
-                }
-            }
-        } header: {
-            Text("Öffentlicher Blubber")
         }
     }
 
@@ -162,11 +121,7 @@ struct CampusView: View {
 
     private func reload(fresh: Bool) async {
         let client = fresh ? auth.freshClient : auth.client
-        async let stream: Void = activities.load { try await client.activityStream(for: user.id) }
-        async let threads: Void = publicThreads.load {
-            try await client.blubberThreads(.publicStream, limit: 25)
-        }
-        _ = await (stream, threads)
+        await activities.load { try await client.activityStream(for: user.id) }
     }
 }
 
@@ -195,6 +150,17 @@ struct CampusPlaceholderRow: View {
 
 // MARK: - Aktivitätenstrom
 
+/// Eine Meldung aus dem Aktivitätenstrom.
+///
+/// **Was hier schiefging:** Titel und Inhalt kommen bei den meisten Anbietern
+/// als HTML aus der Datenbank („<b>Datei</b> hochgeladen in …"), und der
+/// Zeitstempel stand rechts in einer eigenen Spalte. Zusammen ergab das eine
+/// Zeile, in der links die rohen Tags standen und rechts das Datum den Text
+/// erdrückte — auf schmalen Geräten blieb vom Titel ein Wort übrig.
+///
+/// Der Text läuft jetzt durch `StudipMarkup` (siehe `ActivityItem`), und die
+/// Zeitangabe steht als drittes Kennzeichen in der Fußzeile, wo sie mitwandert
+/// statt zu verdrängen.
 struct ActivityRow: View {
     let item: ActivityItem
 
@@ -203,45 +169,70 @@ struct ActivityRow: View {
             Image(systemName: item.symbol)
                 .font(.system(size: 14))
                 .foregroundStyle(Tint.color(item.tintSeed))
-                .frame(width: 26, height: 26)
+                .frame(width: 28, height: 28)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(Tint.surface(item.tintSeed))
                 )
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
                     .font(.subheadline)
-                    .lineLimit(2)
+                    .foregroundStyle(.primary)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if !item.content.isEmpty {
                     Text(item.content)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(3)
+                        .lineLimit(2)
                 }
 
-                HStack(spacing: 6) {
-                    Chip(text: item.kindLabel, color: Tint.color(item.tintSeed))
-                    if let course = item.courseName {
-                        Text(course)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                    }
+                // Umbruchfähig: Kursnamen an der LUH sind lang, und eine
+                // Zeile mit fester Anordnung schnitt sie mitten im Wort ab.
+                ViewThatFits(in: .horizontal) {
+                    metadata(axis: .horizontal)
+                    metadata(axis: .vertical)
                 }
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
 
+    @ViewBuilder
+    private func metadata(axis: Axis) -> some View {
+        let chips = HStack(spacing: 6) {
+            Chip(text: item.kindLabel, color: Tint.color(item.tintSeed))
             if let created = item.createdAt {
                 Text(Format.listDate(created))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
         }
-        .padding(.vertical, 3)
-        .accessibilityElement(children: .combine)
+        let course = Group {
+            if let course = item.courseName {
+                Text(course)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+        }
+
+        if axis == .horizontal {
+            HStack(spacing: 8) {
+                chips
+                course
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 3) {
+                chips
+                course
+            }
+        }
     }
 }
 
@@ -326,51 +317,6 @@ struct ActivityStreamView: View {
     private func reload(fresh: Bool) async {
         let client = fresh ? auth.freshClient : auth.client
         await activities.load { try await client.activityStream(for: user.id, limit: 150) }
-    }
-}
-
-// MARK: - Öffentlicher Blubber
-
-struct PublicBlubberView: View {
-    @Environment(AuthStore.self) private var auth
-
-    @State private var threads = Loadable<[BlubberThread]>()
-    @State private var search = ""
-
-    var body: some View {
-        List(threads.value ?? []) { thread in
-            NavigationLink(value: thread) {
-                BlubberThreadRow(thread: thread)
-            }
-        }
-        .listStyle(.insetGrouped)
-        .overlay {
-            StateOverlay(isLoading: threads.isLoading,
-                         errorMessage: threads.errorMessage,
-                         isEmpty: (threads.value ?? []).isEmpty,
-                         emptyText: "Nichts im öffentlichen Strom",
-                         emptySymbol: "globe.europe.africa",
-                         retry: { Task { await reload(fresh: true) } })
-        }
-        // Serverseitig gesucht: der öffentliche Strom kann Tausende Fäden
-        // führen, von denen die App nur einen Ausschnitt geladen hat.
-        .searchable(text: $search, prompt: "Öffentliche Fäden durchsuchen")
-        .onSubmit(of: .search) { Task { await reload(fresh: true) } }
-        .navigationTitle("Öffentlich")
-        .navigationBarTitleDisplayMode(.inline)
-        // Das Ziel meldet `CampusView` für den ganzen Stapel an.
-        .refreshable { await reload(fresh: true) }
-        .task { if threads.value == nil { await reload(fresh: false) } }
-    }
-
-    private func reload(fresh: Bool) async {
-        let client = fresh ? auth.freshClient : auth.client
-        let term = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        await threads.load {
-            try await client.blubberThreads(.publicStream,
-                                            search: term.isEmpty ? nil : term,
-                                            limit: 80)
-        }
     }
 }
 

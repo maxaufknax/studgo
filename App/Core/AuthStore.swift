@@ -58,8 +58,22 @@ final class AuthStore {
     /// jedem schreibenden Aufruf.
     var freshClient: StudIPClient { client.fresh }
 
+    /// Zählt hoch, sobald sich am Postfach etwas geändert hat — gelesen
+    /// markiert, gesendet, gelöscht. Die Listenansichten hängen daran und
+    /// laden nach.
+    ///
+    /// **Warum nicht über einen Rückruf am Ziel:** Die Detailseite wird
+    /// zentral angemeldet (`studGoDestinations`), damit im selben Stapel nicht
+    /// zwei Anmeldungen desselben Typs liegen. Sie kennt die Liste, aus der
+    /// sie geöffnet wurde, deshalb nicht mehr.
+    private(set) var mailboxRevision = 0
+
     func noteUnread(_ count: Int) {
         unreadCount = count
+    }
+
+    func noteMailboxChanged() {
+        mailboxRevision &+= 1
     }
 
     /// Die eigene Nutzer-ID, sofern angemeldet. Der Blubber-Verlauf braucht
@@ -152,6 +166,7 @@ final class AuthStore {
         semTypes = [:]
         studygroupKinds = .unknown
         unreadCount = 0
+        mailboxRevision = 0
         state = .signedOut
     }
 

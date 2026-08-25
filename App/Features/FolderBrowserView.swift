@@ -15,7 +15,7 @@ struct FolderBrowserView: View {
             } label: {
                 RowLabel(symbol: "folder",
                          title: folder.name,
-                         subtitle: folder.description,
+                         subtitle: folder.summary,
                          detail: folder.isEmpty ? "leer" : nil)
             }
         }

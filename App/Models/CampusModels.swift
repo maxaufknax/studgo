@@ -65,7 +65,13 @@ struct BlubberThread: Identifiable, Equatable, Hashable {
     init?(_ resource: Resource, author: Resource? = nil) {
         guard resource.type == "blubber-threads" else { return nil }
         id = resource.id
-        content = resource.string("content") ?? ""
+        // `content-html` ist die von Stud.IP selbst gerenderte Fassung
+        // (`formatReady()` im Schema) — Smilies, Erwähnungen und Verweise
+        // stecken dort schon als HTML drin. Nur `blubber-threads` und
+        // `blubber-comments` liefern das mit; überall sonst gibt es nur den
+        // Rohtext. Wo es da ist, ist es die bessere Quelle.
+        content = resource.string("content-html")?.nilIfEmpty
+            ?? resource.string("content") ?? ""
         context = Context(rawValue: resource.string("context-type") ?? "") ?? .unknown
         contextInfo = resource.string("context-info").map(StudipMarkup.plain)?.nilIfEmpty
         isCommentable = resource.bool("is-commentable")
@@ -109,7 +115,9 @@ struct BlubberComment: Identifiable, Equatable {
     init?(_ resource: Resource, author: Resource? = nil) {
         guard resource.type == "blubber-comments" else { return nil }
         id = resource.id
-        content = resource.string("content") ?? ""
+        // Wie beim Faden: die gerenderte Fassung, wenn Stud.IP sie mitgibt.
+        content = resource.string("content-html")?.nilIfEmpty
+            ?? resource.string("content") ?? ""
         createdAt = resource.date("mkdate")
         authorName = author.flatMap { $0.string("formatted-name") ?? $0.string("username") }
         authorID = author?.id ?? resource.relatedID("author")

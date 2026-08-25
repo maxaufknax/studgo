@@ -460,7 +460,7 @@ struct WikiPageView: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } else {
-                    FormattedText(raw: page.content, font: .body)
+                    FormattedText(raw: page.content, font: .body, isDocument: true)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
