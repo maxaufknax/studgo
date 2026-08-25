@@ -92,8 +92,15 @@ enum WebLinks {
     /// Der Standortfinder der LUH — Gebäude, Hörsäle, Wege.
     static let campusMap = URL(string: "https://standortfinder.uni-hannover.de/de/")!
 
-    /// Speiseplan des Studentenwerks Hannover.
-    static let canteen = URL(string: "https://www.studentenwerk-hannover.de/hochschulgastronomie")!
+    /// Mensen und Cafés des Studentenwerks Hannover.
+    ///
+    /// **Falls das je nativ werden soll:** Es gibt eine offene Quelle —
+    /// [OpenMensa](https://openmensa.org) führt alle Hannoveraner Mensen
+    /// (Kennungen 6, 7 und 9 bis 17; die Hauptmensa ist 6) mit Speisen,
+    /// Preisen nach Gruppe und Kennzeichnungen unter
+    /// `GET /api/v2/canteens/{id}/days/{YYYY-MM-DD}/meals`. Kein Schlüssel,
+    /// kein Scraping der Studentenwerk-Seite, keine Urheberrechtsfrage.
+    static let canteen = URL(string: "https://www.studentenwerk-hannover.de/essen/mensen-und-cafes")!
 
     /// Sucht einen Raum im Standortfinder.
     ///
