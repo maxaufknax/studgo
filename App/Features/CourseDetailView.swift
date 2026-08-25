@@ -193,6 +193,14 @@ struct CourseDetailView: View {
                            count: nil, seed: course.id)
             }
             .buttonStyle(.plain)
+
+            NavigationLink {
+                CourseBlubberView(course: course)
+            } label: {
+                CourseTile(symbol: "bubble.left.and.bubble.right", title: "Blubber",
+                           count: nil, seed: course.id)
+            }
+            .buttonStyle(.plain)
         }
     }
 

@@ -262,6 +262,81 @@ extension StudIPClient {
         try await get("/v1/news/\(newsID)/comments", limit: 100).resources
     }
 
+    // MARK: - Kontakte verwalten
+
+    /// Person ins eigene Adressbuch aufnehmen.
+    ///
+    /// Läuft über die **Beziehung**, nicht über eine Ressource:
+    /// `POST /v1/users/{id}/relationships/contacts` mit einer Liste von
+    /// Ressourcenkennungen. Der Server antwortet mit `204` ohne Inhalt.
+    func addContact(_ contactID: String, for userID: String) async throws {
+        _ = try await send("POST", "/v1/users/\(userID)/relationships/contacts",
+                           body: ["data": [["type": "users", "id": contactID]]])
+    }
+
+    /// Person aus dem Adressbuch entfernen.
+    func removeContact(_ contactID: String, for userID: String) async throws {
+        _ = try await send("DELETE", "/v1/users/\(userID)/relationships/contacts",
+                           body: ["data": [["type": "users", "id": contactID]]])
+    }
+
+    // MARK: - Studiengruppen
+
+    /// Vorgeschlagene Studiengruppen.
+    ///
+    /// Stud.IP sucht sie danach aus, in welchen Gruppen Leute aus den eigenen
+    /// Veranstaltungen sind. Die Route nimmt **nur `page[limit]`**, kein
+    /// `page[offset]` — ein Offset quittiert sie mit 400.
+    func studygroupProposals(limit: Int = 12) async throws -> [Course] {
+        try await get("/v1/studygroup-proposals", limit: limit)
+            .resources.compactMap(Course.init)
+    }
+
+    // MARK: - Sprechstunden
+
+    /// Sprechstundenblöcke einer Person, Veranstaltung oder Einrichtung.
+    ///
+    /// `filter[current]` und `filter[expired]` sind `0`/`1`. Ohne Filter
+    /// liefert Stud.IP beides; hier zählen nur die laufenden.
+    func consultationBlocks(userID: String, includeExpired: Bool = false) async throws -> [ConsultationBlock] {
+        let extra = [
+            URLQueryItem(name: "filter[current]", value: "1"),
+            URLQueryItem(name: "filter[expired]", value: includeExpired ? "1" : "0"),
+        ]
+        return try await get("/v1/users/\(userID)/consultations", limit: 100, extra: extra)
+            .resources.compactMap(ConsultationBlock.init)
+            .sorted { ($0.start ?? .distantFuture) < ($1.start ?? .distantFuture) }
+    }
+
+    func consultationSlots(blockID: String) async throws -> [ConsultationSlot] {
+        try await get("/v1/consultation-blocks/\(blockID)/slots", limit: 200)
+            .resources.compactMap(ConsultationSlot.init)
+            .sorted { ($0.start ?? .distantFuture) < ($1.start ?? .distantFuture) }
+    }
+
+    /// Einen Sprechstundentermin buchen.
+    ///
+    /// Stud.IP verlangt die Person **als Beziehung**, nicht als Attribut, und
+    /// prüft sie gegen `canBookSlotForUser`. Ist der Termin inzwischen vergeben,
+    /// antwortet der Server mit `409`.
+    func bookConsultation(slotID: String, userID: String, reason: String) async throws {
+        let payload: [String: Any] = [
+            "data": [
+                "type": "consultation-bookings",
+                "attributes": ["reason": reason],
+                "relationships": [
+                    "user": ["data": ["type": "users", "id": userID]],
+                    "slot": ["data": ["type": "consultation-slots", "id": slotID]],
+                ],
+            ],
+        ]
+        _ = try await send("POST", "/v1/consultation-slots/\(slotID)/bookings", body: payload)
+    }
+
+    func cancelConsultation(bookingID: String) async throws {
+        _ = try await send("DELETE", "/v1/consultation-bookings/\(bookingID)", body: [:])
+    }
+
     // MARK: - Wege in die Weboberfläche
 
     /// Die JSON:API kennt **kein** Ein- oder Austragen: `authorize()` in
