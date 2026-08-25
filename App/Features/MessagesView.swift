@@ -19,7 +19,7 @@ struct PostfachView: View {
     @State private var section: Section = .messages
 
     var body: some View {
-        NavigationStack {
+        StudGoStack {
             VStack(spacing: 0) {
                 SegmentedHeader(title: "Bereich",
                                 options: Section.allCases,
@@ -108,11 +108,10 @@ struct MailboxView: View {
                          retry: { Task { await reload(fresh: true) } })
         }
         .searchable(text: $search, prompt: "Nachrichten durchsuchen")
-        .navigationDestination(for: Message.self) { message in
-            MessageDetailView(message: message, outgoing: isOutgoing) {
-                await reload(fresh: true)
-            }
-        }
+        // Kein eigenes `navigationDestination(for: Message.self)`: Das meldet
+        // `studGoDestinations()` an der Stapelwurzel an. Zwei Anmeldungen
+        // desselben Typs im selben Stapel — hier und in „Heute" — öffneten
+        // sonst die jeweils falsche Seite.
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
@@ -140,6 +139,10 @@ struct MailboxView: View {
         }
         .refreshable { await reload(fresh: true) }
         .task(id: box) { await reloadIfNeeded() }
+        // Die Detailseite meldet über den Store, dass sie etwas verändert hat
+        // — gelesen markiert, geantwortet. Ohne das bliebe der blaue Punkt an
+        // einer längst geöffneten Nachricht stehen.
+        .onChange(of: auth.mailboxRevision) { Task { await reload(fresh: true) } }
     }
 
     private var emptyText: String {
@@ -176,18 +179,72 @@ struct MailboxView: View {
 
 // MARK: - Chats (Blubber)
 
-/// Blubber als Nachrichtenliste. Stud.IP führt Direktnachrichten,
-/// Veranstaltungs- und öffentliche Fäden über dieselbe Ressource; hier stehen
-/// die persönlich relevanten oben, der öffentliche Strom lebt im Campus-Tab.
+/// Blubber als Nachrichtenliste.
+///
+/// Stud.IP führt Direktnachrichten, Veranstaltungs- und öffentliche Fäden über
+/// dieselbe Ressource — nur unter verschiedenen Pfaden. Hier liegen alle drei
+/// beieinander, weil sie für den Lesenden dasselbe sind: Unterhaltungen. Der
+/// öffentliche Strom stand bis 1.2.0 im Campus-Reiter; dort suchte ihn
+/// niemand, und er lud eine Liste, die mit „Verzeichnis" nichts zu tun hat.
 struct BlubberInboxView: View {
     let user: StudIPUser
     @Environment(AuthStore.self) private var auth
 
-    @State private var threads = Loadable<[BlubberThread]>()
+    /// Welche Fäden gezeigt werden.
+    enum Scope: String, CaseIterable, Identifiable {
+        /// Alles Persönliche: Direktnachrichten und die eigenen Kursfäden.
+        case mine = "Meine Chats"
+        /// Nur die Fäden aus belegten Veranstaltungen.
+        case courses = "Veranstaltungen"
+        /// Der Strom der ganzen Universität.
+        case openStream = "Öffentlich"
+
+        var id: String { rawValue }
+
+        var symbol: String {
+            switch self {
+            case .mine: return "bubble.left.and.bubble.right"
+            case .courses: return "books.vertical"
+            case .openStream: return "globe.europe.africa"
+            }
+        }
+
+        var emptyText: String {
+            switch self {
+            case .mine: return "Keine Unterhaltungen"
+            case .courses: return "In deinen Veranstaltungen ist es still"
+            case .openStream: return "Im öffentlichen Strom ist es still"
+            }
+        }
+
+        var hint: String {
+            switch self {
+            case .mine:
+                return "Direktnachrichten und die Fäden deiner Veranstaltungen."
+            case .courses:
+                return "Nur, was in belegten Veranstaltungen geschrieben wurde."
+            case .openStream:
+                return "Der offene Strom der ganzen Universität. Alle Angemeldeten können mitlesen."
+            }
+        }
+    }
+
+    @State private var scope: Scope = .mine
+    @State private var personal = Loadable<[BlubberThread]>()
+    @State private var openStream = Loadable<[BlubberThread]>()
     @State private var search = ""
+    @State private var isWriting = false
+    /// Erst beim Öffnen des Verfassen-Blatts geholt: Für die Liste selbst
+    /// wird die Veranstaltungsliste nicht gebraucht.
+    @State private var courses: [Course] = []
+
+    private var current: Loadable<[BlubberThread]> {
+        scope == .openStream ? openStream : personal
+    }
 
     private var filtered: [BlubberThread] {
-        let all = (threads.value ?? []).filter { $0.context != .publicStream }
+        var all = current.value ?? []
+        if scope == .courses { all = all.filter { $0.context == .course } }
         guard !search.isEmpty else { return all }
         return all.filter {
             $0.name.localizedCaseInsensitiveContains(search)
@@ -209,33 +266,90 @@ struct BlubberInboxView: View {
     var body: some View {
         List {
             ForEach(grouped, id: \.title) { group in
-                SwiftUI.Section(group.title) {
+                SwiftUI.Section {
                     ForEach(group.threads) { thread in
                         NavigationLink(value: thread) {
                             BlubberThreadRow(thread: thread)
                         }
+                    }
+                } header: {
+                    Text(group.title)
+                } footer: {
+                    if group.title == grouped.last?.title {
+                        Text(scope.hint)
                     }
                 }
             }
         }
         .listStyle(.insetGrouped)
         .overlay {
-            StateOverlay(isLoading: threads.isLoading,
-                         errorMessage: threads.errorMessage,
+            StateOverlay(isLoading: current.isLoading,
+                         errorMessage: current.errorMessage,
                          isEmpty: filtered.isEmpty,
-                         emptyText: search.isEmpty ? "Keine Unterhaltungen" : "Nichts gefunden",
-                         emptySymbol: search.isEmpty ? "bubble.left.and.bubble.right" : "magnifyingglass",
+                         emptyText: search.isEmpty ? scope.emptyText : "Nichts gefunden",
+                         emptySymbol: search.isEmpty ? scope.symbol : "magnifyingglass",
                          retry: { Task { await reload(fresh: true) } })
         }
         .searchable(text: $search, prompt: "Unterhaltungen durchsuchen")
-        .navigationDestination(for: BlubberThread.self) { BlubberThreadView(thread: $0) }
+        // Der öffentliche Strom wird serverseitig durchsucht: Er kann Tausende
+        // Fäden führen, von denen die App nur einen Ausschnitt geladen hat.
+        .onSubmit(of: .search) {
+            if scope == .openStream { Task { await reload(fresh: true) } }
+        }
+        // Kein eigenes `navigationDestination(for: BlubberThread.self)` —
+        // das meldet `studGoDestinations()` an der Stapelwurzel an.
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Menu {
+                    Picker("Bereich", selection: $scope) {
+                        ForEach(Scope.allCases) { option in
+                            Label(option.rawValue, systemImage: option.symbol).tag(option)
+                        }
+                    }
+                } label: {
+                    Label(scope.rawValue, systemImage: "line.3.horizontal.decrease.circle")
+                        .font(.footnote)
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isWriting = true
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                }
+                .accessibilityLabel("Neuen Faden schreiben")
+            }
+        }
+        .sheet(isPresented: $isWriting) {
+            NewBlubberThreadView(courses: courses) { await reload(fresh: true) }
+        }
+        .task(id: isWriting) { await loadCoursesIfNeeded() }
         .refreshable { await reload(fresh: true) }
-        .task { if threads.value == nil { await reload(fresh: false) } }
+        .task(id: scope) { if current.value == nil { await reload(fresh: false) } }
+    }
+
+    /// Ohne die Veranstaltungsliste stünde im Verfassen-Blatt nur
+    /// „Öffentlicher Strom" zur Wahl — in eine Veranstaltung ließe sich von
+    /// hier aus gar nichts schreiben.
+    private func loadCoursesIfNeeded() async {
+        guard isWriting, courses.isEmpty else { return }
+        courses = (try? await auth.client.courses(for: user.id)) ?? []
     }
 
     private func reload(fresh: Bool) async {
         let client = fresh ? auth.freshClient : auth.client
-        await threads.load { try await client.blubberThreads(.all) }
+        let userID = user.id
+        switch scope {
+        case .mine, .courses:
+            await personal.load { try await client.personalBlubberThreads(for: userID) }
+        case .openStream:
+            let term = search.trimmingCharacters(in: .whitespacesAndNewlines)
+            await openStream.load {
+                try await client.blubberThreads(.publicStream,
+                                                search: term.isEmpty ? nil : term,
+                                                limit: 80)
+            }
+        }
     }
 }
 
@@ -535,11 +649,12 @@ struct BlubberCommentBubble: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Text(comment.text)
-                    .font(.callout)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
+                // `FormattedText` statt `Text`: Ein Blubber-Beitrag kommt als
+                // `content-html` und trägt Verweise, Erwähnungen und
+                // Betonungen — als Klartext standen dort die Tags.
+                FormattedText(raw: comment.content, font: .callout)
                     .foregroundStyle(isOwn ? Color.white : Color.primary)
+                    .tint(isOwn ? Color.white : Color.accentColor)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(
@@ -617,12 +732,20 @@ struct MessageRow: View {
 
 struct MessageDetailView: View {
     let message: Message
-    var outgoing = false
-    var onChange: (() async -> Void)?
 
     @Environment(AuthStore.self) private var auth
     @State private var isReplying = false
     @State private var didMarkRead = false
+
+    /// Ob die Nachricht von einem selbst stammt, steht am Absender — dafür
+    /// braucht es keinen Parameter vom Aufrufer.
+    ///
+    /// Das ist nicht bloß bequemer: Seit die Detailseite zentral angemeldet
+    /// wird (`studGoDestinations`), *kann* der Aufrufer nichts mehr mitgeben.
+    private var outgoing: Bool {
+        guard let me = auth.currentUserID, let sender = message.senderID else { return false }
+        return sender == me
+    }
 
     private var person: String { message.counterpart(outgoing: outgoing) ?? "Unbekannt" }
 
@@ -674,7 +797,7 @@ struct MessageDetailView: View {
             }
         }
         .sheet(isPresented: $isReplying) {
-            ComposeMessageView(replyTo: message) { await onChange?() }
+            ComposeMessageView(replyTo: message)
         }
         .task { await markReadIfNeeded() }
     }
@@ -691,7 +814,7 @@ struct MessageDetailView: View {
         guard !outgoing, !message.isRead, !didMarkRead else { return }
         didMarkRead = true
         try? await auth.client.markMessage(message.id, read: true)
-        await onChange?()
+        auth.noteMailboxChanged()
     }
 }
 

@@ -45,7 +45,7 @@ struct CoursesView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        StudGoStack {
             List {
                 if !filtered.isEmpty {
                     Section {
@@ -92,7 +92,6 @@ struct CoursesView: View {
             }
             .listStyle(.insetGrouped)
             .searchable(text: $search, prompt: "Veranstaltung suchen")
-            .studGoDestinations()
             .overlay {
                 StateOverlay(isLoading: courses.isLoading,
                              errorMessage: courses.errorMessage,

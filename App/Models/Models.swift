@@ -397,6 +397,9 @@ struct Folder: Identifiable, Equatable, Hashable {
     let description: String?
     let isEmpty: Bool
     let isReadable: Bool
+    let isWritable: Bool
+    /// `HomeworkFolder`, `StandardFolder`, … — nur für die Diagnose.
+    let folderType: String?
 
     init?(_ resource: Resource) {
         guard resource.type == "folders" else { return nil }
@@ -405,7 +408,21 @@ struct Folder: Identifiable, Equatable, Hashable {
         description = resource.string("description")?.nilIfEmpty
         isEmpty = resource.bool("is-empty")
         isReadable = resource.bool("is-readable")
+        isWritable = resource.optionalBool("is-writable") ?? false
+        folderType = resource.string("folder-type")?.nilIfEmpty
     }
+
+    /// Die Beschreibung als lesbarer Text.
+    ///
+    /// Ordnerbeschreibungen aus dem Stud.IP-Assistenten sind **HTML** und
+    /// tragen den `<!--HTML-->`-Marker. Als schlichtes `Text(...)` gesetzt
+    /// stand in der Dateiliste wörtlich `<div><p>Verwenden Sie…` im Bild.
+    var summary: String? { description.map(StudipMarkup.plain)?.nilIfEmpty }
+
+    /// Darf hier hochgeladen werden? Stud.IP liefert das Attribut nur, wenn es
+    /// den Ordnertyp auflösen kann — fehlt es, wird nicht angeboten, was
+    /// hinterher am Server scheitert.
+    var allowsUpload: Bool { isWritable }
 }
 
 struct FileRef: Identifiable, Equatable, Hashable {

@@ -125,6 +125,9 @@ struct ComposeMessageView: View {
             try await auth.client.sendMessage(subject: subject,
                                               body: messageText,
                                               to: recipients.map(\.id))
+            // Der Store meldet allen Listen, dass sich am Postfach etwas
+            // getan hat — unabhängig davon, wer das Blatt geöffnet hat.
+            auth.noteMailboxChanged()
             await onSent?()
             dismiss()
         } catch {

@@ -7,12 +7,20 @@ import SwiftUI
 /// Forenbeiträge und Wikiseiten *nicht* als HTML, sondern in einer eigenen
 /// Textauszeichnung (`lib/classes/StudipCoreFormat.php`) — `**fett**`,
 /// `%%kursiv%%`, `- Liste`, `!Überschrift`, `[Text]https://…`. Nur wenn ein
-/// Feld mit dem Marker `<!--HTML-->` beginnt, ist der Inhalt echtes HTML
-/// (`Markup::isHtml`, `HTML_MARKER_REGEXP`).
+/// Feld mit dem Marker `<!--HTML-->` beginnt, ist der Inhalt laut Stud.IP
+/// echtes HTML (`Markup::isHtml`, `HTML_MARKER_REGEXP`).
 ///
-/// Wer das übersieht, zeigt dem Leser die Sternchen und Prozentzeichen im
-/// Klartext und wirft bei HTML-Feldern zugleich die Absätze weg. Genau so sah
-/// die Kursbeschreibung bis 1.1.0 aus.
+/// **Und warum der Marker allein nicht reicht:** In der Praxis steht in den
+/// Feldern der LUH reihenweise HTML *ohne* Marker — Beschreibungen, die aus
+/// dem Vorlesungsverzeichnis importiert oder aus einem Textverarbeiter
+/// eingefügt wurden, tragen `<p>…</p>` und `&auml;` im Klartext. Stud.IP
+/// selbst zeigt so ein Feld ebenfalls falsch an; in einer App fällt es nur
+/// mehr auf. Deshalb entscheidet hier nicht der Marker allein, sondern
+/// zusätzlich der Augenschein (`looksLikeHTML`).
+///
+/// Wer beides übersieht, zeigt dem Leser entweder die Sternchen und
+/// Prozentzeichen im Klartext oder — wie bis 1.2.0 — die nackten `<p>`-Tags
+/// und `&auml;`-Entitäten.
 enum StudipMarkup {
 
     // MARK: - Blockmodell
@@ -27,17 +35,18 @@ enum StudipMarkup {
         case quote(AttributedString)
         case code(String)
         case rule
-        case table(rows: [[AttributedString]])
+        /// Erste Zeile ist die Kopfzeile, wenn `hasHeader` gesetzt ist.
+        case table(rows: [[AttributedString]], hasHeader: Bool)
     }
 
     // MARK: - Einstieg
 
-    /// Erkennt anhand des Markers, ob HTML oder Stud.IP-Auszeichnung vorliegt,
-    /// und zerlegt den Text entsprechend.
+    /// Erkennt, ob HTML oder Stud.IP-Auszeichnung vorliegt, und zerlegt den
+    /// Text entsprechend.
     static func blocks(from raw: String) -> [Block] {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return [] }
-        return isHTML(text) ? blocksFromHTML(text) : blocksFromMarkup(text)
+        return isHTML(text) ? HTMLReader.blocks(from: text) : blocksFromMarkup(text)
     }
 
     /// Reiner Text ohne jede Auszeichnung — für Vorschauzeilen in Listen,
@@ -52,7 +61,7 @@ enum StudipMarkup {
                     return "\(marker) \(String(text.characters))"
                 case .code(let text): return text
                 case .rule: return ""
-                case .table(let rows):
+                case .table(let rows, _):
                     return rows.map { $0.map { String($0.characters) }.joined(separator: " · ") }
                         .joined(separator: "\n")
                 }
@@ -62,141 +71,29 @@ enum StudipMarkup {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// `<!--HTML-->` am Anfang ist Stud.IPs Kennzeichen für echtes HTML.
-    /// Ohne Marker gilt der Inhalt als Klartext mit Stud.IP-Auszeichnung —
-    /// auch wenn zufällig ein `<` darin vorkommt.
+    /// HTML oder nicht? Zwei Wege führen zu „ja".
     static func isHTML(_ text: String) -> Bool {
-        let head = text.prefix(200)
-        return head.range(of: "^\\s*<!--\\s*HTML.*?-->",
-                          options: [.regularExpression, .caseInsensitive]) != nil
+        hasHTMLMarker(text) || looksLikeHTML(text)
     }
 
-    // MARK: - HTML
-
-    private static func blocksFromHTML(_ raw: String) -> [Block] {
-        // Den Marker selbst entfernen, sonst stünde er als Text in der Ansicht.
-        var text = raw.replacingOccurrences(of: "^\\s*<!--\\s*HTML.*?-->",
-                                            with: "",
-                                            options: [.regularExpression, .caseInsensitive])
-        text = text.replacingOccurrences(of: "<!--.*?-->", with: "",
-                                         options: [.regularExpression])
-        // Blockgrenzen in Zeilenumbrüche übersetzen, bevor die Tags fallen.
-        let breaks = ["</p>", "</div>", "</h1>", "</h2>", "</h3>", "</h4>",
-                      "</h5>", "</h6>", "</tr>", "</blockquote>", "</pre>"]
-        for tag in breaks {
-            text = text.replacingOccurrences(of: tag, with: "\n\n", options: .caseInsensitive)
-        }
-        text = text.replacingOccurrences(of: "<br\\s*/?>", with: "\n",
-                                         options: [.regularExpression, .caseInsensitive])
-        text = text.replacingOccurrences(of: "</li>", with: "\n", options: .caseInsensitive)
-        // Aufzählungen behalten ihr Zeichen, sonst verschmelzen die Punkte.
-        text = text.replacingOccurrences(of: "<li[^>]*>", with: "\n- ",
-                                         options: [.regularExpression, .caseInsensitive])
-
-        let headings = markHeadings(in: &text)
-        text = convertInlineHTML(text)
-        text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-        text = decodeEntities(text)
-
-        // Nach dem Umbau ist der Text Stud.IP-Auszeichnung: Die Ersetzungen
-        // oben schreiben `**` und `%%`, damit beide Wege im selben Parser
-        // zusammenlaufen und Listen, Links und Betonungen gleich aussehen.
-        var result = blocksFromMarkup(text)
-        if !headings.isEmpty { result = applyHeadings(headings, to: result) }
-        return result
+    /// `<!--HTML-->` am Anfang ist Stud.IPs eigenes Kennzeichen.
+    static func hasHTMLMarker(_ text: String) -> Bool {
+        text.range(of: "^\\s*<!--\\s*HTML.*?-->",
+                   options: [.regularExpression, .caseInsensitive]) != nil
     }
 
-    /// Merkt sich `<h1>`…`<h6>`-Inhalte, damit sie nach dem Tag-Abbau noch
-    /// als Überschrift erkennbar sind.
-    private static func markHeadings(in text: inout String) -> [String: Int] {
-        var levels: [String: Int] = [:]
-        for level in 1...6 {
-            let pattern = "<h\(level)[^>]*>(.*?)</h\(level)>"
-            guard let regex = try? NSRegularExpression(pattern: pattern,
-                                                       options: [.caseInsensitive, .dotMatchesLineSeparators])
-            else { continue }
-            let range = NSRange(text.startIndex..., in: text)
-            for match in regex.matches(in: text, range: range).reversed() {
-                guard match.numberOfRanges > 1,
-                      let inner = Range(match.range(at: 1), in: text) else { continue }
-                let content = decodeEntities(String(text[inner])
-                    .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression))
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !content.isEmpty { levels[content] = min(4, level) }
-            }
-            text = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "\n\n$1\n\n")
-        }
-        return levels
-    }
-
-    private static func applyHeadings(_ levels: [String: Int], to blocks: [Block]) -> [Block] {
-        blocks.map { block in
-            guard case .paragraph(let text) = block,
-                  let level = levels[String(text.characters).trimmingCharacters(in: .whitespacesAndNewlines)]
-            else { return block }
-            return .heading(level: level, text: text)
-        }
-    }
-
-    /// Betonungen aus HTML in Stud.IP-Auszeichnung übersetzen — danach
-    /// braucht es nur noch einen Parser.
-    private static func convertInlineHTML(_ input: String) -> String {
-        var text = input
-        let pairs: [(String, String)] = [
-            ("b", "**"), ("strong", "**"),
-            ("i", "%%"), ("em", "%%"),
-            ("u", "__"),
-            ("code", "##"), ("tt", "##"),
-        ]
-        for (tag, marker) in pairs {
-            text = text.replacingOccurrences(of: "<\(tag)[^>]*>", with: marker,
-                                             options: [.regularExpression, .caseInsensitive])
-            text = text.replacingOccurrences(of: "</\(tag)\\s*>", with: marker,
-                                             options: [.regularExpression, .caseInsensitive])
-        }
-        // Links: <a href="…">Text</a> → [Text]…
-        text = text.replacingOccurrences(
-            of: "<a[^>]*href\\s*=\\s*[\"']([^\"']+)[\"'][^>]*>(.*?)</a>",
-            with: "[$2]$1",
-            options: [.regularExpression, .caseInsensitive])
-        return text
-    }
-
-    private static func decodeEntities(_ input: String) -> String {
-        var text = input
-        let simple: [(String, String)] = [
-            ("&nbsp;", "\u{00a0}"), ("&auml;", "ä"), ("&ouml;", "ö"), ("&uuml;", "ü"),
-            ("&Auml;", "Ä"), ("&Ouml;", "Ö"), ("&Uuml;", "Ü"), ("&szlig;", "ß"),
-            ("&quot;", "\""), ("&apos;", "'"), ("&#039;", "'"), ("&#39;", "'"),
-            ("&lt;", "<"), ("&gt;", ">"), ("&ndash;", "–"), ("&mdash;", "—"),
-            ("&hellip;", "…"), ("&euro;", "€"), ("&bdquo;", "„"), ("&ldquo;", "“"),
-            ("&rdquo;", "”"), ("&laquo;", "«"), ("&raquo;", "»"), ("&deg;", "°"),
-        ]
-        for (entity, replacement) in simple {
-            text = text.replacingOccurrences(of: entity, with: replacement)
-        }
-        text = decodeNumericEntities(text)
-        // Zuletzt, sonst würde `&amp;lt;` zweimal aufgelöst.
-        return text.replacingOccurrences(of: "&amp;", with: "&")
-    }
-
-    private static func decodeNumericEntities(_ input: String) -> String {
-        guard input.contains("&#"),
-              let regex = try? NSRegularExpression(pattern: "&#(x?)([0-9A-Fa-f]+);")
-        else { return input }
-        var text = input
-        let range = NSRange(text.startIndex..., in: text)
-        for match in regex.matches(in: text, range: range).reversed() {
-            guard let whole = Range(match.range, in: text),
-                  let flagRange = Range(match.range(at: 1), in: text),
-                  let digitRange = Range(match.range(at: 2), in: text) else { continue }
-            let isHex = !text[flagRange].isEmpty
-            let digits = String(text[digitRange])
-            guard let value = UInt32(digits, radix: isHex ? 16 : 10),
-                  let scalar = Unicode.Scalar(value) else { continue }
-            text.replaceSubrange(whole, with: String(Character(scalar)))
-        }
-        return text
+    /// Der Augenschein: ein *geschlossenes* oder eindeutig leeres Tag aus dem
+    /// HTML-Grundwortschatz.
+    ///
+    /// Bewusst eng gefasst. Stud.IP-Auszeichnung kennt kein `<`-Tag, wohl aber
+    /// das Kleiner-als-Zeichen — `a < b` oder `<3` dürfen nicht plötzlich als
+    /// HTML gelten und ihre Zeilenumbrüche verlieren. Ein `</p>` oder ein
+    /// `<br />` dagegen entsteht in Fließtext nicht aus Versehen.
+    static func looksLikeHTML(_ text: String) -> Bool {
+        let pattern = "</(p|div|li|ul|ol|table|tr|td|th|span|strong|em|b|i|u|a|h[1-6]|pre|code|blockquote)\\s*>"
+            + "|<(br|hr|img)\\b[^>]*/?>"
+            + "|<(p|div|ul|ol|li|table|tr|td|th|blockquote|h[1-6])(\\s[^>]*)?>"
+        return text.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
     // MARK: - Stud.IP-Auszeichnung
@@ -271,7 +168,7 @@ enum StudipMarkup {
                     rows.append(tableRow(next))
                     lines = lines.dropFirst()
                 }
-                blocks.append(.table(rows: rows))
+                blocks.append(.table(rows: rows, hasHeader: rows.count > 1))
                 continue
             }
 
@@ -358,22 +255,81 @@ enum StudipMarkup {
             .map { inline($0.trimmingCharacters(in: .whitespaces)) }
     }
 
+    // MARK: - Entitäten
+
+    /// Löst HTML-Entitäten auf.
+    ///
+    /// Läuft **auch** über Text ohne HTML: `&auml;` und `&nbsp;` stehen in
+    /// Stud.IP-Feldern auch dann, wenn ringsherum kein einziges Tag vorkommt —
+    /// die Weboberfläche schreibt sie beim Speichern hinein. In der App stand
+    /// dort wörtlich „Lehramtsstudieng&auml;nge".
+    static func decodeEntities(_ input: String) -> String {
+        guard input.contains("&") else { return input }
+        var text = input
+        let simple: [(String, String)] = [
+            ("&nbsp;", "\u{00a0}"), ("&auml;", "ä"), ("&ouml;", "ö"), ("&uuml;", "ü"),
+            ("&Auml;", "Ä"), ("&Ouml;", "Ö"), ("&Uuml;", "Ü"), ("&szlig;", "ß"),
+            ("&quot;", "\""), ("&apos;", "'"), ("&#039;", "'"), ("&#39;", "'"),
+            ("&lt;", "<"), ("&gt;", ">"), ("&ndash;", "–"), ("&mdash;", "—"),
+            ("&hellip;", "…"), ("&euro;", "€"), ("&bdquo;", "„"), ("&ldquo;", "“"),
+            ("&rdquo;", "”"), ("&laquo;", "«"), ("&raquo;", "»"), ("&deg;", "°"),
+            ("&sbquo;", "‚"), ("&lsquo;", "‘"), ("&rsquo;", "’"), ("&middot;", "·"),
+            ("&bull;", "•"), ("&dagger;", "†"), ("&trade;", "™"), ("&copy;", "©"),
+            ("&reg;", "®"), ("&plusmn;", "±"), ("&times;", "×"), ("&divide;", "÷"),
+            ("&frac12;", "½"), ("&frac14;", "¼"), ("&sup2;", "²"), ("&sup3;", "³"),
+            ("&rarr;", "→"), ("&larr;", "←"), ("&harr;", "↔"), ("&shy;", ""),
+        ]
+        for (entity, replacement) in simple {
+            text = text.replacingOccurrences(of: entity, with: replacement)
+        }
+        text = decodeNumericEntities(text)
+        // Zuletzt, sonst würde `&amp;lt;` zweimal aufgelöst.
+        return text.replacingOccurrences(of: "&amp;", with: "&")
+    }
+
+    private static func decodeNumericEntities(_ input: String) -> String {
+        guard input.contains("&#"),
+              let regex = try? NSRegularExpression(pattern: "&#(x?)([0-9A-Fa-f]+);")
+        else { return input }
+        var text = input
+        let range = NSRange(text.startIndex..., in: text)
+        for match in regex.matches(in: text, range: range).reversed() {
+            guard let whole = Range(match.range, in: text),
+                  let flagRange = Range(match.range(at: 1), in: text),
+                  let digitRange = Range(match.range(at: 2), in: text) else { continue }
+            let isHex = !text[flagRange].isEmpty
+            let digits = String(text[digitRange])
+            guard let value = UInt32(digits, radix: isHex ? 16 : 10),
+                  let scalar = Unicode.Scalar(value) else { continue }
+            text.replaceSubrange(whole, with: String(Character(scalar)))
+        }
+        return text
+    }
+
     // MARK: - Inline-Auszeichnung
 
     /// Betonungen, Links und Adressen innerhalb einer Zeile.
-    static func inline(_ raw: String) -> AttributedString {
-        var text = raw
+    ///
+    /// `studipSyntax: false` schaltet die einzeichigen Kurzformen (`*Wort*`,
+    /// `%Wort%`, `#Wort#`) ab. Aus HTML gewonnener Text bringt seine Betonung
+    /// als doppelte Marker mit, die der Leser dort nie selbst geschrieben hat;
+    /// ein Prozentzeichen im Fließtext („%-Angabe") darf ihn dann nicht
+    /// kursiv setzen.
+    static func inline(_ raw: String, studipSyntax: Bool = true) -> AttributedString {
+        var text = decodeEntities(raw)
 
         // `[nop]…[/nop]` schaltet die Auszeichnung ab — der Inhalt bleibt roh.
-        text = text.replacingOccurrences(of: "\\[nop\\](.*?)\\[/nop\\]", with: "$1",
-                                         options: [.regularExpression, .caseInsensitive])
+        if studipSyntax {
+            text = text.replacingOccurrences(of: "\\[nop\\](.*?)\\[/nop\\]", with: "$1",
+                                             options: [.regularExpression, .caseInsensitive])
+        }
 
         var result = AttributedString()
         var pending = ""
 
         func flushPending() {
             guard !pending.isEmpty else { return }
-            result.append(styled(pending))
+            result.append(styled(pending, studipSyntax: studipSyntax))
             pending = ""
         }
 
@@ -385,7 +341,7 @@ enum StudipMarkup {
                 pending += value
             case .link(let label, let url):
                 flushPending()
-                var chunk = styled(label)
+                var chunk = styled(label, studipSyntax: studipSyntax)
                 chunk.link = url
                 chunk.underlineStyle = .single
                 result.append(chunk)
@@ -453,22 +409,26 @@ enum StudipMarkup {
 
     /// Setzt fett, kursiv, unterstrichen, Festbreite und durchgestrichen —
     /// jeweils in der ausführlichen und der einfachen Schreibweise.
-    private static func styled(_ raw: String) -> AttributedString {
+    private static func styled(_ raw: String, studipSyntax: Bool = true) -> AttributedString {
         var text = raw
         var result = AttributedString()
 
         // Reihenfolge zählt: die doppelten Zeichen zuerst, sonst frisst die
         // einfache Form (`*Wort*`) die Hälfte eines `**Satz**`.
-        let rules: [(pattern: String, apply: (inout AttributedString) -> Void)] = [
+        var rules: [(pattern: String, apply: (inout AttributedString) -> Void)] = [
             ("\\*\\*(.+?)\\*\\*", { $0.inlinePresentationIntent = .stronglyEmphasized }),
             ("%%(.+?)%%", { $0.inlinePresentationIntent = .emphasized }),
             ("__(.+?)__", { $0.underlineStyle = .single }),
             ("##(.+?)##", { $0.inlinePresentationIntent = .code }),
             ("\\{-(.+?)-\\}", { $0.strikethroughStyle = .single }),
-            ("(?<![\\w*])\\*([^\\s*][^*]*?)\\*(?![\\w*])", { $0.inlinePresentationIntent = .stronglyEmphasized }),
-            ("(?<![\\w%])%([^\\s%][^%]*?)%(?![\\w%])", { $0.inlinePresentationIntent = .emphasized }),
-            ("(?<![\\w#])#([^\\s#][^#]*?)#(?![\\w#])", { $0.inlinePresentationIntent = .code }),
         ]
+        if studipSyntax {
+            rules += [
+                ("(?<![\\w*])\\*([^\\s*][^*]*?)\\*(?![\\w*])", { $0.inlinePresentationIntent = .stronglyEmphasized }),
+                ("(?<![\\w%])%([^\\s%][^%]*?)%(?![\\w%])", { $0.inlinePresentationIntent = .emphasized }),
+                ("(?<![\\w#])#([^\\s#][^#]*?)#(?![\\w#])", { $0.inlinePresentationIntent = .code }),
+            ]
+        }
 
         // Der Text wird einmal von links nach rechts abgearbeitet: an jeder
         // Stelle gewinnt die Regel, die am frühesten greift.

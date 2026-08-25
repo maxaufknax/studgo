@@ -51,7 +51,7 @@ struct TodayView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        StudGoStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     greeting
@@ -123,8 +123,6 @@ struct TodayView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Heute")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(for: Message.self) { MessageDetailView(message: $0) }
-            .studGoDestinations()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

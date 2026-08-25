@@ -256,6 +256,11 @@ struct StudygroupsView: View {
                          emptySymbol: "person.3",
                          retry: { Task { await reload(fresh: true) } })
         }
+        // Der Reiter führt seinen Pfad selbst (`StudGoStack`). Das ist hier
+        // keine Kosmetik: Ohne ihn hing die geöffnete Gruppe an ihrer
+        // Listenzeile, und sobald „Meine Gruppen" nachlud oder die Suchleiste
+        // beim Weiterschieben ihren Text räumte, wurde die Zeile neu gebaut
+        // und die Detailseite fiel wieder zu.
         .searchable(text: $search, prompt: "Studiengruppe suchen")
         .onSubmit(of: .search) { schedule(delay: 0) }
         .onChange(of: search) { schedule(delay: 500) }
@@ -267,18 +272,27 @@ struct StudygroupsView: View {
 
     // MARK: - Abschnitte
 
-    @ViewBuilder
+    /// **Immer** sichtbar, auch leer.
+    ///
+    /// „Meine Gruppen" und „Vorschläge" laden nebenläufig. Erschien der obere
+    /// Abschnitt erst mit seiner Antwort, sprang die halbe Liste eine
+    /// Bildschirmhöhe nach unten — mitten in den Tipp auf einen Vorschlag
+    /// hinein.
     private var mineSection: some View {
-        if let groups = mine.value, !groups.isEmpty {
-            Section {
+        Section {
+            if let groups = mine.value, !groups.isEmpty {
                 ForEach(groups) { group in
                     NavigationLink(value: group) {
                         CourseRow(course: group, typeName: auth.courseTypeName(group.typeID))
                     }
                 }
-            } header: {
-                Text("Meine Gruppen")
+            } else {
+                CampusPlaceholderRow(isLoading: mine.isLoading,
+                                     message: mine.errorMessage ?? "Du bist in keiner Studiengruppe",
+                                     symbol: "person.3")
             }
+        } header: {
+            Text("Meine Gruppen")
         }
     }
 
@@ -351,11 +365,11 @@ struct StudygroupsView: View {
 
     private func schedule(delay milliseconds: Int) {
         pending?.cancel()
-        guard isSearching else {
-            found.value = nil
-            found.errorMessage = nil
-            return
-        }
+        // Beim Weiterschieben räumt SwiftUI die Suchleiste von selbst — dieser
+        // Rückruf feuert dann mit leerem Text. Das Ergebnis stehen zu lassen
+        // statt es zu verwerfen kostet nichts und erspart der Liste einen
+        // Umbau in genau dem Augenblick, in dem die Detailseite aufgeht.
+        guard isSearching else { return }
         pending = Task {
             if milliseconds > 0 {
                 try? await Task.sleep(for: .milliseconds(milliseconds))
