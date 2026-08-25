@@ -43,8 +43,7 @@ struct CampusView: View {
             .sheet(isPresented: $isWritingThread) {
                 NewBlubberThreadView { await reload(fresh: true) }
             }
-            .navigationDestination(for: BlubberThread.self) { BlubberThreadView(thread: $0) }
-            .navigationDestination(for: Course.self) { CourseDetailView(course: $0) }
+            .studGoDestinations()
             .refreshable { await reload(fresh: true) }
             .task { if activities.value == nil { await reload(fresh: false) } }
         }
@@ -74,7 +73,9 @@ struct CampusView: View {
                                         ?? "Noch keine Aktivitäten",
                                      symbol: "sparkles")
             } else {
-                ForEach(recentActivities) { ActivityRow(item: $0) }
+                ForEach(recentActivities) { item in
+                    NavigationLink(value: item) { ActivityRow(item: item) }
+                }
                 NavigationLink {
                     ActivityStreamView(user: user)
                 } label: {
@@ -142,7 +143,7 @@ struct CampusView: View {
             } label: {
                 RowLabel(symbol: "person.3",
                          title: "Studiengruppen",
-                         subtitle: "Vorschläge aus deinem Umfeld")
+                         subtitle: "Deine Gruppen, Vorschläge und Suche")
             }
             NavigationLink {
                 InstitutesView(user: user)
@@ -217,7 +218,7 @@ struct ActivityRow: View {
                     Text(item.content)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .lineLimit(3)
                 }
 
                 HStack(spacing: 6) {
@@ -274,7 +275,9 @@ struct ActivityStreamView: View {
         List {
             ForEach(grouped, id: \.day) { group in
                 Section(Format.dayHeader(group.day)) {
-                    ForEach(group.items) { ActivityRow(item: $0) }
+                    ForEach(group.items) { item in
+                        NavigationLink(value: item) { ActivityRow(item: item) }
+                    }
                 }
             }
         }
