@@ -505,3 +505,150 @@ stammen, ein Vorrat an Codes lässt sich also nicht anlegen.
 Sobald die ZQS die Loopback-Redirect-URI `http://127.0.0.1:8765/callback`
 freischaltet, entfällt der Cookie-Umweg — dann kann das Tool einen lokalen
 Listener aufmachen und den Code direkt entgegennehmen.
+
+---
+
+# Befunde aus Fassung 1.3.0
+
+## 6. `GET /users/{id}/events.ics` ist die **einzige** Quelle für echte Sitzungen
+
+Der wichtigste Fund dieser Runde. Die Route steht in `RouteMap.php` Zeile 277
+und ist ein `NonJsonApiController` — sie antwortet mit `text/calendar`, nicht
+mit JSON:API, und fällt deshalb bei jedem Streifzug durch `/v1/discovery`
+zwischen die Zeilen.
+
+Serverseitig ruft `Routes\Events\UserEventsIcal` drei Exporte auf:
+
+```php
+$ical_export->exportCalendarDates($user, $start, $end)   // persönlicher Kalender
+   . $ical_export->exportCourseDates($user, $start, $end)   // *** alle Sitzungen ***
+   . $ical_export->exportCourseExDates($user, $start, $end) // ausgefallene Termine
+```
+
+`$end` ist fest auf den Unix-Zeitstempel `2114377200` gesetzt — **Januar 2037**.
+
+Damit liefert diese eine Anfrage, was `/v1/users/{id}/events` **nicht** kann:
+
+| | `/v1/users/{id}/events` | `/v1/users/{id}/events.ics` |
+| --- | --- | --- |
+| Veranstaltungstermine | ❌ (filtert auf `range_id = user`) | ✅ |
+| Zeitraum | zwei Wochen ab `filter[timestamp]` | heute bis 2037 |
+| Ausfälle | ❌ | ✅ (`… (fällt aus)` im `SUMMARY`) |
+| Thema der Sitzung | ❌ | ✅ (`DESCRIPTION`) |
+| Raum | ✅ | ✅ (`LOCATION`) |
+| Kommendes Semester | ❌ | ✅, sobald man eingetragen ist |
+
+**Format-Eigenheiten des Stud.IP-Exports** (`lib/classes/calendar/ICalendarExport.php`),
+an denen ein strenger Leser scheitert:
+
+1. **Kein Zeilenumbruch nach RFC 5545.** Lange `SUMMARY`-Zeilen werden nicht
+   auf 75 Zeichen gefaltet. Falten können muss man trotzdem — falls sich das
+   ändert.
+2. **Echte Zeilenumbrüche in `DESCRIPTION`.** `prepareCourseDate()` fügt die
+   Themen mit `implode("\n", …)` zusammen, `quoteText()` maskiert aber nur die
+   *Zeichenfolge* Backslash-n, nicht das Zeichen selbst. Die Fortsetzungszeile
+   beginnt ohne Leerzeichen und ist formal ungültig. `ICSParser` zählt eine
+   Zeile ohne `NAME:Wert` zum vorigen Feld, statt den Rest zu verwerfen.
+3. **Kennung als Herkunftsmerkmal.** Veranstaltungstermine tragen
+   `UID:Stud.IP-SEM-<id>@<server>`, alles andere kommt aus dem persönlichen
+   Kalender. Nur so lassen sich beide auseinanderhalten.
+4. **Keine Kursbeziehung.** Der Strom nennt `Course::getFullName()`, nicht die
+   Kennung. StudGo ordnet über den normalisierten Titel zu
+   (`StudIPClient.matchCourse`), damit ein Kurs im Kalender dieselbe Farbe hat
+   wie im Stundenplan.
+5. **Ganztägig** wird als `DTSTART;VALUE=DATE:20261012` geschrieben, sonst als
+   `DTSTART;TZID=Europe/Berlin:20261012T101500`.
+
+## 7. Stud.IP-Felder enthalten HTML **ohne** den `<!--HTML-->`-Marker
+
+Befund 4 (Fassung 1.2.0) war richtig, aber unvollständig. `Markup::isHtml()`
+verlangt den Marker — an der LUH stehen in den Feldern aber reihenweise
+`<p>…</p>` und `&auml;` *ohne* ihn, weil die Beschreibungen aus dem
+Vorlesungsverzeichnis importiert oder aus einem Textverarbeiter eingefügt
+wurden. `Schemas/Course::getAttributes()` reicht `beschreibung` unverändert
+durch; Stud.IP selbst zeigt so ein Feld ebenfalls falsch an.
+
+Deshalb entscheidet in StudGo seit 1.3.0 nicht der Marker allein, sondern
+zusätzlich der Augenschein (`StudipMarkup.looksLikeHTML`): ein *geschlossenes*
+Tag aus dem HTML-Grundwortschatz oder ein eindeutig leeres (`<br>`, `<hr>`,
+`<img …>`). Bewusst eng — `a < b` und `3<4` bleiben Klartext, sonst verlöre
+ein mathematischer Text seine Zeilenumbrüche.
+
+Zwei Ressourcen liefern die gerenderte Fassung gleich mit: `blubber-threads`
+und `blubber-comments` als `content-html` (`formatReady()` im Schema). Wo es
+das gibt, ist es die bessere Quelle.
+
+## 8. Der Dateibereich ist **vollständig beschreibbar**
+
+Anders als Mitgliedschaften und Termine:
+
+| Route | Zweck | Besonderheit |
+| --- | --- | --- |
+| `POST /folders/{id}/file-refs` | Hochladen | **nur** mit `multipart/form-data` |
+| `POST /folders/{id}/folders` | Unterordner | `parent` muss auch im Rumpf stehen |
+| `PATCH /file-refs/{id}` | Umbenennen | |
+| `DELETE /file-refs/{id}` | Löschen | |
+| `GET /terms-of-use` | Lizenzen | `is-default` markiert die Vorgabe |
+
+`NegotiateFileRefsCreate` schaut auf den `Content-Type` und verzweigt: Mit
+`application/vnd.api+json` erwartet die Route eine *Referenz auf eine bereits
+vorhandene Datei*, nur mit `multipart/form-data` nimmt sie Bytes entgegen
+(`FileRefsCreateByUpload`). Wer den JSON:API-Kopf mitschickt, bekommt eine
+Fehlermeldung über ein fehlendes `data` und sucht an der falschen Stelle.
+
+Den Dateinamen setzt der Kopf `Slug` (`RoutesHelperTrait::getFilename`,
+`rawurldecode`), die Lizenz das Formularfeld `term-id`. Ob hochgeladen werden
+darf, steht am Ordner in `is-writable`.
+
+## 9. `/v1/blubber-threads` kann an **einem** verwaisten Faden scheitern
+
+`Schemas/BlubberThread::getContextRelationship()` wirft einen
+`InternalServerError`, sobald ein Faden mit `context_type = 'course'` auf eine
+Veranstaltung zeigt, die es nicht mehr gibt — was am Semesterende vorkommt. Der
+Fehler nimmt die **ganze** Liste mit; im Postfach stand dann null statt zwei
+Unterhaltungen.
+
+`StudIPClient.personalBlubberThreads` fällt deshalb auf
+`/v1/courses/{id}/blubber-threads` je belegter Veranstaltung zurück, sobald die
+Sammelroute nichts liefert. Ein kaputter Datensatz kostet dann höchstens diesen
+einen Kurs.
+
+Zweite Falle derselben Route: `/v1/studip/blubber-threads` (`type = public`)
+holt in `getPublicThreads()` **alle** öffentlichen Fäden der Installation
+(`findBySQL("context_type = 'public'")`), siebt sie in PHP und paginiert erst
+danach. Auf einer Universität mit Jahren an Blubber ist das die teuerste Route,
+die StudGo überhaupt anfasst — sie gehört nicht in einen Bildschirm, der beim
+Öffnen eines Reiters mitlädt.
+
+## 10. `/v1/users/{id}/blubber-threads` ist **nicht** „meine Fäden"
+
+Die Route heißt in `RouteMap.php` `->setArgument('type', 'private')` und
+landet in `getPrivateThreads($observer, $userID)`: Sie sucht Fäden, in denen
+**beide** — der Anfragende und `{id}` — erwähnt sind. `/v1/users/{me}/…` gibt
+also die Direktnachrichten *mit sich selbst*. Wer „meine Fäden" will, nimmt
+`/v1/blubber-threads` ohne Präfix.
+
+## 11. Der Stundenplan des **kommenden** Semesters
+
+`UserScheduleShow` wählt das Semester über
+`Semester::findByTimestamp((int) $filtering['timestamp'])`. Ein Zeitstempel im
+kommenden Semester liefert dessen Plan — vorausgesetzt, man ist dort schon
+eingetragen (`semester_courses.semester_id = :semester_id`). Zwei Monate vor
+Beginn ist das meist nicht der Fall; eine leere Antwort ist dann kein Fehler.
+
+`ScheduleEntry::findByUser_id()` läuft **ohne** Semesterfilter: Selbst angelegte
+Termine kommen immer mit, egal welches Semester angefragt wird.
+
+## 12. Anmeldung der Weboberfläche läuft über Shibboleth
+
+`dispatch.php/login` der LUH bindet `login.uni-hannover.de` und
+`/Shibboleth.sso` ein. Praktische Folge für die Rückfallebenen: Wer eine
+gültige IdP-Sitzung in Safari hat, wird auf jeder von StudGo geöffneten
+Stud.IP-Seite ohne Zutun durchgereicht — der `SFSafariViewController` teilt
+sich den Cookie-Vorrat mit Safari.
+
+Ob die OAuth-Anmeldung diese Sitzung überhaupt anlegt, entscheidet
+`ASWebAuthenticationSession.prefersEphemeralWebBrowserSession` und damit die
+Einstellung „Im Browser angemeldet bleiben" (`Preferences.sharesWebSession`,
+Vorgabe **an**). Mit einer eigenen Sitzung bleibt kein Cookie zurück — dafür
+verlangt jede Webseite eine erneute Anmeldung.

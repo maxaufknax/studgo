@@ -434,7 +434,6 @@ struct MailSetupView: View {
 /// schlimmer als eine, die von vornherein sagt, woran man ist.
 struct NotificationSettingsView: View {
     @Environment(Preferences.self) private var preferences
-    @Environment(AuthStore.self) private var auth
 
     @State private var isAuthorized: Bool?
     @State private var pendingCount = 0
