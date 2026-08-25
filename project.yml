@@ -17,7 +17,7 @@ settings:
     # SWIFT_VERSION kennt nur Sprachmodi (5.0 / 6.0), keine Punktversionen.
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "1.2.0"
+    MARKETING_VERSION: "1.3.0"
     CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -54,6 +54,14 @@ targets:
         # Erspart bei jedem Upload die Frage nach der Exportkontrolle:
         # StudGo nutzt ausschließlich HTTPS des Systems.
         ITSAppUsesNonExemptEncryption: false
+        # Ohne diese beiden Einträge wirft `BGTaskScheduler.register` zur
+        # Laufzeit; die Kennung muss wortgleich zu `Notifications.refreshTaskID`
+        # sein. `fetch` allein genügt — StudGo braucht kein `processing`, der
+        # Lauf ist nach drei Anfragen fertig.
+        BGTaskSchedulerPermittedIdentifiers:
+          - de.maxaufknax.studgo.refresh
+        UIBackgroundModes:
+          - fetch
         STUDIP_CLIENT_ID: $(STUDIP_CLIENT_ID)
         STUDIP_CLIENT_SECRET: $(STUDIP_CLIENT_SECRET)
         CFBundleURLTypes:
