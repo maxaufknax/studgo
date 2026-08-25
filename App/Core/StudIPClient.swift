@@ -94,8 +94,21 @@ struct StudIPClient {
 
     // MARK: - Termine
 
-    func schedule(for userID: String) async throws -> [ScheduleEntry] {
-        try await get("/v1/users/\(userID)/schedule", limit: 500)
+    /// **Ohne `page[limit]`.** `/v1/users/{id}/schedule` ist in Stud.IP ein
+    /// *Show*-Endpunkt (`UserScheduleShow`) und lässt in
+    /// `$allowedPagingParameters` gar nichts zu. Jedes `page[...]` beantwortet
+    /// der Server mit `400 Page parameter limit is not allowed` — und die
+    /// Wochenansicht bleibt leer. Der Endpunkt liefert ohnehin immer den
+    /// vollständigen Plan eines Semesters, eine Seitenaufteilung wäre sinnlos.
+    ///
+    /// `filter[timestamp]` wählt das Semester (Standard: das laufende).
+    func schedule(for userID: String, semesterStart: Date? = nil) async throws -> [ScheduleEntry] {
+        var extra: [URLQueryItem] = []
+        if let semesterStart {
+            extra.append(URLQueryItem(name: "filter[timestamp]",
+                                      value: String(Int(semesterStart.timeIntervalSince1970))))
+        }
+        return try await get("/v1/users/\(userID)/schedule", extra: extra)
             .resources.compactMap(ScheduleEntry.init)
     }
 
@@ -281,10 +294,12 @@ struct StudIPClient {
         return components.url!
     }
 
-    private func get(_ path: String,
-                     limit: Int? = nil,
-                     include: [String] = [],
-                     extra: [URLQueryItem] = []) async throws -> JSONAPIDocument {
+    /// Nicht `private`: `StudIPClient+Campus.swift` setzt darauf auf, und
+    /// `private` gilt in Swift nur innerhalb derselben Datei.
+    func get(_ path: String,
+             limit: Int? = nil,
+             include: [String] = [],
+             extra: [URLQueryItem] = []) async throws -> JSONAPIDocument {
         var query = extra
         if let limit { query.append(URLQueryItem(name: "page[limit]", value: String(limit))) }
         if !include.isEmpty {
@@ -329,20 +344,21 @@ struct StudIPClient {
     /// Manche Beziehungen sind je nach Rechtelage nicht mitlieferbar; Stud.IP
     /// beantwortet ein unerlaubtes `include` dann mit 400. Das darf nicht die
     /// ganze Liste kosten — im Zweifel eben ohne die Zusatzdaten.
-    private func documentAllowingMissingIncludes(path: String,
-                                                 limit: Int,
-                                                 include: [String],
-                                                 fallback: [String]) async throws -> JSONAPIDocument {
+    func documentAllowingMissingIncludes(path: String,
+                                         limit: Int,
+                                         include: [String],
+                                         fallback: [String],
+                                         extra: [URLQueryItem] = []) async throws -> JSONAPIDocument {
         do {
-            return try await get(path, limit: limit, include: include)
+            return try await get(path, limit: limit, include: include, extra: extra)
         } catch let error as APIError {
             guard case .http(400, _) = error else { throw error }
-            return try await get(path, limit: limit, include: fallback)
+            return try await get(path, limit: limit, include: fallback, extra: extra)
         }
     }
 
     @discardableResult
-    private func send(_ method: String, _ path: String, body: [String: Any]) async throws -> JSONAPIDocument {
+    func send(_ method: String, _ path: String, body: [String: Any]) async throws -> JSONAPIDocument {
         var request = URLRequest(url: url(path: path, query: []))
         request.httpMethod = method
         request.setValue("Bearer \(try await tokenProvider())", forHTTPHeaderField: "Authorization")
