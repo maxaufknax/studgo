@@ -71,7 +71,7 @@ struct TimetableView: View {
         return (from, to)
     }
 
-    private func layout(in size: CGSize) -> Layout {
+    private func makeLayout(in size: CGSize) -> Layout {
         let columns = days
         // Auf ganze Punkte abrunden und den Rest der Stundenleiste geben:
         // So sitzt jede Spaltengrenze auf einer ganzen Bildschirmzeile.
@@ -94,7 +94,7 @@ struct TimetableView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let layout = layout(in: geometry.size)
+            let layout = makeLayout(in: geometry.size)
 
             VStack(spacing: 0) {
                 header(layout)
