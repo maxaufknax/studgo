@@ -16,6 +16,8 @@ struct CourseSearchView: View {
     @State private var results = Loadable<[Course]>()
     @State private var semesters = Loadable<[Semester]>()
     @State private var didSearch = false
+    /// Läuft, während getippt wird — eine Anfrage je Tastendruck wäre zu viel.
+    @State private var pending: Task<Void, Never>?
 
     private var sortedSemesters: [Semester] {
         (semesters.value ?? []).sorted { ($0.start ?? .distantPast) > ($1.start ?? .distantPast) }
@@ -37,7 +39,10 @@ struct CourseSearchView: View {
         }
         .listStyle(.insetGrouped)
         .searchable(text: $term, prompt: "Titel, Lehrende oder Nummer")
-        .onSubmit(of: .search) { Task { await search() } }
+        .onSubmit(of: .search) { schedule(delay: 0) }
+        // Von selbst suchen, sobald genug getippt ist. Vorher musste man die
+        // Eingabetaste treffen — wer das nicht tat, hielt die Suche für kaputt.
+        .onChange(of: term) { schedule(delay: 500) }
         .navigationTitle("Suchen")
         .navigationBarTitleDisplayMode(.inline)
         // Kein eigenes `navigationDestination(for: Course.self)`: Diese
@@ -66,13 +71,13 @@ struct CourseSearchView: View {
             Text("Eingrenzen")
         } footer: {
             Text(isTermTooShort
-                 ? "Mindestens drei Zeichen eingeben, dann die Eingabetaste drücken."
+                 ? "Mindestens drei Zeichen — Stud.IP lehnt kürzere Anfragen ab."
                  : "Aktuell: \(field.label) · \(semesterLabel)")
         }
         // Bei geänderten Filtern gleich neu suchen — aber nur, wenn schon
         // einmal gesucht wurde, sonst feuert die Ansicht beim Aufbau los.
-        .onChange(of: field) { if didSearch { Task { await search() } } }
-        .onChange(of: semesterChoice) { if didSearch { Task { await search() } } }
+        .onChange(of: field) { if didSearch { schedule(delay: 0) } }
+        .onChange(of: semesterChoice) { if didSearch { schedule(delay: 0) } }
     }
 
     // MARK: - Treffer
@@ -118,7 +123,7 @@ struct CourseSearchView: View {
             Section {
                 ContentUnavailableView("Veranstaltung suchen",
                                        systemImage: "magnifyingglass",
-                                       description: Text("Suchbegriff eingeben und die Eingabetaste drücken."))
+                                       description: Text("Mindestens drei Zeichen eingeben — gesucht wird von selbst."))
             }
         }
     }
@@ -128,6 +133,29 @@ struct CourseSearchView: View {
     private func loadSemesters() async {
         let client = auth.client
         await semesters.load { try await client.semesters() }
+    }
+
+    /// Wartet kurz ab, bevor gesucht wird, und verwirft dabei die vorige
+    /// noch nicht abgeschickte Anfrage.
+    private func schedule(delay milliseconds: Int) {
+        pending?.cancel()
+        guard !isTermTooShort else {
+            // Zurück auf den Ausgangszustand, sobald der Begriff zu kurz wird
+            // — ein alter Trefferstand zu einem gelöschten Suchwort verwirrt.
+            if term.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                results.value = nil
+                results.errorMessage = nil
+                didSearch = false
+            }
+            return
+        }
+        pending = Task {
+            if milliseconds > 0 {
+                try? await Task.sleep(for: .milliseconds(milliseconds))
+                guard !Task.isCancelled else { return }
+            }
+            await search()
+        }
     }
 
     private func search() async {

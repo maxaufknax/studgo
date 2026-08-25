@@ -67,7 +67,7 @@ struct BlubberThread: Identifiable, Equatable, Hashable {
         id = resource.id
         content = resource.string("content") ?? ""
         context = Context(rawValue: resource.string("context-type") ?? "") ?? .unknown
-        contextInfo = resource.string("context-info")?.strippingHTML.nilIfEmpty
+        contextInfo = resource.string("context-info").map(StudipMarkup.plain)?.nilIfEmpty
         isCommentable = resource.bool("is-commentable")
         isWritable = resource.bool("is-writable")
         isFollowed = resource.bool("is-followed")
@@ -82,7 +82,7 @@ struct BlubberThread: Identifiable, Equatable, Hashable {
         // `name` ist bei privaten Fäden gelegentlich leer — dann trägt der
         // Anfangsbeitrag die Überschrift, sonst stünde dort nichts.
         let given = resource.string("name")?.nilIfEmpty
-        name = given ?? content.strippingHTML.firstLine.nilIfEmpty ?? "Ohne Titel"
+        name = given ?? StudipMarkup.plain(from: content).firstLine.nilIfEmpty ?? "Ohne Titel"
     }
 
     /// Faden mit ungelesenen Kommentaren oder neuer als der letzte Besuch.
@@ -92,7 +92,7 @@ struct BlubberThread: Identifiable, Equatable, Hashable {
         return latestActivity > visitedAt
     }
 
-    var preview: String { content.strippingHTML }
+    var preview: String { StudipMarkup.plain(from: content) }
 
     /// Farbschlüssel: Fäden derselben Veranstaltung bekommen deren Farbe.
     var tintSeed: String { contextID ?? id }
@@ -115,7 +115,7 @@ struct BlubberComment: Identifiable, Equatable {
         authorID = author?.id ?? resource.relatedID("author")
     }
 
-    var text: String { content.strippingHTML }
+    var text: String { StudipMarkup.plain(from: content) }
 
     var initials: String {
         let parts = (authorName ?? "?").split(separator: " ")
@@ -132,6 +132,9 @@ struct ActivityItem: Identifiable, Equatable {
     let id: String
     let title: String
     let content: String
+    /// Der unbearbeitete Text — die Detailansicht setzt ihn mit Auszeichnung.
+    let rawTitle: String
+    let rawContent: String
     let verb: String
     /// `documents`, `forum`, `news`, `wiki`, `schedule`, `participants`, …
     /// abgeleitet aus dem Provider-Klassennamen.
@@ -143,11 +146,28 @@ struct ActivityItem: Identifiable, Equatable {
     let courseID: String?
     let courseName: String?
 
-    init?(_ resource: Resource, actor: Resource? = nil, context: Resource? = nil) {
+    /// Worauf sich die Meldung bezieht — Datei, Forenbeitrag, Ankündigung,
+    /// Wikiseite oder Veranstaltung. Erst damit lässt sich ein Eintrag
+    /// überhaupt öffnen.
+    let objectType: String?
+    let objectID: String?
+    /// Anzeigename des Ziels, sofern Stud.IP ihn mitgeliefert hat.
+    let objectName: String?
+
+    init?(_ resource: Resource,
+          actor: Resource? = nil,
+          context: Resource? = nil,
+          object: Resource? = nil) {
         guard resource.type == "activities" else { return nil }
         id = resource.id
-        title = resource.string("title")?.strippingHTML.nilIfEmpty ?? "Aktivität"
-        content = resource.string("content")?.strippingHTML ?? ""
+        // `title` ist ein fertig formulierter Satz ("… hat eine Datei im Kurs
+        // \"…\" hochgeladen"), `content` der eigentliche Inhalt. Beide werden
+        // **roh** behalten: Was davon Auszeichnung ist, entscheidet erst die
+        // Anzeige — in der Liste eine Zeile, in der Detailansicht alles.
+        rawTitle = resource.string("title") ?? ""
+        title = StudipMarkup.plain(from: rawTitle).nilIfEmpty ?? "Aktivität"
+        rawContent = resource.string("content") ?? ""
+        content = StudipMarkup.plain(from: rawContent)
         verb = resource.string("verb") ?? ""
         activityType = resource.string("activity-type")?.nilIfEmpty
         createdAt = resource.date("mkdate")
@@ -156,6 +176,12 @@ struct ActivityItem: Identifiable, Equatable {
         let reference = resource.relatedReference("context")
         courseID = reference?.type == "courses" ? reference?.id : nil
         courseName = context?.type == "courses" ? context?.string("title") : nil
+        let target = resource.relatedReference("object")
+        objectType = target?.type ?? object?.type
+        objectID = target?.id ?? object?.id
+        objectName = object.flatMap {
+            $0.string("name") ?? $0.string("title") ?? $0.string("subject")
+        }?.nilIfEmpty
     }
 
     /// Symbol passend zur Art der Aktivität.
@@ -215,7 +241,7 @@ struct ForumEntry: Identifiable, Equatable, Hashable {
         content = resource.string("content") ?? ""
     }
 
-    var text: String { content.strippingHTML }
+    var text: String { StudipMarkup.plain(from: content) }
 }
 
 // MARK: - Wiki
@@ -236,7 +262,10 @@ struct WikiPage: Identifiable, Equatable, Hashable {
         version = resource.int("version") ?? 1
     }
 
-    var text: String { content.strippingHTML }
+    var text: String { StudipMarkup.plain(from: content) }
+
+    /// Die Startseite eines Stud.IP-Wikis heißt immer so.
+    var isStartPage: Bool { name == "WikiWikiWeb" }
 }
 
 // MARK: - Einrichtung

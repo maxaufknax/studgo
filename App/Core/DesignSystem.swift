@@ -31,27 +31,28 @@ enum Tint {
     }
 
     private static func hue(_ seed: String) -> Double {
-        let hues = Palette.current.hues
+        let hues = Palette.shared.current.hues
         return hues[Int(fingerprint(seed) % UInt64(hues.count))]
     }
 
     /// Kräftige Variante für Text, Symbole und Balken.
     static func color(_ seed: String) -> Color {
-        Palette.current.courseColor(hue: hue(seed))
+        Palette.shared.current.courseColor(hue: hue(seed))
     }
 
     /// Flächenvariante für Kartenhintergründe — so blass, dass Text darauf
     /// in beiden Erscheinungsbildern lesbar bleibt.
     static func surface(_ seed: String) -> Color {
-        Palette.current.courseSurface(hue: hue(seed))
+        Palette.shared.current.courseSurface(hue: hue(seed))
     }
 
     /// Verlauf aus der Kursfarbe — für Kopfflächen, die mehr tragen sollen
     /// als eine einzelne Fläche.
     static func gradient(_ seed: String) -> LinearGradient {
         let base = hue(seed)
-        return LinearGradient(colors: [Palette.current.courseColor(hue: base),
-                                       Palette.current.courseColor(hue: base + 22)],
+        let palette = Palette.shared.current
+        return LinearGradient(colors: [palette.courseColor(hue: base),
+                                       palette.courseColor(hue: base + 22)],
                               startPoint: .topLeading,
                               endPoint: .bottomTrailing)
     }

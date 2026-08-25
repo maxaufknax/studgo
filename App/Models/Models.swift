@@ -67,11 +67,70 @@ struct Course: Identifiable, Equatable {
 struct SemType: Identifiable, Equatable {
     let id: String
     let name: String
+    /// Zu welcher Veranstaltungsklasse die Art gehört — daran hängt, ob es
+    /// sich um eine Studiengruppe handelt.
+    let classID: String?
 
     init?(_ resource: Resource) {
         guard resource.type == "sem-types" else { return nil }
         id = resource.id
         name = resource.string("name")?.nilIfEmpty ?? ""
+        classID = resource.relatedID("sem-class") ?? resource.relatedID("class")
+    }
+}
+
+/// Was in dieser Stud.IP-Installation eine Studiengruppe ist.
+///
+/// Studiengruppen sind **keine eigene Ressource**: Es sind gewöhnliche
+/// Veranstaltungen, die zu einer Veranstaltungsklasse mit `studygroup_mode`
+/// gehören. Dieses Kennzeichen steht aber in **keinem** Schema — weder
+/// `courses` noch `sem-classes` geben es heraus (`Schemas/SemClass.php` führt
+/// nur `name`, `bereiche`, `visible` und Ähnliches auf). Aus der Antwort
+/// allein ist eine Studiengruppe also nicht zu erkennen.
+///
+/// Der Umweg, der trotzdem trägt: `/v1/studygroup-proposals` filtert
+/// serverseitig `status IN (:studygroup_types)`. Was von dort kommt, **ist**
+/// per Konstruktion eine Studiengruppe. Über deren `course-type` und die
+/// Klassenzuordnung aus `/v1/sem-types` (die ihre `sem-class`-Beziehung immer
+/// mitliefert) ergibt sich der Rest: alle Arten derselben Klasse und die
+/// Klassen-ID für `filter[category]` der Suche.
+struct StudygroupKinds: Equatable {
+    /// Alle Veranstaltungsarten, die zur Studiengruppen-Klasse gehören.
+    let typeIDs: Set<Int>
+    /// Die Klasse selbst — Filterwert für die Suche.
+    let classID: String?
+
+    static let unknown = StudygroupKinds(typeIDs: [], classID: nil)
+
+    var isKnown: Bool { !typeIDs.isEmpty }
+
+    /// Leitet die Zuordnung aus einer Handvoll bekannter Studiengruppen und
+    /// der vollständigen Artenliste ab.
+    init(proposals: [Course], semTypes: [SemType]) {
+        let seeded = Set(proposals.compactMap(\.typeID))
+        guard !seeded.isEmpty else {
+            self = .unknown
+            return
+        }
+        // Die Klasse einer belegten Art gilt für alle ihre Geschwister.
+        let classes = Set(semTypes
+            .filter { Int($0.id).map(seeded.contains) ?? false }
+            .compactMap(\.classID))
+        let siblings = semTypes
+            .filter { $0.classID.map(classes.contains) ?? false }
+            .compactMap { Int($0.id) }
+        typeIDs = seeded.union(siblings)
+        classID = classes.sorted().first
+    }
+
+    private init(typeIDs: Set<Int>, classID: String?) {
+        self.typeIDs = typeIDs
+        self.classID = classID
+    }
+
+    func contains(_ typeID: Int?) -> Bool {
+        guard let typeID else { return false }
+        return typeIDs.contains(typeID)
     }
 }
 
@@ -155,7 +214,12 @@ struct CourseEvent: Identifiable, Equatable {
     let end: Date
     let location: String?
     let category: String?
+    /// Der von Stud.IP fertig formulierte Turnus ("wöchentlich", "einmalig").
+    /// Beide Terminarten liefern ihn im Attribut `recurrence`.
+    let recurrence: String?
     let isCancelled: Bool
+    /// Persönlicher Kalendereintrag statt Veranstaltungstermin.
+    let isPersonal: Bool
     /// Nur gesetzt, wenn `owner` wirklich auf eine Veranstaltung zeigt: bei
     /// `calendar-events` ist der Besitzer oft die eigene Person, und ein
     /// Nutzer-Kürzel als Kursbezug wäre schlicht falsch.
@@ -171,16 +235,18 @@ struct CourseEvent: Identifiable, Equatable {
         end = resource.date("end") ?? start
         location = resource.string("location")?.nilIfEmpty
         category = resource.string("categories")?.nilIfEmpty
+        recurrence = resource.string("recurrence")?.nilIfEmpty
         // Nur `course-events` kennen ausgefallene Termine.
         isCancelled = resource.bool("is-cancelled")
         let owner = resource.relatedReference("owner")
+        isPersonal = resource.type == "calendar-events" && owner?.type != "courses"
         courseID = owner?.type == "courses" ? owner?.id : nil
     }
 
     /// Bei `course-events` steht im Titel der Veranstaltungsname und im
     /// Beschreibungsfeld das Thema der Sitzung. In der Terminliste einer
     /// Veranstaltung ist deshalb das Thema die eigentliche Information.
-    var topic: String? { description?.strippingHTML.nilIfEmpty }
+    var topic: String? { description.map(StudipMarkup.plain)?.nilIfEmpty }
 
     /// Macht aus einem wiederkehrenden Stundenplaneintrag die konkrete
     /// Sitzung eines Tages.
@@ -197,11 +263,17 @@ struct CourseEvent: Identifiable, Equatable {
         end = day.addingTimeInterval(TimeInterval(entry.endMinutes * 60))
         location = entry.location
         category = nil
+        recurrence = entry.isCourse ? "wöchentlich" : nil
         // Ob eine Sitzung ausfällt, weiß nur `/v1/courses/{id}/events` —
         // das wäre eine Anfrage je Veranstaltung.
         isCancelled = false
+        isPersonal = !entry.isCourse
         courseID = entry.courseID
     }
+
+    /// Aus dem Stundenplan abgeleitet statt vom Server geholt — die
+    /// Detailansicht sagt das dazu, damit niemand einen Ausfall vermisst.
+    var isDerived: Bool { id.hasPrefix("plan-") }
 
     var tintSeed: String { courseID ?? title }
 
@@ -245,7 +317,7 @@ struct Message: Identifiable, Equatable {
             : first
     }
 
-    var preview: String { body.strippingHTML }
+    var preview: String { StudipMarkup.plain(from: body) }
 }
 
 struct NewsItem: Identifiable, Equatable {
@@ -263,6 +335,9 @@ struct NewsItem: Identifiable, Equatable {
         publishedAt = resource.date("publication-start") ?? resource.date("mkdate")
         authorName = author.flatMap { $0.string("formatted-name") ?? $0.string("username") }
     }
+
+    /// Eine Zeile für die Liste — ohne Auszeichnungszeichen.
+    var preview: String { StudipMarkup.plain(from: content) }
 }
 
 struct Semester: Identifiable, Equatable {
@@ -298,7 +373,11 @@ extension String {
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    /// Stud.IP liefert Beschreibungen und Nachrichten teils als HTML.
+    /// Grober Tag-Abbau. **Nur für Notfälle** — Stud.IP-Texte sind in aller
+    /// Regel *keine* HTML-Dokumente, sondern eigene Auszeichnung (`**fett**`,
+    /// `- Liste`, `[Text]url`); die bleibt hier stehen und landete früher
+    /// wörtlich in der Anzeige. Für alles, was jemand liest, gehört
+    /// `StudipMarkup` genommen.
     var strippingHTML: String {
         replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: .regularExpression)
             .replacingOccurrences(of: "</p>", with: "\n\n")

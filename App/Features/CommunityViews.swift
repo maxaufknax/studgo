@@ -90,7 +90,9 @@ struct PersonSheet: View {
             }
             .task { await determineContactState() }
         }
-        .presentationDetents([.medium, .large])
+        // Ganze Höhe: Von hier aus wird in die Sprechstunde weitergeschoben,
+        // und eine Terminliste auf halber Blatthöhe ist nicht zu bedienen.
+        .presentationDetents([.large])
     }
 
     private func determineContactState() async {
@@ -207,49 +209,172 @@ struct PersonSearchView: View {
 
 // MARK: - Studiengruppen
 
-/// Studiengruppen, die Stud.IP vorschlägt.
+/// Studiengruppen: die eigenen, Vorschläge und die Suche.
 ///
-/// Die Auswahl entsteht daraus, in welchen Gruppen Leute aus den eigenen
-/// Veranstaltungen sind — es ist also ein echter Vorschlag, keine Liste
-/// aller Gruppen. Beitreten geht wie bei jeder Veranstaltung nur über die
-/// Weboberfläche.
+/// **Was die Schnittstelle hergibt und was nicht:** Eine Route „alle
+/// Studiengruppen" existiert nicht — Studiengruppen sind gewöhnliche
+/// Veranstaltungen einer bestimmten Klasse. `/v1/studygroup-proposals` liefert
+/// ausdrücklich nur *Vorschläge*, und zwar solche, in denen man **nicht**
+/// Mitglied ist; die Auswahl wird serverseitig zufällig gemischt. Die eigenen
+/// Gruppen standen deshalb nirgends, obwohl man sie hier zuerst sucht.
+///
+/// Diese Ansicht führt beides zusammen: oben die eigenen Gruppen (aus der
+/// Veranstaltungsliste herausgefiltert), darunter die Vorschläge — und eine
+/// Suche über das ganze Verzeichnis, eingegrenzt auf die Studiengruppen-Klasse.
 struct StudygroupsView: View {
     @Environment(AuthStore.self) private var auth
 
-    @State private var groups = Loadable<[Course]>()
+    @State private var mine = Loadable<[Course]>()
+    @State private var proposals = Loadable<[Course]>()
+    @State private var search = ""
+    @State private var found = Loadable<[Course]>()
+    @State private var pending: Task<Void, Never>?
+
+    private var isSearching: Bool {
+        search.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3
+    }
+
+    private var isEmptyAltogether: Bool {
+        (mine.value ?? []).isEmpty && (proposals.value ?? []).isEmpty && !isSearching
+    }
 
     var body: some View {
         List {
-            Section {
-                ForEach(groups.value ?? []) { group in
-                    NavigationLink(value: group) {
-                        CourseRow(course: group, typeName: auth.courseTypeName(group.typeID))
-                    }
-                }
-            } footer: {
-                if !(groups.value ?? []).isEmpty {
-                    Text("Vorgeschlagen, weil Leute aus deinen Veranstaltungen dabei sind. Beitreten läuft über die Stud.IP-Weboberfläche.")
-                }
+            if isSearching {
+                searchResults
+            } else {
+                mineSection
+                proposalSection
             }
         }
         .listStyle(.insetGrouped)
         .overlay {
-            StateOverlay(isLoading: groups.isLoading,
-                         errorMessage: groups.errorMessage,
-                         isEmpty: (groups.value ?? []).isEmpty,
-                         emptyText: "Keine Vorschläge",
+            StateOverlay(isLoading: mine.isLoading && proposals.isLoading,
+                         errorMessage: proposals.errorMessage ?? mine.errorMessage,
+                         isEmpty: isEmptyAltogether,
+                         emptyText: "Keine Studiengruppen",
                          emptySymbol: "person.3",
                          retry: { Task { await reload(fresh: true) } })
         }
+        .searchable(text: $search, prompt: "Studiengruppe suchen")
+        .onSubmit(of: .search) { schedule(delay: 0) }
+        .onChange(of: search) { schedule(delay: 500) }
         .navigationTitle("Studiengruppen")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await reload(fresh: true) }
-        .task { if groups.value == nil { await reload(fresh: false) } }
+        .task { if proposals.value == nil { await reload(fresh: false) } }
     }
+
+    // MARK: - Abschnitte
+
+    @ViewBuilder
+    private var mineSection: some View {
+        if let groups = mine.value, !groups.isEmpty {
+            Section {
+                ForEach(groups) { group in
+                    NavigationLink(value: group) {
+                        CourseRow(course: group, typeName: auth.courseTypeName(group.typeID))
+                    }
+                }
+            } header: {
+                Text("Meine Gruppen")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var proposalSection: some View {
+        Section {
+            if let groups = proposals.value, !groups.isEmpty {
+                ForEach(groups) { group in
+                    NavigationLink(value: group) {
+                        CourseRow(course: group, typeName: auth.courseTypeName(group.typeID))
+                    }
+                }
+            } else {
+                CampusPlaceholderRow(isLoading: proposals.isLoading,
+                                     message: proposals.errorMessage ?? "Zurzeit keine Vorschläge",
+                                     symbol: "person.3")
+            }
+        } header: {
+            Text("Vorschläge")
+        } footer: {
+            Text("Vorgeschlagen, weil Leute aus deinen Veranstaltungen dabei sind oder die Gruppe zu deinem Studiengang passt. Stud.IP mischt die Auswahl bei jedem Laden neu. Beitreten läuft über die Weboberfläche.")
+        }
+    }
+
+    @ViewBuilder
+    private var searchResults: some View {
+        Section {
+            if found.isLoading {
+                CampusPlaceholderRow(isLoading: true, message: "", symbol: "magnifyingglass")
+            } else if let message = found.errorMessage {
+                CampusPlaceholderRow(isLoading: false, message: message,
+                                     symbol: "exclamationmark.triangle")
+            } else if let groups = found.value {
+                if groups.isEmpty {
+                    Text("Keine Studiengruppe gefunden.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(groups) { group in
+                        NavigationLink(value: group) {
+                            CourseRow(course: group, typeName: auth.courseTypeName(group.typeID))
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text(found.value.map { "\($0.count) Treffer" } ?? "Suche")
+        } footer: {
+            if !auth.studygroupKinds.isKnown {
+                // Ehrlich bleiben statt still nichts zu tun: Ohne bekannte
+                // Klasse durchsucht die Anfrage das ganze Verzeichnis.
+                Text("Welche Veranstaltungsarten hier Studiengruppen sind, ließ sich nicht ermitteln — die Suche geht deshalb über das ganze Vorlesungsverzeichnis.")
+            }
+        }
+    }
+
+    // MARK: - Laden
 
     private func reload(fresh: Bool) async {
         let client = fresh ? auth.freshClient : auth.client
-        await groups.load { try await client.studygroupProposals() }
+        let kinds = auth.studygroupKinds
+        let me = auth.currentUserID
+        async let suggested: Void = proposals.load { try await client.studygroupProposals() }
+        async let own: Void = mine.load {
+            guard let me else { return [] }
+            return try await client.studygroups(for: me, kinds: kinds)
+        }
+        _ = await (suggested, own)
+    }
+
+    private func schedule(delay milliseconds: Int) {
+        pending?.cancel()
+        guard isSearching else {
+            found.value = nil
+            found.errorMessage = nil
+            return
+        }
+        pending = Task {
+            if milliseconds > 0 {
+                try? await Task.sleep(for: .milliseconds(milliseconds))
+                guard !Task.isCancelled else { return }
+            }
+            await runSearch()
+        }
+    }
+
+    private func runSearch() async {
+        let client = auth.client
+        let term = search
+        let classID = auth.studygroupKinds.classID
+        await found.load {
+            if let classID {
+                return try await client.searchStudygroups(term, classID: classID)
+            }
+            return try await client.searchCourses(term)
+        }
     }
 }
 

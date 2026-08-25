@@ -92,7 +92,7 @@ struct CoursesView: View {
             }
             .listStyle(.insetGrouped)
             .searchable(text: $search, prompt: "Veranstaltung suchen")
-            .navigationDestination(for: Course.self) { CourseDetailView(course: $0) }
+            .studGoDestinations()
             .overlay {
                 StateOverlay(isLoading: courses.isLoading,
                              errorMessage: courses.errorMessage,
