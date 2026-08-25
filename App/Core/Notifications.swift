@@ -45,7 +45,13 @@ enum Notifications {
     /// für die Meldungen aus dem Hintergrund Platz bleibt.
     private static let maxScheduledEvents = 48
 
-    private static let center = UNUserNotificationCenter.current()
+    /// Jedes Mal frisch geholt statt als `static let` abgelegt.
+    ///
+    /// `UNUserNotificationCenter` ist selbst nicht `Sendable`; als
+    /// unveränderliche globale Eigenschaft eines aktorfreien Typs wäre das
+    /// unter strengerer Nebenläufigkeitsprüfung ein Fehler. `current()` ist
+    /// ohnehin nur ein Zugriff auf ein Singleton.
+    private static var center: UNUserNotificationCenter { .current() }
 
     // MARK: - Erlaubnis
 

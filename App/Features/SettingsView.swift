@@ -75,6 +75,24 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 6)
                     .accessibilityElement(children: .combine)
+
+                    // Ein Profilbild will zugeschnitten und beschnitten
+                    // werden; die API kennt dafür überhaupt nichts
+                    // (`Schemas/User` gibt die Adresse des Bildes heraus,
+                    // mehr nicht). Der Weg dorthin ist ehrlicher als ein
+                    // halbes Werkzeug.
+                    Button {
+                        webTarget = WebTarget(url: WebLinks.avatarSettings)
+                    } label: {
+                        RowLabel(symbol: "person.crop.circle.badge.plus",
+                                 title: "Profilbild ändern",
+                                 subtitle: "In Stud.IP") {
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 Section("Darstellung") {

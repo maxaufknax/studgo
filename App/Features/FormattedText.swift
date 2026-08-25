@@ -232,23 +232,3 @@ struct ExpandableText: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-/// Eine einzelne Zeile Stud.IP-Text mit Auszeichnung — für Listenzeilen,
-/// Untertitel und alles, wo genau eine Zeile Platz hat.
-///
-/// Nimmt dem Aufrufer die Entscheidung ab, ob ein Feld HTML enthält: Bis 1.2.0
-/// wurden Ordner- und Kursbeschreibungen als schlichtes `Text(...)` gesetzt,
-/// und dort standen dann `<p>` und `&auml;` wörtlich im Bild.
-struct MarkupLine: View {
-    let raw: String
-    var font: Font = .caption
-    var lineLimit: Int = 2
-    var color: Color = .secondary
-
-    var body: some View {
-        Text(StudipMarkup.plain(from: raw).replacingOccurrences(of: "\n", with: " "))
-            .font(font)
-            .foregroundStyle(color)
-            .lineLimit(lineLimit)
-    }
-}

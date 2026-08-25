@@ -11,6 +11,8 @@ struct EventDetailView: View {
     /// Name der Veranstaltung, sofern die aufrufende Ansicht ihn schon kennt.
     var courseTitle: String?
 
+    @State private var webTarget: WebTarget?
+
     private var headline: String {
         // Bei `course-events` steht im Titel der Veranstaltungsname und im
         // Beschreibungsfeld das Thema der Sitzung — hier zählt das Thema.
@@ -30,6 +32,7 @@ struct EventDetailView: View {
                 if let description = event.description, event.topic != nil || !description.isEmpty {
                     notes(description)
                 }
+                if let location = event.location { roomLink(location) }
                 if let courseID = event.courseID { courseLink(courseID) }
                 if event.isDerived { derivedHint }
             }
@@ -39,6 +42,31 @@ struct EventDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Termin")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $webTarget) { target in
+            WebSheet(url: target.url).ignoresSafeArea()
+        }
+    }
+
+    /// Der Weg zum Hörsaal.
+    ///
+    /// Der Standortfinder der LUH ist eine Kartenanwendung ohne
+    /// Schnittstelle — nachbauen ließe sich davon nichts, verlinken alles.
+    /// Stud.IP schreibt Räume als „1101 - E001": Die führende Zahl ist die
+    /// Gebäudenummer, und danach sucht der Standortfinder zuverlässig.
+    private func roomLink(_ location: String) -> some View {
+        Button {
+            webTarget = WebTarget(url: WebLinks.campusMap(searching: location))
+        } label: {
+            RowLabel(symbol: "map",
+                     title: "Raum auf dem Campusplan",
+                     subtitle: location) {
+                Image(systemName: "arrow.up.right.square")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .card()
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Kopf
