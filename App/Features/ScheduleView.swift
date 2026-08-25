@@ -16,10 +16,14 @@ struct ScheduleView: View {
     @State private var entries = Loadable<[ScheduleEntry]>()
     @State private var events = Loadable<[CourseEvent]>()
     @State private var semesters = Loadable<[Semester]>()
-    @State private var selected: ScheduleEntry?
+
+    /// Ein eigener Pfad, weil das Wochenraster aus einem Rückruf heraus
+    /// weiterschaltet — ein `NavigationLink` sitzt in einem angetippten
+    /// Block nicht sinnvoll unter.
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 SegmentedHeader(title: "Ansicht",
                                 options: Mode.allCases,
@@ -42,9 +46,7 @@ struct ScheduleView: View {
                     .accessibilityLabel("Aktualisieren")
                 }
             }
-            .sheet(item: $selected) { entry in
-                ScheduleEntryDetailView(entry: entry)
-            }
+            .studGoDestinations()
             .task { await reloadIfNeeded() }
         }
     }
@@ -54,7 +56,7 @@ struct ScheduleView: View {
     private var week: some View {
         Group {
             if let plan = entries.value, !plan.isEmpty {
-                TimetableView(entries: plan) { selected = $0 }
+                TimetableView(entries: plan) { path.append($0) }
             } else {
                 StateOverlay(isLoading: entries.isLoading,
                              errorMessage: entries.errorMessage,
@@ -86,7 +88,9 @@ struct ScheduleView: View {
         List {
             ForEach(byDay, id: \.day) { group in
                 Section(Format.dayHeader(group.day)) {
-                    ForEach(group.events) { EventRow(event: $0) }
+                    ForEach(group.events) { event in
+                        NavigationLink(value: event) { EventRow(event: event) }
+                    }
                 }
             }
         }
@@ -119,62 +123,6 @@ struct ScheduleView: View {
         async let dates: Void = events.load { try await client.events(for: user.id) }
         async let terms: Void = semesters.load { try await client.semesters() }
         _ = await (plan, dates, terms)
-    }
-}
-
-/// Was hinter einem Block im Wochenraster steckt — und der Weg von dort in
-/// die zugehörige Veranstaltung.
-struct ScheduleEntryDetailView: View {
-    let entry: ScheduleEntry
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(entry.title)
-                            .font(.headline)
-                        Text("\(entry.weekdayName), \(entry.timeRange)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                    .listRowBackground(Tint.surface(entry.tintSeed))
-                }
-
-                Section {
-                    if let location = entry.location {
-                        LabeledContent("Ort", value: location)
-                    }
-                    LabeledContent("Art", value: entry.isCourse ? "Veranstaltung" : "Eigener Eintrag")
-                }
-
-                if let description = entry.description?.strippingHTML, !description.isEmpty {
-                    Section("Notiz") {
-                        Text(description).font(.callout)
-                    }
-                }
-
-                if let courseID = entry.courseID {
-                    Section {
-                        NavigationLink {
-                            CourseLoaderView(courseID: courseID)
-                        } label: {
-                            RowLabel(symbol: "books.vertical", title: "Zur Veranstaltung")
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Termin")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
     }
 }
 

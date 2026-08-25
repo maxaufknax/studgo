@@ -121,6 +121,7 @@ struct SettingsView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .studGoDestinations()
             .navigationTitle("Profil")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -216,7 +216,7 @@ final class ThemeStore {
     var theme: AppTheme {
         didSet {
             UserDefaults.standard.set(theme.rawValue, forKey: Key.theme)
-            Palette.current = theme
+            Palette.shared.current = theme
         }
     }
 
@@ -231,7 +231,7 @@ final class ThemeStore {
 
     /// Name des aktiven Themas, ohne dass der Aufrufer den Store braucht —
     /// für Zeilen, die das Thema nur benennen statt es zu ändern.
-    static var currentName: String { Palette.current.name }
+    static var currentName: String { Palette.shared.current.name }
 
     init() {
         let defaults = UserDefaults.standard
@@ -240,7 +240,7 @@ final class ThemeStore {
         theme = storedTheme ?? .leibniz
         appearance = storedAppearance ?? .system
         isCompact = defaults.bool(forKey: Key.compact)
-        Palette.current = theme
+        Palette.shared.current = theme
     }
 }
 
@@ -250,7 +250,21 @@ final class ThemeStore {
 /// dorthin durchzureichen hieße, jede dieser Ansichten um einen Parameter zu
 /// erweitern. Stattdessen hält `Palette` den aktuellen Stand, und `ThemeStore`
 /// schreibt ihn bei jeder Änderung fort.
-enum Palette {
+///
+/// **Warum eine beobachtbare Klasse und kein `static var`:** Als schlichte
+/// statische Eigenschaft merkte SwiftUI nichts von der Änderung. Wer in der
+/// Farbwahl ein anderes Thema antippte, sah die Vorschau darunter unverändert
+/// — sie las zwar `Tint.color(…)`, hing aber an keinem beobachteten Wert und
+/// wurde deshalb nicht neu gezeichnet. Erst nach einmal Zurück und wieder
+/// Hinein baute SwiftUI die Ansicht neu auf und die Farben stimmten. Als
+/// `@Observable` wird jeder Lesezugriff aus einem `body` heraus verzeichnet,
+/// und die Umstellung schlägt sofort in der ganzen App durch.
+@Observable
+final class Palette {
+    static let shared = Palette()
+
     /// Nur vom `ThemeStore` beschrieben, und der lebt auf dem MainActor.
-    static var current: AppTheme = .leibniz
+    var current: AppTheme = .leibniz
+
+    private init() {}
 }
