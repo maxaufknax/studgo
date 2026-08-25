@@ -10,15 +10,18 @@ struct TodayView: View {
     @State private var semesters = Loadable<[Semester]>()
     @State private var messages = Loadable<[Message]>()
     @State private var news = Loadable<[NewsItem]>()
+    @State private var courses: [Course] = []
     @State private var isShowingSettings = false
 
     /// Persönliche Termine plus die aus dem Stundenplan abgeleiteten
     /// Sitzungen — warum das nötig ist, steht in `EventMerge`.
+    private var context: SemesterContext { SemesterContext(semesters.value ?? []) }
+
     private var allEvents: [CourseEvent] {
         EventMerge.combine(dated: events.value ?? [],
-                           plan: plan.value ?? [],
-                           semesters: semesters.value ?? [],
-                           days: 14)
+                           plans: [EventMerge.PlanWindow(entries: plan.value ?? [],
+                                                         semester: context.current())],
+                           days: 21)
     }
 
     private var current: CourseEvent? {
@@ -157,15 +160,18 @@ struct TodayView: View {
 
     private var freeCard: some View {
         HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
+            Image(systemName: context.isSemesterBreak ? "sun.max.fill" : "checkmark.circle.fill")
                 .font(.title2)
-                .foregroundStyle(.green)
+                .foregroundStyle(context.isSemesterBreak ? .orange : .green)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Nichts mehr im Kalender")
+                Text(context.isSemesterBreak ? "Semesterferien" : "Nichts mehr im Kalender")
                     .font(.subheadline.weight(.semibold))
-                Text("Für die nächsten Wochen sind keine Termine eingetragen.")
+                // Ohne Begründung sieht ein leerer Startbildschirm nach einem
+                // Fehler aus — im August ist er schlicht richtig.
+                Text(context.emptyExplanation())
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
@@ -237,13 +243,25 @@ struct TodayView: View {
         // Die Abschnitte sind voneinander unabhängig — parallel laden.
         // Stundenplan und Semester teilen sich den Zwischenspeicher mit den
         // anderen Tabs, kosten hier also meist keine eigene Anfrage.
-        async let loadEvents: Void = events.load { try await client.events(for: user.id, weeks: 4) }
+        // Bevorzugt der ICS-Strom: Er liefert echte Sitzungen samt Ausfällen
+        // (siehe `StudIPClient.calendarEvents`). Der alte Weg bleibt als
+        // Rückfallebene — dann fehlen zwar Ausfälle, aber nicht der Termin.
+        let known = courses
+        async let loadEvents: Void = events.load {
+            do { return try await client.calendarEvents(for: user.id, courses: known) }
+            catch { return try await client.events(for: user.id, weeks: 4) }
+        }
         async let loadPlan: Void = plan.load { try await client.schedule(for: user.id) }
         async let loadSemesters: Void = semesters.load { try await client.semesters() }
         async let loadMessages: Void = messages.load { try await client.inbox(for: user.id) }
         async let loadNews: Void = news.load { try await client.news(for: user.id) }
         _ = await (loadEvents, loadPlan, loadSemesters, loadMessages, loadNews)
         auth.noteUnread((messages.value ?? []).filter { !$0.isRead }.count)
+        // Für die Kursfarben im Kalender: Der ICS-Strom nennt nur den
+        // Veranstaltungsnamen, nicht die Kennung.
+        if courses.isEmpty, let loaded = try? await client.courses(for: user.id) {
+            courses = loaded
+        }
     }
 }
 

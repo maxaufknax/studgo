@@ -271,6 +271,35 @@ struct CourseEvent: Identifiable, Equatable {
         courseID = entry.courseID
     }
 
+    /// Ein Termin aus dem ICS-Strom (`GET /users/{id}/events.ics`).
+    ///
+    /// Das ist die einzige Quelle, die **echte** Sitzungen der belegten
+    /// Veranstaltungen mit Datum liefert — samt Raum, Thema und Ausfällen,
+    /// und zwar bis weit ins kommende Semester. Siehe `ICSParser`.
+    init(ics event: ICSParser.Event, courseID: String?) {
+        id = event.uid
+        // Stud.IP hängt bei abgesagten Sitzungen „(fällt aus)" an den Titel
+        // (`prepareCourseDate`). Als Text gehört das nicht in die Zeile — die
+        // Ansicht zeigt Ausfälle durchgestrichen und mit eigenem Kennzeichen.
+        let cancelledMarks = ["(fällt aus)", "(cancelled)"]
+        let mark = cancelledMarks.first { event.summary.localizedCaseInsensitiveContains($0) }
+        isCancelled = mark != nil
+        var name = event.summary
+        if let mark, let range = name.range(of: mark, options: .caseInsensitive) {
+            name.removeSubrange(range)
+        }
+        title = name.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "Termin"
+
+        description = event.description
+        start = event.start
+        end = event.end
+        location = event.location
+        category = event.categories
+        recurrence = nil
+        isPersonal = !event.isCourseDate
+        self.courseID = courseID
+    }
+
     /// Aus dem Stundenplan abgeleitet statt vom Server geholt — die
     /// Detailansicht sagt das dazu, damit niemand einen Ausfall vermisst.
     var isDerived: Bool { id.hasPrefix("plan-") }

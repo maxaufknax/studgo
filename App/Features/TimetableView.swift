@@ -13,6 +13,13 @@ import SwiftUI
 /// fest verdrahtet — im Querformat lief das Raster deshalb unten aus dem Bild.
 struct TimetableView: View {
     let entries: [ScheduleEntry]
+    /// Welche Wochentage nebeneinander stehen (1 = Montag … 7 = Sonntag).
+    /// `nil` heißt: Montag bis Freitag plus alles, worauf ein Termin fällt.
+    ///
+    /// Mit fünf Spalten ist eine Telefonspalte rund 60 Punkte breit — darin
+    /// steht von „Grundlagen der Rechnerarchitektur" nichts Lesbares. Deshalb
+    /// bestimmt der Kalender die Spaltenzahl (3 / Mo–Fr / ganze Woche).
+    var visibleDays: [Int]?
     var onSelect: (ScheduleEntry) -> Void = { _ in }
 
     // MARK: - Maße
@@ -49,9 +56,10 @@ struct TimetableView: View {
 
     /// Sonntag kommt aus Stud.IP mal als 7, mal als 0.
     private var days: [Int] {
+        if let visibleDays, !visibleDays.isEmpty { return visibleDays }
         // Montag bis Freitag stehen immer, damit ein leerer Freitag als
         // freier Tag sichtbar wird statt einfach zu fehlen.
-        Set(1...5).union(Set(entries.map(\.normalizedWeekday))).sorted()
+        return Set(1...5).union(Set(entries.map(\.normalizedWeekday))).sorted()
     }
 
     /// Angezeigter Zeitraum, auf volle Stunden gerundet und auf mindestens
