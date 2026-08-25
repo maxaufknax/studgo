@@ -4,10 +4,12 @@
 Auf dem Homeserver gibt es keinen Swift-Compiler; gebaut wird erst bei
 Codemagic. Dieses Skript fängt die Fehlerklassen ab, die einen Build-Durchlauf
 sonst für eine Kleinigkeit verbrennen: unausgeglichene Klammern, offene
-String-Literale, kaputte Interpolation.
+String-Literale, kaputte Interpolation — und Optionslisten, die
+`String.CompareOptions` mit `NSRegularExpression.Options` vermischen.
 
     ./tools/swift-sanity.py App
 """
+import re
 import sys
 from pathlib import Path
 
@@ -149,6 +151,56 @@ def _skip_string(src, start, hashes):
     return None
 
 
+# Mitglieder von `NSRegularExpression.Options`, die es in
+# `String.CompareOptions` **nicht** gibt. Steht eines davon in derselben
+# Optionsliste wie `.regularExpression` (das wiederum nur `CompareOptions`
+# kennt), ist die Liste an eine String-Methode gerichtet und der Aufruf
+# übersetzt nicht.
+#
+# Diese Prüfung gibt es, weil genau das einen ganzen Codemagic-Lauf gekostet
+# hat: `.dotMatchesLineSeparators` in `replacingOccurrences(of:with:options:)`.
+# Im Muster selbst geschrieben — `(?s)` — tut es dasselbe und übersetzt.
+REGEX_ONLY_OPTIONS = [
+    'dotMatchesLineSeparators',
+    'anchorsMatchLines',
+    'allowCommentsAndWhitespace',
+    'ignoreMetacharacters',
+    'useUnixLineSeparators',
+    'useUnicodeWordBoundaries',
+    'withoutAnchoringBounds',
+    'withTransparentBounds',
+    'reportProgress',
+    'reportCompletion',
+]
+
+# Ersatz im Muster für die beiden, die man wirklich braucht.
+INLINE_FLAG = {
+    'dotMatchesLineSeparators': '(?s) am Anfang des Musters',
+    'anchorsMatchLines': '(?m) am Anfang des Musters',
+}
+
+
+def check_option_lists(path):
+    """Sucht Optionslisten, die `String.CompareOptions` und
+    `NSRegularExpression.Options` vermischen."""
+    problems = []
+    src = path.read_text(encoding='utf-8')
+    for match in re.finditer(r'options:\s*\[([^\]]*)\]', src, re.S):
+        body = match.group(1)
+        if '.regularExpression' not in body:
+            continue
+        line = src.count('\n', 0, match.start()) + 1
+        for name in REGEX_ONLY_OPTIONS:
+            if '.' + name in body:
+                hint = INLINE_FLAG.get(name)
+                advice = f' — stattdessen {hint}' if hint else ''
+                problems.append(
+                    (line,
+                     f'.{name} gibt es in String.CompareOptions nicht'
+                     f' (nur in NSRegularExpression.Options){advice}'))
+    return problems
+
+
 def main():
     roots = [Path(a) for a in sys.argv[1:]] or [Path('App')]
     files = sorted(f for root in roots
@@ -159,7 +211,7 @@ def main():
 
     failed = 0
     for f in files:
-        problems = check(f)
+        problems = check(f) + check_option_lists(f)
         if problems:
             failed += 1
             for line, message in problems:
