@@ -4,6 +4,7 @@ import SwiftUI
 struct TodayView: View {
     let user: StudIPUser
     @Environment(AuthStore.self) private var auth
+    @Environment(Preferences.self) private var preferences
 
     @State private var events = Loadable<[CourseEvent]>()
     @State private var plan = Loadable<[ScheduleEntry]>()
@@ -238,6 +239,20 @@ struct TodayView: View {
 
     // MARK: - Laden
 
+    /// Plant die Terminerinnerungen neu.
+    ///
+    /// **Hier und nicht im Kalender-Reiter:** „Heute" lädt bei jedem Start,
+    /// der Kalender nur, wenn jemand ihn öffnet. Wer die Erinnerungen dort
+    /// aufsetzte, bekäme sie nur, solange er den Reiter regelmäßig besucht.
+    /// Das Neuplanen räumt vorher alles Eigene weg, ist also gefahrlos zu
+    /// wiederholen.
+    private func rescheduleReminders() async {
+        guard preferences.eventReminders else { return }
+        await Notifications.scheduleEventReminders(allEvents,
+                                                   leadMinutes: preferences.leadMinutes,
+                                                   quietWeekend: preferences.quietWeekend)
+    }
+
     private func reload(fresh: Bool) async {
         let client = fresh ? auth.freshClient : auth.client
         // Die Abschnitte sind voneinander unabhängig — parallel laden.
@@ -262,6 +277,7 @@ struct TodayView: View {
         if courses.isEmpty, let loaded = try? await client.courses(for: user.id) {
             courses = loaded
         }
+        await rescheduleReminders()
     }
 }
 

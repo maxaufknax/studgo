@@ -25,7 +25,7 @@ struct StudIPClient {
     /// Sekunden fühlt sich bei schlechtem Empfang wie ein Hänger an.
     /// Der eingebaute URL-Cache bleibt aus — zwischengespeichert wird in
     /// `ResponseCache`, wo die App die Regeln selbst in der Hand hat.
-    private static let session: URLSession = {
+    static let session: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 20
         configuration.timeoutIntervalForResource = 60
@@ -350,7 +350,7 @@ struct StudIPClient {
 
     // MARK: - Transport
 
-    private func url(path: String, query: [URLQueryItem]) -> URL {
+    func url(path: String, query: [URLQueryItem]) -> URL {
         var components = URLComponents(string: AppConfig.apiRoot.absoluteString + path)!
         components.queryItems = query.isEmpty ? nil : query
         return components.url!
@@ -505,7 +505,10 @@ struct StudIPClient {
         }
     }
 
-    private func perform(_ request: URLRequest) async throws -> Data {
+    /// Nicht `private`: `StudIPClient+Files.swift` schickt einen
+    /// Multipart-Body und braucht dieselbe Fehlerbehandlung samt
+    /// 401-Meldung. `private` gilt in Swift nur innerhalb einer Datei.
+    func perform(_ request: URLRequest) async throws -> Data {
         let (data, response) = try await Self.session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.decoding("Keine HTTP-Antwort")

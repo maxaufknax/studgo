@@ -8,10 +8,56 @@ import UIKit
 struct SettingsView: View {
     let user: StudIPUser
     @Environment(AuthStore.self) private var auth
+    @Environment(Preferences.self) private var preferences
     @Environment(\.dismiss) private var dismiss
     @State private var showsSignOutConfirmation = false
     @State private var didClearCache = false
     @State private var webTarget: WebTarget?
+
+    private var notificationSummary: String {
+        var parts: [String] = []
+        if preferences.eventReminders {
+            parts.append(Preferences.leadLabel(preferences.leadMinutes))
+        }
+        if preferences.mailboxAlerts { parts.append("Postfach") }
+        return parts.isEmpty ? "Aus" : parts.joined(separator: " · ")
+    }
+
+    /// Die anderen Systeme der LUH.
+    ///
+    /// Sie gehören nicht in die App, weil keines davon eine Schnittstelle hat
+    /// — aber sie gehören in Reichweite: Wer die Prüfungsanmeldung sucht,
+    /// sucht sie hier und nicht im Browserverlauf.
+    private var quickLinks: some View {
+        Section {
+            linkRow("Prüfungen & Noten (QIS)", "checkmark.seal", WebLinks.qis,
+                    hint: "Anmeldung, Notenspiegel, Bescheinigungen")
+            linkRow("Account-Manager", "key", WebLinks.accountManager,
+                    hint: "Kennwort, Mailweiterleitung, Dienste")
+            linkRow("IT-Dienste (LUIS)", "server.rack", WebLinks.itServices)
+            linkRow("Standortfinder", "map", WebLinks.campusMap,
+                    hint: "Gebäude und Hörsäle der LUH")
+            linkRow("Mensa & Speiseplan", "fork.knife", WebLinks.canteen)
+        } header: {
+            Text("Schnellzugriff")
+        } footer: {
+            Text("Öffnet sich im eingebauten Browser. Prüfungsanmeldung und Noten laufen an der LUH über QIS und nicht über Stud.IP — dafür gibt es keine Schnittstelle.")
+        }
+    }
+
+    private func linkRow(_ title: String, _ symbol: String, _ url: URL,
+                         hint: String? = nil) -> some View {
+        Button {
+            webTarget = WebTarget(url: url)
+        } label: {
+            RowLabel(symbol: symbol, title: title, subtitle: hint) {
+                Image(systemName: "arrow.up.right.square")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
 
     var body: some View {
         NavigationStack {
@@ -39,7 +85,16 @@ struct SettingsView: View {
                                  title: "Farben & Erscheinungsbild",
                                  subtitle: ThemeStore.currentName)
                     }
+                    NavigationLink {
+                        NotificationSettingsView()
+                    } label: {
+                        RowLabel(symbol: "bell.badge",
+                                 title: "Benachrichtigungen",
+                                 subtitle: notificationSummary)
+                    }
                 }
+
+                quickLinks
 
                 Section {
                     NavigationLink {
@@ -57,6 +112,19 @@ struct SettingsView: View {
                                  title: "Veranstaltungen verwalten",
                                  subtitle: "Ein- und austragen in Stud.IP")
                     }
+                }
+
+                Section {
+                    Toggle(isOn: Binding(get: { preferences.sharesWebSession },
+                                         set: { preferences.sharesWebSession = $0 })) {
+                        RowLabel(symbol: "person.badge.key",
+                                 title: "Im Browser angemeldet bleiben")
+                    }
+                } footer: {
+                    // Der Handel steht ausführlich in `Preferences`.
+                    Text(preferences.sharesWebSession
+                         ? "Die Anmeldung läuft in der Safari-Sitzung. Weil Stud.IP an der LUH über Shibboleth anmeldet, bist du damit auch auf allen Seiten angemeldet, die StudGo öffnet — Eintragen, Profilbild, QIS. Wirkt ab der nächsten Anmeldung."
+                         : "Die Anmeldung läuft in einer eigenen Sitzung: Es bleibt kein Cookie in Safari zurück, dafür verlangt jede geöffnete Stud.IP-Seite eine eigene Anmeldung. Wirkt ab der nächsten Anmeldung.")
                 }
 
                 Section("Konto") {
@@ -107,9 +175,12 @@ struct SettingsView: View {
                     } label: {
                         RowLabel(symbol: "info.circle", title: "Über StudGo")
                     }
-                    Link(destination: AppConfig.baseURL) {
+                    Button {
+                        webTarget = WebTarget(url: WebLinks.studipHome)
+                    } label: {
                         RowLabel(symbol: "safari", title: "Stud.IP im Browser öffnen")
                     }
+                    .buttonStyle(.plain)
                 }
 
                 Section {
@@ -135,8 +206,18 @@ struct SettingsView: View {
             .confirmationDialog("Wirklich abmelden?",
                                 isPresented: $showsSignOutConfirmation,
                                 titleVisibility: .visible) {
-                Button("Abmelden", role: .destructive) { auth.signOut() }
+                Button("Abmelden", role: .destructive) {
+                    Task {
+                        await Notifications.clearAll()
+                        Notifications.cancelBackgroundRefresh()
+                        auth.signOut()
+                    }
+                }
                 Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text(preferences.sharesWebSession
+                     ? "Tokens und Zwischenspeicher werden gelöscht. Die Anmeldung im Browser bleibt bestehen — sie liegt bei Safari, nicht bei StudGo."
+                     : "Tokens und Zwischenspeicher werden gelöscht.")
             }
         }
     }
@@ -320,5 +401,148 @@ struct MailSetupView: View {
             }
             .font(.callout)
         }
+    }
+}
+
+/// Benachrichtigungen einstellen — und ehrlich sagen, was sie leisten.
+///
+/// StudGo hat **kein** Backend, also auch kein echtes Push (ausführlich in
+/// `Notifications`). Was es gibt: Terminerinnerungen, die im Voraus auf dem
+/// Gerät geplant werden und deshalb sogar ohne Netz kommen, und ein
+/// Hintergrundlauf fürs Postfach, den iOS nach eigenem Ermessen weckt.
+///
+/// Die Ansicht verschweigt den Unterschied nicht. Eine Einstellung, die
+/// „sofortige Benachrichtigung" verspricht und dann zwei Stunden braucht, ist
+/// schlimmer als eine, die von vornherein sagt, woran man ist.
+struct NotificationSettingsView: View {
+    @Environment(Preferences.self) private var preferences
+    @Environment(AuthStore.self) private var auth
+
+    @State private var isAuthorized: Bool?
+    @State private var pendingCount = 0
+
+    var body: some View {
+        @Bindable var preferences = preferences
+
+        List {
+            if isAuthorized == false {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Benachrichtigungen sind gesperrt", systemImage: "bell.slash")
+                            .font(.subheadline.weight(.semibold))
+                        Text("In den Einstellungen des Geräts unter „StudGo → Mitteilungen“ wieder erlauben.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            Link("Einstellungen öffnen", destination: url)
+                                .font(.caption.weight(.semibold))
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+
+            Section {
+                Toggle(isOn: $preferences.eventReminders) {
+                    RowLabel(symbol: "clock.badge", title: "Vor Veranstaltungen erinnern")
+                }
+                if preferences.eventReminders {
+                    Picker("Vorlauf", selection: $preferences.leadMinutes) {
+                        ForEach(Preferences.leadOptions, id: \.self) { minutes in
+                            Text(Preferences.leadLabel(minutes)).tag(minutes)
+                        }
+                    }
+                }
+            } header: {
+                Text("Termine")
+            } footer: {
+                Text("Wird auf dem Gerät geplant und funktioniert auch ohne Empfang. Fällt eine Sitzung aus, verschwindet die Erinnerung beim nächsten Laden des Kalenders."
+                     + (pendingCount > 0 ? " Zurzeit sind \(pendingCount) Erinnerungen vorgemerkt." : ""))
+            }
+
+            Section {
+                Toggle(isOn: $preferences.mailboxAlerts) {
+                    RowLabel(symbol: "tray.full", title: "Neue Nachrichten und Beiträge")
+                }
+                Toggle(isOn: $preferences.quietWeekend) {
+                    RowLabel(symbol: "moon.zzz", title: "Am Wochenende still bleiben")
+                }
+                .disabled(!preferences.wantsNotifications)
+            } header: {
+                Text("Postfach")
+            } footer: {
+                Text("StudGo hat keinen eigenen Server: Es fragt bei Stud.IP nach, wenn iOS die App im Hintergrund weckt — typisch einige Male am Tag, nicht in Echtzeit. Für ein Gespräch, in dem du auf Antwort wartest, ist der Chat in der App der schnellere Weg.")
+            }
+
+            Section {
+                Button {
+                    webTarget = WebTarget(url: WebLinks.notificationSettings)
+                } label: {
+                    RowLabel(symbol: "envelope.badge",
+                             title: "Stud.IPs eigene Benachrichtigungen",
+                             subtitle: "Was per E-Mail herausgeht")
+                }
+                .buttonStyle(.plain)
+            } footer: {
+                Text("Stud.IP verschickt unabhängig von StudGo E-Mails. Was davon kommt, steht in den Einstellungen der Weboberfläche.")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Benachrichtigungen")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $webTarget) { target in
+            WebSheet(url: target.url).ignoresSafeArea()
+        }
+        .task { await refreshStatus() }
+        .onChange(of: preferences.eventReminders) { _, isOn in
+            Task { await apply(remindersEnabled: isOn) }
+        }
+        .onChange(of: preferences.leadMinutes) {
+            Task { await apply(remindersEnabled: preferences.eventReminders) }
+        }
+        .onChange(of: preferences.mailboxAlerts) { _, isOn in
+            Task { await apply(mailboxEnabled: isOn) }
+        }
+    }
+
+    @State private var webTarget: WebTarget?
+
+    private func refreshStatus() async {
+        isAuthorized = await Notifications.isAuthorized()
+        pendingCount = await Notifications.pendingReminderCount()
+    }
+
+    /// Beim Einschalten erst nach der Erlaubnis fragen — und den Schalter
+    /// wieder zurückstellen, wenn sie verweigert wird. Ein Schalter, der an
+    /// bleibt, ohne dass je etwas ankommt, ist eine Lüge.
+    private func apply(remindersEnabled: Bool) async {
+        if remindersEnabled, !(await ensureAuthorization()) {
+            preferences.eventReminders = false
+            return
+        }
+        if !remindersEnabled {
+            await Notifications.clearEventReminders()
+        }
+        await refreshStatus()
+    }
+
+    private func apply(mailboxEnabled: Bool) async {
+        if mailboxEnabled {
+            guard await ensureAuthorization() else {
+                preferences.mailboxAlerts = false
+                return
+            }
+            Notifications.scheduleBackgroundRefresh()
+        } else {
+            Notifications.cancelBackgroundRefresh()
+        }
+        await refreshStatus()
+    }
+
+    private func ensureAuthorization() async -> Bool {
+        if await Notifications.isAuthorized() { return true }
+        let granted = await Notifications.requestAuthorization()
+        isAuthorized = granted
+        return granted
     }
 }

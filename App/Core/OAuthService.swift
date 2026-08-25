@@ -58,9 +58,17 @@ final class OAuthService: NSObject {
                     continuation.resume(throwing: AuthError.cancelled)
                 }
             }
-            // Eigene Sitzung: die Stud.IP-Anmeldung teilt sich keine Cookies
-            // mit Safari, ein Logout in der App wirkt damit vollständig.
-            session.prefersEphemeralWebBrowserSession = true
+            // **Der Handel:** Stud.IP der LUH meldet über Shibboleth an
+            // (`login.uni-hannover.de`). Läuft die Anmeldung in der
+            // gewöhnlichen Safari-Sitzung, ist man danach auf jeder Seite
+            // angemeldet, die StudGo als Rückfallebene öffnet — Eintragen,
+            // Profilbild, Dateiverwaltung. Eine eigene Sitzung
+            // (`prefersEphemeral…`) lässt dagegen keinen Cookie zurück, dafür
+            // verlangt jede dieser Seiten eine erneute Anmeldung.
+            //
+            // Welche der beiden Seiten schwerer wiegt, entscheidet nicht der
+            // Code, sondern die Einstellung — siehe `Preferences`.
+            session.prefersEphemeralWebBrowserSession = !Preferences.sharesWebSessionSetting
             session.presentationContextProvider = self
             session.start()
         }
