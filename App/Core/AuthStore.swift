@@ -27,6 +27,11 @@ final class AuthStore {
     /// gültig — die Veranstaltungsarten ändern sich nicht im Semester.
     private(set) var semTypes: [String: String] = [:]
 
+    /// Welche Veranstaltungsarten in dieser Installation Studiengruppen sind.
+    /// Steht in keinem Schema und wird deshalb abgeleitet — siehe
+    /// `StudygroupKinds`.
+    private(set) var studygroupKinds: StudygroupKinds = .unknown
+
     private let oauth = OAuthService()
     private var tokens: TokenSet?
     /// Verhindert, dass mehrere parallele Requests gleichzeitig refreshen.
@@ -121,12 +126,20 @@ final class AuthStore {
         await restore()
     }
 
-    /// Lädt die Veranstaltungsarten nach. Fehlschlag ist folgenlos — dann
+    /// Lädt die Veranstaltungsarten nach und leitet daraus ab, was in dieser
+    /// Installation eine Studiengruppe ist. Fehlschlag ist folgenlos — dann
     /// bleibt bei den Kursen eben die Art unbeschriftet.
     func loadSemTypes() async {
         guard semTypes.isEmpty else { return }
         guard let types = try? await client.semTypes() else { return }
         semTypes = Dictionary(types.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+
+        // Ein paar Vorschläge genügen als Stichprobe: Was `/studygroup-proposals`
+        // liefert, ist per Konstruktion eine Studiengruppe, und über die
+        // Klassenzuordnung der Arten ergibt sich der Rest.
+        let proposals = (try? await client.studygroupProposals(limit: 8)) ?? []
+        let kinds = StudygroupKinds(proposals: proposals, semTypes: types)
+        if kinds.isKnown { studygroupKinds = kinds }
     }
 
     // MARK: - Sitzung
@@ -137,6 +150,7 @@ final class AuthStore {
         tokens = nil
         refreshTask = nil
         semTypes = [:]
+        studygroupKinds = .unknown
         unreadCount = 0
         state = .signedOut
     }

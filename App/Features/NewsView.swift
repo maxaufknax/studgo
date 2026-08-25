@@ -36,7 +36,8 @@ struct NewsView: View {
                              retry: { Task { await reload(fresh: true) } })
             }
         }
-        .navigationDestination(for: NewsItem.self) { NewsDetailView(item: $0) }
+        // Kein eigenes `navigationDestination`: Diese Ansicht wird immer in
+        // einen Stapel geschoben, der `NewsItem` schon anmeldet.
         .navigationTitle("Ankündigungen")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await reload(fresh: true) }
@@ -67,7 +68,7 @@ struct NewsRow: View {
             .font(.caption2)
             .foregroundStyle(.tertiary)
 
-            Text(item.content.strippingHTML)
+            Text(item.preview)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -96,10 +97,9 @@ struct NewsDetailView: View {
 
                 Divider()
 
-                Text(item.content.strippingHTML)
-                    .font(.body)
-                    .lineSpacing(3)
-                    .textSelection(.enabled)
+                // Ankündigungen sind der Ort, an dem Lehrende formatieren:
+                // Aufzählungen, Fettung, Verweise auf Seiten und Dateien.
+                FormattedText(raw: item.content, font: .body)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()

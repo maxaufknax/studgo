@@ -201,6 +201,123 @@ sortiert wird also im Client. `include` ist dagegen fast überall offen
 scheitern lassen, deshalb der Wiederholungsversuch ohne Zusatzdaten in
 `StudIPClient.documentAllowingMissingIncludes`.
 
+## Befunde aus der TestFlight-Rückmeldung (2026-08-25)
+
+Fünf Fehler, die sich alle im Stud.IP-Quelltext erklären lassen — und keiner
+davon meldet sich als Fehler, sie führen zu stillen Leerständen.
+
+### 1. `filter[semester]=all` ist ein 400 — die Veranstaltungssuche lief nie
+
+`CoursesIndex::getContextFilters()` setzt intern `'semester' => 'all'` als
+Vorgabe. Das verleitet dazu, den Wert auch mitzuschicken. Aber
+`validateFilters()` läuft **vorher**:
+
+```php
+if (isset($filtering['semester'])) {
+    $semester = \Semester::find($filtering['semester']);
+    if (!$semester) { return 'Invalid "semester".'; }
+}
+```
+
+`Semester::find('all')` findet nichts → **`400 Invalid "semester"`**. Der
+Vorgabewert gilt nur, wenn der Parameter **ganz fehlt**. StudGo hängte ihn
+immer an; die Suche antwortete deshalb ausnahmslos mit einem Fehler.
+
+**Regel:** `filter[semester]` nur mit einer echten Semester-ID senden, sonst
+weglassen.
+
+### 2. Blubber-Kommentare kommen **ältestezuerst** — `sort` ist hier erlaubt
+
+`CommentsByThreadIndex::getComments()` hängt ohne Zutun `ORDER BY mkdate` an
+und schneidet mit `LIMIT/OFFSET` **vorne** ab. Eine Anfrage ohne `sort` liefert
+also den Anfang eines Fadens, nicht das Ende — in einer laufenden Unterhaltung
+sieht man dann Monate alte Beiträge und keine einzige aktuelle Antwort.
+
+Diese Route ist die **einzige** von StudGo benutzte, die Sortierung zulässt:
+
+```php
+protected $allowedSortFields = ['mkdate'];   // überall sonst: []
+```
+
+`sort=-mkdate` dreht auf `ORDER BY mkdate DESC`. StudGo holt damit die jüngste
+Seite und dreht sie für die Anzeige zurück; `page[offset]` blättert weiter in
+die Vergangenheit.
+
+### 3. Ein leeres Wiki ist ein **404**, kein leeres Array
+
+`WikiIndex` wirft `RecordNotFoundException`, sobald für den Kurs keine Seite
+existiert:
+
+```php
+if (!$wiki = \WikiPage::findBySQL('`range_id` = ? ORDER BY name ASC ', [$course->id])) {
+    throw new RecordNotFoundException();
+}
+```
+
+Ungefiltert erscheint in der App „Nicht gefunden — vielleicht wurde der Eintrag
+entfernt", wo in Wahrheit nur nie jemand eine Seite angelegt hat. Dasselbe gilt
+sinngemäß für 403 bei Veranstaltungen, in denen man nicht eingetragen ist:
+Teilnehmende, Termine und Aushang sind dort schlicht nicht einsehbar. Beides
+behandelt `StudIPClient.listAllowingAbsence`.
+
+### 4. Texte sind **Stud.IP-Auszeichnung**, nicht HTML
+
+Beschreibung, Ankündigung, Forenbeitrag, Wikiseite und Blubber kommen roh aus
+der Datenbank (`Schemas/Course.php` reicht `beschreibung` und `sonstiges`
+unverändert durch). Das Format ist Stud.IPs eigene Auszeichnung aus
+`lib/classes/StudipCoreFormat.php`:
+
+| Auszeichnung | Bedeutung |
+| --- | --- |
+| `!` `!!` `!!!` `!!!!` | Überschrift, **je mehr desto größer** (`level = max(1, 5 - Anzahl)`) |
+| `**fett**`, `%%kursiv%%`, `__unterstrichen__`, `##fest##`, `{-gestrichen-}` | Betonungen |
+| `*Wort*`, `%Wort%`, `#Wort#` | Kurzformen, nur um ein Wort ohne Leerzeichen |
+| `- Punkt`, `-- Unterpunkt` | Aufzählung, Zeichenzahl = Ebene |
+| `= Punkt` | nummerierte Liste |
+| `\|Zelle\|Zelle\|` | Tabellenzeile |
+| `--` bis `--9` allein auf einer Zeile | waagerechte Linie |
+| `[Text]https://…` | Verweis; nackte Adressen und Mailadressen ebenso |
+| `[quote]`, `[code]`, `[pre]`, `[nop]` | Blöcke |
+
+**Nur** wenn ein Feld mit dem Marker `<!--HTML-->` beginnt, ist es echtes HTML
+(`Markup::HTML_MARKER_REGEXP`, `/^\s*<!--\s*HTML.*?-->/i`). Alles andere ist
+Klartext — ein `<` darin ist ein Kleiner-als-Zeichen, kein Tag.
+
+Wer nur Tags entfernt (`strippingHTML`), zeigt dem Leser die Sternchen und
+Prozentzeichen und verliert bei den HTML-Feldern zugleich die Absätze.
+`App/Core/StudipMarkup.swift` setzt beide Fälle.
+
+Nebenbei: Zwei Ressourcen liefern die fertige HTML-Fassung gleich mit —
+`blubber-threads` als `content-html`, `blubber-comments` ebenso. Sonst nirgends.
+
+### 5. Studiengruppen sind an der Antwort **nicht zu erkennen**
+
+Es gibt keine Ressource „Studiengruppe": Es sind Veranstaltungen, deren
+Veranstaltungsklasse `studygroup_mode` gesetzt hat. Dieses Kennzeichen steht in
+**keinem** Schema — `Schemas/SemClass.php` führt `name`, `bereiche`, `visible`
+und Ähnliches auf, aber nicht `studygroup_mode`.
+
+Der tragfähige Umweg: `/v1/studygroup-proposals` filtert serverseitig
+`status IN (:studygroup_types)`; was von dort kommt, **ist** per Konstruktion
+eine Studiengruppe. Über `course-type` und die `sem-class`-Beziehung aus
+`/v1/sem-types` (die immer mitgeliefert wird) ergeben sich alle Arten derselben
+Klasse und die Klassen-ID für `filter[category]`.
+
+Zwei weitere Eigenheiten der Vorschlagsroute, die man der Antwort nicht ansieht:
+Die Auswahl wird **zufällig gemischt** (`shuffle`), zweimal Laden ergibt also
+zwei Listen — und Vorschläge sind ausdrücklich Gruppen, in denen man **nicht**
+Mitglied ist (`NOT EXISTS … seminar_user`). Die eigenen Studiengruppen stehen
+dort nie; sie müssen aus `/v1/users/{id}/courses` herausgefiltert werden.
+
+### Nachtrag: Attribute, die vorher ungenutzt blieben
+
+| Ressource | Attribut | Wert |
+| --- | --- | --- |
+| `course-events`, `calendar-events` | `recurrence` | fertig formulierter Turnus („wöchentlich") |
+| `course-events`, `calendar-events` | `categories` | Terminart im Klartext |
+| `activities` | Beziehung `object` | das betroffene Ding — `FileRef`, `ForumEntry`, `Message`, `StudipNews`, `Course`, `WikiPage`. Ohne `include=object` lässt sich ein Eintrag im Verlauf nicht weiterverfolgen. |
+| `sem-types` | Beziehung `sem-class` | wird **immer** mitgeliefert, auch ohne `include` |
+
 ## Was die JSON:API *nicht* kann
 
 Drei Wünsche lassen sich mit der Schnittstelle nicht erfüllen. Alle drei sind

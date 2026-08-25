@@ -80,7 +80,14 @@ struct StudIPClient {
         try await get("/v1/sem-types", limit: 200).resources.compactMap(SemType.init)
     }
 
+    /// Die Teilnehmendenliste. Bei einer Veranstaltung, in der man nicht
+    /// eingetragen ist — etwa einer vorgeschlagenen Studiengruppe — gibt
+    /// Stud.IP sie nicht heraus; das ist kein Fehler, sondern die Rechtelage.
     func participants(of course: Course) async throws -> [Participant] {
+        try await listAllowingAbsence { try await participantList(of: course) }
+    }
+
+    private func participantList(of course: Course) async throws -> [Participant] {
         let document = try await get("/v1/courses/\(course.id)/memberships",
                                     limit: 500, include: ["user"])
         return document.resources
@@ -140,9 +147,11 @@ struct StudIPClient {
     }
 
     func events(for course: Course) async throws -> [CourseEvent] {
-        try await get("/v1/courses/\(course.id)/events", limit: 500)
-            .resources.compactMap(CourseEvent.init)
-            .sorted { $0.start < $1.start }
+        try await listAllowingAbsence {
+            try await get("/v1/courses/\(course.id)/events", limit: 500)
+                .resources.compactMap(CourseEvent.init)
+                .sorted { $0.start < $1.start }
+        }
     }
 
     func semesters() async throws -> [Semester] {
@@ -214,7 +223,7 @@ struct StudIPClient {
     }
 
     func news(for course: Course) async throws -> [NewsItem] {
-        try await news(at: "/v1/courses/\(course.id)/news")
+        try await listAllowingAbsence { try await news(at: "/v1/courses/\(course.id)/news") }
     }
 
     func globalNews() async throws -> [NewsItem] {
@@ -298,13 +307,19 @@ struct StudIPClient {
     /// `private` gilt in Swift nur innerhalb derselben Datei.
     func get(_ path: String,
              limit: Int? = nil,
+             offset: Int? = nil,
              include: [String] = [],
+             sort: String? = nil,
              extra: [URLQueryItem] = []) async throws -> JSONAPIDocument {
         var query = extra
         if let limit { query.append(URLQueryItem(name: "page[limit]", value: String(limit))) }
+        if let offset { query.append(URLQueryItem(name: "page[offset]", value: String(offset))) }
         if !include.isEmpty {
             query.append(URLQueryItem(name: "include", value: include.joined(separator: ",")))
         }
+        // `sort` verbieten fast alle Routen (`$allowedSortFields = []`); wo es
+        // erlaubt ist, steht es in docs/API-NOTES.md.
+        if let sort { query.append(URLQueryItem(name: "sort", value: sort)) }
 
         let address = url(path: path, query: query)
         let key = address.absoluteString
@@ -346,14 +361,37 @@ struct StudIPClient {
     /// ganze Liste kosten — im Zweifel eben ohne die Zusatzdaten.
     func documentAllowingMissingIncludes(path: String,
                                          limit: Int,
+                                         offset: Int? = nil,
                                          include: [String],
                                          fallback: [String],
+                                         sort: String? = nil,
                                          extra: [URLQueryItem] = []) async throws -> JSONAPIDocument {
         do {
-            return try await get(path, limit: limit, include: include, extra: extra)
+            return try await get(path, limit: limit, offset: offset,
+                                 include: include, sort: sort, extra: extra)
         } catch let error as APIError {
             guard case .http(400, _) = error else { throw error }
-            return try await get(path, limit: limit, include: fallback, extra: extra)
+            return try await get(path, limit: limit, offset: offset,
+                                 include: fallback, sort: sort, extra: extra)
+        }
+    }
+
+    /// Für Listen, die es auch schlicht **nicht geben** kann.
+    ///
+    /// Stud.IP unterscheidet dort nicht zwischen „leer" und „fehlt": Das Wiki
+    /// einer Veranstaltung ohne einzige Seite beantwortet `WikiIndex` mit
+    /// `RecordNotFoundException`, also **404**. Als Fehler gezeigt hieß das in
+    /// der App „Nicht gefunden — vielleicht wurde der Eintrag entfernt", wo
+    /// schlicht „kein Wiki angelegt" richtig ist. Fehlende Rechte (403) gehören
+    /// genauso hierher: Bei einer fremden Studiengruppe ist die
+    /// Teilnehmendenliste einfach nicht einsehbar.
+    func listAllowingAbsence<T>(_ operation: () async throws -> [T]) async throws -> [T] {
+        do {
+            return try await operation()
+        } catch let error as APIError {
+            if case .http(404, _) = error { return [] }
+            if case .http(403, _) = error { return [] }
+            throw error
         }
     }
 

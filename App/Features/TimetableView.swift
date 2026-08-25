@@ -4,133 +4,189 @@ import SwiftUI
 /// oben nach unten. Eine Liste beantwortet „was kommt als Nächstes", ein
 /// Raster beantwortet „wie liegt meine Woche": wo die Lücken sind, wann der
 /// Tag endet, was sich überschneidet.
+///
+/// **Zur Geometrie:** Kopfzeile, Stundenleiste und Tagesspalten rechnen alle
+/// mit demselben `Layout` und mit **ganzen Punkten**. Vorher teilte jede
+/// Stelle die verfügbare Breite für sich neu auf; bei sechs oder sieben
+/// Spalten kamen dabei krumme Werte heraus, und Wochentag, Stundenlinie und
+/// Block standen sichtbar gegeneinander versetzt. Die Höhe war zusätzlich
+/// fest verdrahtet — im Querformat lief das Raster deshalb unten aus dem Bild.
 struct TimetableView: View {
     let entries: [ScheduleEntry]
     var onSelect: (ScheduleEntry) -> Void = { _ in }
 
-    /// Höhe einer Minute in Punkten. 0,9 zeigt einen Tag von 8 bis 20 Uhr
-    /// ohne Scrollen und lässt eine 90-Minuten-Sitzung noch beschriftbar.
-    private let scale: CGFloat = 0.9
-    private let rulerWidth: CGFloat = 38
+    // MARK: - Maße
+
+    private let rulerWidth: CGFloat = 44
+    private let headerHeight: CGFloat = 32
+    /// Luft zwischen zwei Blöcken derselben Spalte.
+    private let blockGap: CGFloat = 2
+    /// Wie viele Punkte eine Minute mindestens und höchstens hoch ist.
+    /// Die Untergrenze hält eine 90-Minuten-Sitzung beschriftbar, die
+    /// Obergrenze verhindert, dass ein einzelner Kurs die Woche sprengt.
+    private let minScale: CGFloat = 0.55
+    private let maxScale: CGFloat = 1.30
+
+    /// Alles, was Kopfzeile und Raster gemeinsam brauchen — einmal gerechnet,
+    /// damit nichts auseinanderlaufen kann.
+    private struct Layout {
+        let days: [Int]
+        let dayWidth: CGFloat
+        let rulerWidth: CGFloat
+        let startMinute: Int
+        let endMinute: Int
+        let scale: CGFloat
+
+        var spanMinutes: Int { endMinute - startMinute }
+        var gridHeight: CGFloat { CGFloat(spanMinutes) * scale }
+        var hours: [Int] { stride(from: startMinute, through: endMinute, by: 60).map { $0 } }
+
+        func y(of minute: Int) -> CGFloat { CGFloat(minute - startMinute) * scale }
+        func x(of day: Int) -> CGFloat {
+            CGFloat(days.firstIndex(of: day) ?? 0) * dayWidth
+        }
+    }
 
     /// Sonntag kommt aus Stud.IP mal als 7, mal als 0.
     private var days: [Int] {
-        let used = Set(entries.map(\.normalizedWeekday))
         // Montag bis Freitag stehen immer, damit ein leerer Freitag als
         // freier Tag sichtbar wird statt einfach zu fehlen.
-        let base = Set(1...5)
-        return base.union(used).sorted()
+        Set(1...5).union(Set(entries.map(\.normalizedWeekday))).sorted()
     }
 
-    /// Angezeigter Zeitraum, auf volle Stunden gerundet.
+    /// Angezeigter Zeitraum, auf volle Stunden gerundet und auf mindestens
+    /// sechs Stunden gestreckt — sonst stünde ein einzelnes Seminar als
+    /// haushoher Block allein im Bild.
     private var span: (start: Int, end: Int) {
         let starts = entries.map(\.startMinutes)
         let ends = entries.map(\.endMinutes)
         guard let earliest = starts.min(), let latest = ends.max() else {
             return (8 * 60, 18 * 60)
         }
-        return (max(0, (earliest / 60) * 60),
-                min(24 * 60, ((latest + 59) / 60) * 60))
+        var from = max(0, (earliest / 60) * 60)
+        var to = min(24 * 60, ((latest + 59) / 60) * 60)
+        while to - from < 6 * 60 {
+            if to < 24 * 60 { to += 60 } else if from > 0 { from -= 60 } else { break }
+        }
+        return (from, to)
     }
 
-    private var hours: [Int] {
-        stride(from: span.start, through: span.end, by: 60).map { $0 }
-    }
+    private func layout(in size: CGSize) -> Layout {
+        let columns = days
+        // Auf ganze Punkte abrunden und den Rest der Stundenleiste geben:
+        // So sitzt jede Spaltengrenze auf einer ganzen Bildschirmzeile.
+        let usable = max(0, size.width - rulerWidth)
+        let dayWidth = max(34, (usable / CGFloat(columns.count)).rounded(.down))
+        let leftover = usable - dayWidth * CGFloat(columns.count)
 
-    private var gridHeight: CGFloat { CGFloat(span.end - span.start) * scale }
+        let bounds = span
+        let available = max(0, size.height - headerHeight - 1)
+        let fitting = available / CGFloat(max(1, bounds.end - bounds.start))
+        let scale = min(maxScale, max(minScale, fitting))
+
+        return Layout(days: columns,
+                      dayWidth: dayWidth,
+                      rulerWidth: rulerWidth + leftover,
+                      startMinute: bounds.start,
+                      endMinute: bounds.end,
+                      scale: scale)
+    }
 
     var body: some View {
         GeometryReader { geometry in
-            // Ohne Mindestbreite: bei sechs oder sieben Tagen würde eine
-            // feste Untergrenze die letzte Spalte aus dem Bild schieben,
-            // und ein zusätzliches seitliches Scrollen ließe die Kopfzeile
-            // stehenbleiben. Schmaler ist hier besser als abgeschnitten.
-            let dayWidth = max(1, (geometry.size.width - rulerWidth) / CGFloat(days.count))
+            let layout = layout(in: geometry.size)
 
             VStack(spacing: 0) {
-                header(dayWidth: dayWidth)
+                header(layout)
                 Divider()
 
                 ScrollView(.vertical) {
-                    HStack(alignment: .top, spacing: 0) {
-                        ruler
-                        ForEach(days, id: \.self) { day in
-                            column(for: day, width: dayWidth)
-                        }
-                    }
-                    .frame(height: gridHeight, alignment: .top)
-                    .padding(.bottom, 24)
+                    grid(layout)
+                        // Oben etwas Luft, damit die erste Stundenzahl nicht
+                        // halb unter der Kopfzeile klemmt — sie sitzt auf der
+                        // Linie und ragte deshalb nach oben heraus.
+                        .padding(.top, 8)
+                        .padding(.bottom, 28)
                 }
+                .scrollIndicators(.hidden)
             }
         }
     }
 
     // MARK: - Kopfzeile
 
-    private func header(dayWidth: CGFloat) -> some View {
+    private func header(_ layout: Layout) -> some View {
         HStack(spacing: 0) {
-            Color.clear.frame(width: rulerWidth)
-            ForEach(days, id: \.self) { day in
-                VStack(spacing: 1) {
+            Color.clear.frame(width: layout.rulerWidth)
+            ForEach(layout.days, id: \.self) { day in
+                let isToday = day == Self.todayWeekday
+                VStack(spacing: 2) {
                     Text(Self.shortName(day))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(day == Self.todayWeekday ? Color.accentColor : .primary)
-                    if day == Self.todayWeekday {
-                        Circle()
-                            .fill(Color.accentColor)
-                            .frame(width: 4, height: 4)
-                    } else {
-                        Color.clear.frame(height: 4)
-                    }
+                        .font(.caption.weight(isToday ? .bold : .semibold))
+                        .foregroundStyle(isToday ? Color.accentColor : .primary)
+                    Circle()
+                        .fill(isToday ? Color.accentColor : .clear)
+                        .frame(width: 4, height: 4)
                 }
-                .frame(width: dayWidth)
+                .frame(width: layout.dayWidth)
+                .accessibilityLabel(Self.fullName(day))
             }
         }
-        .padding(.vertical, 6)
+        .frame(height: headerHeight)
     }
 
-    // MARK: - Stundenleiste
+    // MARK: - Raster
 
-    private var ruler: some View {
+    private func grid(_ layout: Layout) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            ruler(layout)
+            ForEach(layout.days, id: \.self) { day in
+                column(for: day, layout: layout)
+            }
+        }
+        .frame(height: layout.gridHeight, alignment: .top)
+        .overlay(alignment: .topLeading) { nowLine(layout) }
+    }
+
+    private func ruler(_ layout: Layout) -> some View {
         ZStack(alignment: .topLeading) {
-            ForEach(hours, id: \.self) { minute in
+            ForEach(layout.hours, id: \.self) { minute in
                 Text(Format.clock(minutes: minute))
                     .font(.system(size: 10))
                     .monospacedDigit()
                     .foregroundStyle(.tertiary)
-                    .frame(width: rulerWidth - 6, alignment: .trailing)
+                    .frame(width: layout.rulerWidth - 7, alignment: .trailing)
                     // Um die halbe Zeilenhöhe nach oben, damit die
                     // Beschriftung auf der Linie sitzt und nicht darunter.
-                    .offset(y: CGFloat(minute - span.start) * scale - 6)
+                    .offset(y: layout.y(of: minute) - 6)
             }
         }
-        .frame(width: rulerWidth, height: gridHeight, alignment: .topLeading)
+        .frame(width: layout.rulerWidth, height: layout.gridHeight, alignment: .topLeading)
     }
 
-    // MARK: - Tagesspalte
-
-    private func column(for day: Int, width: CGFloat) -> some View {
+    private func column(for day: Int, layout: Layout) -> some View {
         ZStack(alignment: .topLeading) {
             // Der heutige Tag zuerst — als Hintergrund, nicht über die Linien.
             if day == Self.todayWeekday {
                 Rectangle()
-                    .fill(Color.accentColor.opacity(0.06))
-                    .frame(width: width, height: gridHeight)
+                    .fill(Color.accentColor.opacity(0.07))
+                    .frame(width: layout.dayWidth, height: layout.gridHeight)
             }
 
-            // Stundenlinien
-            ForEach(hours, id: \.self) { minute in
+            // Breite ausdrücklich: ein dehnbares Rechteck im ZStack würde
+            // sonst die Spaltenbreite mitbestimmen, statt sie zu übernehmen.
+            ForEach(layout.hours, id: \.self) { minute in
                 Rectangle()
                     .fill(Color(.separator).opacity(0.35))
-                    .frame(height: 0.5)
-                    .offset(y: CGFloat(minute - span.start) * scale)
+                    .frame(width: layout.dayWidth, height: 0.5)
+                    .offset(y: layout.y(of: minute))
             }
 
             ForEach(placements(for: day)) { placement in
-                block(placement, dayWidth: width)
+                block(placement, layout: layout)
             }
         }
-        .frame(width: width, height: gridHeight, alignment: .topLeading)
+        .frame(width: layout.dayWidth, height: layout.gridHeight, alignment: .topLeading)
         .overlay(alignment: .leading) {
             Rectangle()
                 .fill(Color(.separator).opacity(0.35))
@@ -138,10 +194,35 @@ struct TimetableView: View {
         }
     }
 
-    private func block(_ placement: Placement, dayWidth: CGFloat) -> some View {
+    /// Die aktuelle Uhrzeit als feine Linie quer über den heutigen Tag.
+    @ViewBuilder
+    private func nowLine(_ layout: Layout) -> some View {
+        let calendar = Calendar.current
+        let minutes = calendar.component(.hour, from: Date()) * 60
+            + calendar.component(.minute, from: Date())
+        if layout.days.contains(Self.todayWeekday),
+           minutes >= layout.startMinute, minutes <= layout.endMinute {
+            HStack(spacing: 0) {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 5, height: 5)
+                Rectangle()
+                    .fill(Color.red)
+                    .frame(height: 1)
+            }
+            .frame(width: layout.dayWidth)
+            .offset(x: layout.rulerWidth + layout.x(of: Self.todayWeekday),
+                    y: layout.y(of: minutes) - 2.5)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private func block(_ placement: Placement, layout: Layout) -> some View {
         let entry = placement.entry
-        let width = (dayWidth - 4) / CGFloat(placement.columnCount)
-        let height = CGFloat(entry.endMinutes - entry.startMinutes) * scale
+        let lane = (layout.dayWidth - blockGap) / CGFloat(placement.columnCount)
+        let width = lane - blockGap
+        let height = max(20, CGFloat(entry.endMinutes - entry.startMinutes) * layout.scale - blockGap)
 
         return Button {
             onSelect(entry)
@@ -149,17 +230,17 @@ struct TimetableView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(entry.title)
                     .font(.system(size: 10, weight: .semibold))
-                    .lineLimit(height > 44 ? 3 : 1)
-                if let location = entry.location, height > 52 {
+                    .lineLimit(height > 46 ? 3 : 1)
+                if let location = entry.location, height > 54 {
                     Text(location)
                         .font(.system(size: 9))
                         .lineLimit(1)
                         .opacity(0.75)
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 3)
             .padding(.vertical, 3)
-            .frame(width: width - 2, height: max(18, height - 2), alignment: .topLeading)
+            .frame(width: width, height: height, alignment: .topLeading)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Tint.surface(entry.tintSeed))
@@ -173,9 +254,10 @@ struct TimetableView: View {
             .foregroundStyle(Tint.color(entry.tintSeed))
         }
         .buttonStyle(.plain)
-        .offset(x: 2 + CGFloat(placement.column) * width,
-                y: CGFloat(entry.startMinutes - span.start) * scale)
+        .offset(x: blockGap + CGFloat(placement.column) * lane,
+                y: layout.y(of: entry.startMinutes))
         .accessibilityLabel("\(entry.title), \(Self.fullName(entry.normalizedWeekday)) \(entry.timeRange)")
+        .accessibilityHint("Öffnet die Einzelheiten")
     }
 
     // MARK: - Überschneidungen

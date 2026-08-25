@@ -55,16 +55,46 @@ extension StudIPClient {
             .sorted { ($0.latestActivity ?? .distantPast) > ($1.latestActivity ?? .distantPast) }
     }
 
-    /// Die Beiträge eines Fadens, älteste zuerst — so liest sich ein Verlauf.
-    func blubberComments(threadID: String, limit: Int = 200) async throws -> [BlubberComment] {
+    /// Ein Ausschnitt aus einem Blubber-Verlauf, älteste zuerst gesetzt.
+    struct BlubberPage {
+        let comments: [BlubberComment]
+        /// Liegen noch ältere Beiträge dahinter?
+        let hasOlder: Bool
+    }
+
+    /// Die Beiträge eines Fadens — **die neuesten zuerst geholt**, für die
+    /// Anzeige dann in Lesereihenfolge gedreht.
+    ///
+    /// `CommentsByThreadIndex` sortiert ohne Zutun `ORDER BY mkdate` und
+    /// schneidet mit `LIMIT/OFFSET` vorne ab: Eine Anfrage ohne `sort` liefert
+    /// also die **ältesten** Beiträge eines Fadens. In einer laufenden
+    /// Unterhaltung stand damit der Anfang von vor Monaten im Bild und die
+    /// letzte Antwort nirgends — der Verlauf wirkte leer oder eingefroren.
+    ///
+    /// Diese eine Route lässt `sort` ausdrücklich zu
+    /// (`$allowedSortFields = ['mkdate']`, sonst überall `[]`), deshalb holt
+    /// `sort=-mkdate` den aktuellen Ausschnitt. `offset` blättert von dort aus
+    /// weiter in die Vergangenheit.
+    func blubberComments(threadID: String,
+                         limit: Int = 60,
+                         offset: Int = 0) async throws -> BlubberPage {
+        // Einen mehr anfragen, als gezeigt wird: daran ist zu erkennen, ob
+        // sich das Nachladen älterer Beiträge überhaupt lohnt.
         let document = try await documentAllowingMissingIncludes(
             path: "/v1/blubber-threads/\(threadID)/comments",
-            limit: limit,
+            limit: limit + 1,
+            offset: offset,
             include: ["author"],
-            fallback: [])
-        return document.resources
+            fallback: [],
+            sort: "-mkdate")
+
+        let newestFirst = document.resources
             .compactMap { BlubberComment($0, author: document.related("author", of: $0)) }
-            .sorted { ($0.createdAt ?? .distantPast) < ($1.createdAt ?? .distantPast) }
+        let hasOlder = newestFirst.count > limit
+        // `reversed()` einer Array liefert eine `ReversedCollection`, keine
+        // Array — deshalb das `Array(...)` außen herum.
+        return BlubberPage(comments: Array(newestFirst.prefix(limit).reversed()),
+                           hasOlder: hasOlder)
     }
 
     /// Einen Beitrag in einen bestehenden Faden schreiben.
@@ -106,17 +136,21 @@ extension StudIPClient {
             extra.append(URLQueryItem(name: "filter[start]",
                                       value: String(Int(since.timeIntervalSince1970))))
         }
+        // `object` zeigt auf das, worum es geht — die Datei, den Forenbeitrag,
+        // die Ankündigung. Ohne diese Beziehung bliebe ein Eintrag im Verlauf
+        // eine Meldung, die sich nicht öffnen lässt.
         let document = try await documentAllowingMissingIncludes(
             path: "/v1/users/\(userID)/activitystream",
             limit: limit,
-            include: ["actor", "context"],
-            fallback: [],
+            include: ["actor", "context", "object"],
+            fallback: ["actor", "context"],
             extra: extra)
         return document.resources
             .compactMap {
                 ActivityItem($0,
                              actor: document.related("actor", of: $0),
-                             context: document.related("context", of: $0))
+                             context: document.related("context", of: $0),
+                             object: document.related("object", of: $0))
             }
             .sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
     }
@@ -185,13 +219,22 @@ extension StudIPClient {
                        field: CourseSearchField = .all,
                        semesterID: String? = nil,
                        limit: Int = 60) async throws -> [Course] {
-        guard term.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3 else { return [] }
+        let query = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= 3 else { return [] }
         var extra = [
-            URLQueryItem(name: "filter[q]", value: term),
+            URLQueryItem(name: "filter[q]", value: query),
             URLQueryItem(name: "filter[fields]", value: field.rawValue),
         ]
-        // "all" ist der serverseitige Standard und meint *alle* Semester.
-        extra.append(URLQueryItem(name: "filter[semester]", value: semesterID ?? "all"))
+        // **Kein `filter[semester]=all`.** Der Vorgabewert *innerhalb* von
+        // `CoursesIndex::getContextFilters()` heißt zwar `'all'`, aber
+        // `validateFilters()` läuft vorher und schlägt jeden mitgeschickten
+        // Wert durch `Semester::find()`. Für "all" findet es nichts und
+        // antwortet mit `400 Invalid "semester"` — die Veranstaltungssuche
+        // lieferte deshalb *nie* ein Ergebnis, egal was man eingab. Der
+        // Parameter darf nur mit einer echten Semester-ID auftauchen.
+        if let semesterID, semesterID != "all" {
+            extra.append(URLQueryItem(name: "filter[semester]", value: semesterID))
+        }
         return try await fresh.get("/v1/courses", limit: limit, extra: extra)
             .resources.compactMap(Course.init)
     }
@@ -199,9 +242,11 @@ extension StudIPClient {
     // MARK: - Forum
 
     func forumCategories(of course: Course) async throws -> [ForumCategory] {
-        try await get("/v1/courses/\(course.id)/forum-categories", limit: 100)
-            .resources.compactMap(ForumCategory.init)
-            .sorted { $0.position < $1.position }
+        try await listAllowingAbsence {
+            try await get("/v1/courses/\(course.id)/forum-categories", limit: 100)
+                .resources.compactMap(ForumCategory.init)
+                .sorted { $0.position < $1.position }
+        }
     }
 
     func forumEntries(in category: ForumCategory, limit: Int = 100) async throws -> [ForumEntry] {
@@ -228,10 +273,24 @@ extension StudIPClient {
 
     // MARK: - Wiki
 
+    /// Die Wikiseiten einer Veranstaltung.
+    ///
+    /// **Ein leeres Wiki ist ein 404.** `WikiIndex` wirft eine
+    /// `RecordNotFoundException`, sobald `WikiPage::findBySQL` für den Kurs
+    /// nichts findet — es gibt keine leere Liste. Ungefiltert erschien in der
+    /// App deshalb „Nicht gefunden — vielleicht wurde der Eintrag entfernt",
+    /// wo in Wahrheit nur nie jemand eine Seite angelegt hat.
     func wikiPages(of course: Course, limit: Int = 100) async throws -> [WikiPage] {
-        try await get("/v1/courses/\(course.id)/wiki-pages", limit: limit)
-            .resources.compactMap(WikiPage.init)
-            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        let pages = try await listAllowingAbsence {
+            try await get("/v1/courses/\(course.id)/wiki-pages", limit: limit)
+                .resources.compactMap(WikiPage.init)
+        }
+        // Die Startseite heißt in Stud.IP immer „WikiWikiWeb" und gehört
+        // nach oben, alles Weitere alphabetisch.
+        return pages.sorted {
+            if $0.isStartPage != $1.isStartPage { return $0.isStartPage }
+            return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+        }
     }
 
     // MARK: - Einrichtungen
@@ -287,9 +346,54 @@ extension StudIPClient {
     /// Stud.IP sucht sie danach aus, in welchen Gruppen Leute aus den eigenen
     /// Veranstaltungen sind. Die Route nimmt **nur `page[limit]`**, kein
     /// `page[offset]` — ein Offset quittiert sie mit 400.
+    ///
+    /// Zwei Eigenheiten, die man in `Routes\Studygroups\Proposals` nachliest
+    /// und der Antwort sonst nicht ansieht: Die Auswahl wird **gemischt**
+    /// (`shuffle`) und dann abgeschnitten — zweimal Laden ergibt zwei
+    /// verschiedene Listen. Und die Vorschläge sind ausdrücklich Gruppen, in
+    /// denen man **nicht** Mitglied ist (`NOT EXISTS … seminar_user`); die
+    /// eigenen Studiengruppen stehen hier nie.
     func studygroupProposals(limit: Int = 12) async throws -> [Course] {
-        try await get("/v1/studygroup-proposals", limit: limit)
-            .resources.compactMap(Course.init)
+        try await listAllowingAbsence {
+            try await fresh.get("/v1/studygroup-proposals", limit: limit)
+                .resources.compactMap(Course.init)
+        }
+    }
+
+    /// Die **eigenen** Studiengruppen — aus den belegten Veranstaltungen
+    /// herausgefiltert.
+    ///
+    /// Eine eigene Route dafür gibt es nicht (siehe `StudygroupKinds`), also
+    /// wird die ohnehin vorhandene Veranstaltungsliste nach den Arten
+    /// durchsucht, die zur Studiengruppen-Klasse gehören. Ohne
+    /// Semesterfilter, weil Studiengruppen oft semesterübergreifend laufen.
+    func studygroups(for userID: String, kinds: StudygroupKinds) async throws -> [Course] {
+        guard kinds.isKnown else { return [] }
+        return try await courses(for: userID)
+            .filter { kinds.contains($0.typeID) }
+            .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
+    /// Studiengruppen im ganzen Stud.IP durchsuchen.
+    ///
+    /// `filter[category]` ist die Klassen-ID (`SEM_CLASS`) — damit liefert die
+    /// gewöhnliche Veranstaltungssuche ausschließlich Studiengruppen.
+    func searchStudygroups(_ term: String,
+                           classID: String,
+                           limit: Int = 60) async throws -> [Course] {
+        let query = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= 3 else { return [] }
+        return try await fresh.get("/v1/courses", limit: limit, extra: [
+            URLQueryItem(name: "filter[q]", value: query),
+            URLQueryItem(name: "filter[fields]", value: "all"),
+            URLQueryItem(name: "filter[category]", value: classID),
+        ]).resources.compactMap(Course.init)
+    }
+
+    /// Beitreten läuft wie bei jeder Veranstaltung über die Weboberfläche —
+    /// die JSON:API kennt kein Ein- und Austragen.
+    static func studygroupURL(courseID: String) -> URL {
+        courseURL(courseID: courseID)
     }
 
     // MARK: - Sprechstunden

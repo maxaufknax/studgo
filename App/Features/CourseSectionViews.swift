@@ -25,12 +25,20 @@ struct CourseDatesView: View {
         List {
             if !upcoming.isEmpty {
                 Section("Anstehend") {
-                    ForEach(upcoming) { EventRow(event: $0, showDay: true, preferTopic: true) }
+                    ForEach(upcoming) { event in
+                        NavigationLink(value: event) {
+                            EventRow(event: event, showDay: true, preferTopic: true)
+                        }
+                    }
                 }
             }
             if !past.isEmpty {
                 Section("Vergangen") {
-                    ForEach(past) { EventRow(event: $0, showDay: true, preferTopic: true) }
+                    ForEach(past) { event in
+                        NavigationLink(value: event) {
+                            EventRow(event: event, showDay: true, preferTopic: true)
+                        }
+                    }
                 }
             }
         }
@@ -163,7 +171,8 @@ struct CourseNewsView: View {
             NavigationLink(value: item) { NewsRow(item: item) }
         }
         .listStyle(.insetGrouped)
-        .navigationDestination(for: NewsItem.self) { NewsDetailView(item: $0) }
+        // Das Ziel meldet der Reiter an seiner Wurzel an — siehe
+        // `StudGoDestinations`.
         .overlay {
             StateOverlay(isLoading: news.isLoading,
                          errorMessage: news.errorMessage,
@@ -287,7 +296,7 @@ struct ForumEntryView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(entry.title).font(.headline)
-                        Text(entry.text).font(.callout).textSelection(.enabled)
+                        FormattedText(raw: entry.content)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .card()
@@ -299,7 +308,7 @@ struct ForumEntryView: View {
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.secondary)
                             }
-                            Text(reply.text).font(.callout).textSelection(.enabled)
+                            FormattedText(raw: reply.content)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .card()
@@ -401,6 +410,9 @@ struct CourseWikiView: View {
         }
         .listStyle(.insetGrouped)
         .overlay {
+            // Ein leeres Wiki beantwortet Stud.IP mit 404; der Client fängt
+            // das ab und liefert eine leere Liste. Hier steht deshalb der
+            // ehrliche Hinweis statt einer Fehlermeldung.
             StateOverlay(isLoading: pages.isLoading,
                          errorMessage: pages.errorMessage,
                          isEmpty: (pages.value ?? []).isEmpty,
@@ -420,23 +432,36 @@ struct CourseWikiView: View {
     }
 }
 
+/// Eine Wikiseite.
+///
+/// Wikitexte sind der Regelfall für Stud.IP-Auszeichnung: Überschriften mit
+/// `!`, Aufzählungen mit `-`, Verweise als `[Text]url`. Als Klartext gezeigt
+/// stand davon jedes Sonderzeichen wörtlich auf dem Schirm.
 struct WikiPageView: View {
     let page: WikiPage
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text(page.name).font(.title3.bold())
+                HStack(spacing: 6) {
+                    Text(page.name).font(.title3.bold())
+                    if page.isStartPage {
+                        Chip(text: "Startseite", color: .accentColor)
+                    }
+                }
                 if let changed = page.changedAt {
                     Text("Fassung \(page.version) · geändert \(Format.listDate(changed))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Divider()
-                Text(page.text)
-                    .font(.body)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
+                if page.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("Diese Seite ist leer.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    FormattedText(raw: page.content, font: .body)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()

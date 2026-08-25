@@ -62,7 +62,8 @@ struct TodayView: View {
                             .padding(.top, 60)
                     } else {
                         if let current {
-                            NextUpCard(event: current)
+                            NavigationLink(value: current) { NextUpCard(event: current) }
+                                .buttonStyle(.plain)
                         } else if allEvents.isEmpty, let message = events.errorMessage {
                             problemCard(message)
                         } else {
@@ -71,13 +72,23 @@ struct TodayView: View {
 
                         if !todaysRemaining.isEmpty {
                             SectionCard(title: "Heute noch", symbol: "clock") {
-                                rows(todaysRemaining) { EventRow(event: $0) }
+                                rows(todaysRemaining) { event in
+                                    NavigationLink(value: event) {
+                                        linkRow { EventRow(event: event) }
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                             }
                         }
 
                         if !laterEvents.isEmpty {
                             SectionCard(title: "Demnächst", symbol: "calendar") {
-                                rows(laterEvents) { EventRow(event: $0, showDay: true) }
+                                rows(laterEvents) { event in
+                                    NavigationLink(value: event) {
+                                        linkRow { EventRow(event: event, showDay: true) }
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                             }
                         }
 
@@ -113,7 +124,7 @@ struct TodayView: View {
             .navigationTitle("Heute")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: Message.self) { MessageDetailView(message: $0) }
-            .navigationDestination(for: NewsItem.self) { NewsDetailView(item: $0) }
+            .studGoDestinations()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
