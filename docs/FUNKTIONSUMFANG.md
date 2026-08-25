@@ -115,7 +115,9 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Wunsch | Stand |
 | --- | --- |
 | Uni-Mail im Posteingang | 🚫 bewusst nicht. Dovecot an der LUH bietet nur `AUTH=PLAIN`, SOGo nur HTTP Basic — es gäbe keinen Weg ohne das zentrale Uni-Passwort in der App. StudGo verlinkt SOGo und zeigt die Serverdaten für die Mail-App des Geräts. Ausführlich: `SOGO-MAIL.md`. |
-| Push-Benachrichtigungen | ⬜ bräuchte einen eigenen Server, der für dich pollt — StudGo hat bewusst kein Backend. |
+| Push-Benachrichtigungen | ◐ **kein echtes Push** (dafür bräuchte es einen Server, der für dich pollt — StudGo hat bewusst kein Backend). Stattdessen seit 1.3.0: Terminerinnerungen als lokale Mitteilung, im Voraus geplant und ohne Netz zuverlässig, plus ein `BGAppRefreshTask` fürs Postfach, den iOS mehrmals täglich weckt. Siehe `App/Core/Notifications.swift`. |
+| Datei hochladen / umbenennen / löschen | ✅ seit 1.3.0 — `POST /folders/{id}/file-refs` mit `multipart/form-data`, dazu Mehrfachauswahl und „In Dateien sichern“. Angeboten wird es nur, wo `is-writable` am Ordner steht. |
+| Echte Sitzungstermine mit Ausfällen | ✅ seit 1.3.0 über `GET /users/{id}/events.ics` — bis 2037, samt Raum, Thema und abgesagten Terminen. Vorher aus dem Wochenraster abgeleitet und deshalb außerhalb der Vorlesungszeit leer. |
 | Offline-Betrieb | ✅ die zuletzt geladenen Listen liegen auf dem Gerät, die App startet ohne Empfang mit dem letzten Stand |
 
 ---
@@ -124,13 +126,19 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 
 In dieser Reihenfolge, nach Nutzen je Aufwand:
 
-1. **Kalender-Abo (`events.ics`)** — eine Zeile Arbeit, und der Stundenplan
-   steht in der Kalender-App des Telefons, inklusive Mitteilungen. Das ist
-   der billigste Ersatz für die fehlenden Push-Nachrichten.
-2. **Persönliche Dateien und Datei-Upload** — die Routen sind da, und
-   „schnell das Foto der Tafel in den Kursordner" ist genau das, wofür man
-   das Telefon dabeihat.
+1. ~~**Kalender-Abo (`events.ics`)**~~ — **erledigt in 1.3.0**, und deutlich
+   ergiebiger als gedacht: Der Strom ist nicht nur zum Exportieren gut, er ist
+   *die* Terminquelle — echte Sitzungen bis 2037, samt Ausfällen. Siehe
+   `API-NOTES.md`, Befund 6.
+2. ~~**Datei-Upload**~~ — **erledigt in 1.3.0** (Befund 8).
 3. **Ankündigung verfassen und Forenthema eröffnen** — kleine Ergänzungen,
    machen die App vom Lesegerät zum Arbeitsgerät.
-4. **Courseware** — der große Brocken. Lohnt nur, wenn deine Veranstaltungen
+4. **Persönliche Dateien** (`/users/{id}/folders`) — der eigene Dateibereich
+   in Stud.IP, denselben Routen folgend wie der einer Veranstaltung.
+5. **Courseware** — der große Brocken. Lohnt nur, wenn deine Veranstaltungen
    ihn tatsächlich benutzen; das ist von Fach zu Fach sehr verschieden.
+6. **Prüfungen** — geht **nicht**: An der LUH läuft die Prüfungsverwaltung
+   über QIS (HISinOne), nicht über Stud.IP, und QIS hat keine offene
+   Schnittstelle. StudGo verlinkt es (`WebLinks.qis`). Klausurtermine
+   erscheinen im Kalender nur, soweit sie als Veranstaltungstermin
+   eingetragen wurden — dann aber zuverlässig über den ICS-Strom.
