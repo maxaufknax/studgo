@@ -304,6 +304,12 @@ struct BlubberThreadView: View {
     @State private var draft = ""
     @State private var isSending = false
     @State private var sendError: String?
+    /// Steht am Anfang des Verlaufs noch Älteres?
+    @State private var hasOlder = false
+    @State private var isLoadingOlder = false
+
+    /// Wie viele Beiträge auf einmal geholt werden.
+    private let pageSize = 60
 
     private var canSend: Bool {
         thread.isCommentable
@@ -328,6 +334,7 @@ struct BlubberThreadView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    if hasOlder { olderButton }
                     opener
 
                     ForEach(comments.value ?? []) { comment in
@@ -349,11 +356,38 @@ struct BlubberThreadView: View {
                              retry: { Task { await reload(fresh: true) } })
             }
             .refreshable { await reload(fresh: true) }
-            .onChange(of: (comments.value ?? []).count) {
-                guard let last = comments.value?.last else { return }
+            // Beim Öffnen und nach jedem neuen Beitrag ans Ende springen —
+            // dort steht, worauf man geantwortet haben will.
+            .onChange(of: (comments.value ?? []).last?.id) {
+                guard !isLoadingOlder, let last = comments.value?.last else { return }
                 withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
             }
         }
+    }
+
+    /// Der Verlauf wird von hinten geladen; wer weiter zurück will, holt sich
+    /// die vorherige Seite.
+    private var olderButton: some View {
+        Button {
+            Task { await loadOlder() }
+        } label: {
+            HStack(spacing: 6) {
+                if isLoadingOlder {
+                    ProgressView()
+                } else {
+                    Image(systemName: "arrow.up.circle")
+                }
+                Text(isLoadingOlder ? "Wird geladen…" : "Ältere Beiträge laden")
+            }
+            .font(.caption.weight(.medium))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(
+                Capsule().fill(Color(.secondarySystemGroupedBackground))
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isLoadingOlder)
     }
 
     /// Der Beitrag, mit dem der Faden aufgemacht wurde.
@@ -374,9 +408,7 @@ struct BlubberThreadView: View {
                 }
                 .foregroundStyle(Tint.color(thread.tintSeed))
 
-                Text(thread.preview)
-                    .font(.callout)
-                    .textSelection(.enabled)
+                FormattedText(raw: thread.content)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .card(Tint.surface(thread.tintSeed))
@@ -423,9 +455,47 @@ struct BlubberThreadView: View {
 
     // MARK: - Laden und Senden
 
+    /// Holt die **jüngste** Seite des Verlaufs.
+    ///
+    /// Ohne `sort` gibt Stud.IP die *ältesten* Beiträge heraus
+    /// (`CommentsByThreadIndex` sortiert `ORDER BY mkdate` und schneidet
+    /// vorne ab). In einer laufenden Unterhaltung stand deshalb der Anfang
+    /// von vor Monaten im Bild, während die letzten Antworten gar nicht
+    /// geladen wurden — der Chat wirkte leer oder eingefroren.
     private func reload(fresh: Bool) async {
         let client = fresh ? auth.freshClient : auth.client
-        await comments.load { try await client.blubberComments(threadID: thread.id) }
+        // Ohne `Loadable.load`, weil neben der Liste noch `hasOlder` aus
+        // derselben Antwort kommt. Die Regel bleibt dieselbe: Ein
+        // fehlgeschlagenes Nachladen lässt den bisherigen Verlauf stehen.
+        if comments.value == nil { comments.isLoading = true }
+        do {
+            let page = try await client.blubberComments(threadID: thread.id, limit: pageSize)
+            comments.value = page.comments
+            comments.errorMessage = nil
+            hasOlder = page.hasOlder
+        } catch {
+            comments.errorMessage = error.localizedDescription
+        }
+        comments.isLoading = false
+    }
+
+    /// Eine Seite weiter in die Vergangenheit. Die Beiträge werden **vorne**
+    /// angehängt, damit der gelesene Teil stehen bleibt.
+    private func loadOlder() async {
+        guard !isLoadingOlder else { return }
+        isLoadingOlder = true
+        defer { isLoadingOlder = false }
+
+        let known = comments.value ?? []
+        guard let page = try? await auth.client.blubberComments(threadID: thread.id,
+                                                                limit: pageSize,
+                                                                offset: known.count)
+        else { return }
+
+        let seen = Set(known.map(\.id))
+        let fresh = page.comments.filter { !seen.contains($0.id) }
+        comments.value = fresh + known
+        hasOlder = page.hasOlder && !fresh.isEmpty
     }
 
     private func send() async {
@@ -468,6 +538,7 @@ struct BlubberCommentBubble: View {
                 Text(comment.text)
                     .font(.callout)
                     .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(isOwn ? Color.white : Color.primary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -585,9 +656,7 @@ struct MessageDetailView: View {
 
                 Divider()
 
-                Text(message.preview)
-                    .font(.body)
-                    .textSelection(.enabled)
+                FormattedText(raw: message.body, font: .body)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()

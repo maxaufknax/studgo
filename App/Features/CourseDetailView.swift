@@ -15,7 +15,6 @@ struct CourseDetailView: View {
     @State private var news = Loadable<[NewsItem]>()
     @State private var participants = Loadable<[Participant]>()
     @State private var webTarget: WebTarget?
-    @State private var isDescriptionExpanded = false
 
     private var lecturers: [Participant] {
         (participants.value ?? []).filter { $0.permission == "dozent" }
@@ -25,15 +24,37 @@ struct CourseDetailView: View {
         (events.value ?? []).first { !$0.isOver && !$0.isCancelled }
     }
 
+    /// Der **rohe** Text. Das Setzen übernimmt `FormattedText` — die
+    /// Beschreibung ist in aller Regel Stud.IP-Auszeichnung, kein HTML.
     private var description: String? {
-        course.description?.strippingHTML.nilIfEmpty
+        course.description?.nilIfEmpty
+    }
+
+    /// Ist das eine Studiengruppe? Dann heißt der Bereich anders, und
+    /// „Eintragen" heißt „Beitreten".
+    private var isStudygroup: Bool { auth.studygroupKinds.contains(course.typeID) }
+
+    /// Man ist selbst gar nicht eingetragen — dann liefert Stud.IP zu
+    /// Teilnehmenden, Terminen und Aushang nichts, und das ist keine Störung.
+    ///
+    /// Erst wenn **alle drei** Abrufe durch sind: Während des Ladens sind sie
+    /// ebenfalls leer, und der Hinweis dürfte nicht kurz aufblitzen.
+    private var isOutsider: Bool {
+        guard participants.hasValue, events.hasValue, news.hasValue else { return false }
+        return (participants.value ?? []).isEmpty
+            && (events.value ?? []).isEmpty
+            && (news.value ?? []).isEmpty
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                if let nextEvent { nextCard(nextEvent) }
+                if let nextEvent {
+                    NavigationLink(value: nextEvent) { nextCard(nextEvent) }
+                        .buttonStyle(.plain)
+                }
+                if isOutsider { outsiderNote }
                 sections
                 if description != nil || course.miscellaneous != nil { about }
                 facts
@@ -55,7 +76,8 @@ struct CourseDetailView: View {
                     Button {
                         webTarget = WebTarget(url: StudIPClient.enrolmentURL(courseID: course.id))
                     } label: {
-                        Label("Eintragen / austragen", systemImage: "person.badge.plus")
+                        Label(isStudygroup ? "Beitreten / verlassen" : "Eintragen / austragen",
+                              systemImage: "person.badge.plus")
                     }
                     ShareLink(item: StudIPClient.courseURL(courseID: course.id)) {
                         Label("Link teilen", systemImage: "square.and.arrow.up")
@@ -81,6 +103,8 @@ struct CourseDetailView: View {
                 }
                 if let type = auth.courseTypeName(course.typeID) {
                     Chip(text: type, color: .white)
+                } else if isStudygroup {
+                    Chip(text: "Studiengruppe", symbol: "person.3.fill", color: .white)
                 }
             }
 
@@ -206,6 +230,13 @@ struct CourseDetailView: View {
 
     // MARK: - Beschreibung
 
+    /// Beschreibung und „Sonstiges".
+    ///
+    /// Beide Felder kommen **unbearbeitet** aus Stud.IP
+    /// (`Schemas/Course.php` reicht `beschreibung` und `sonstiges` roh
+    /// durch). Sie tragen Absätze, Aufzählungen, Betonungen und Verweise in
+    /// Stud.IP-Auszeichnung — als Klartext gezeigt stand hier ein einziger
+    /// Block voller Sternchen und Prozentzeichen. `FormattedText` setzt das.
     private var about: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let description {
@@ -213,32 +244,40 @@ struct CourseDetailView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.secondary)
 
-                Text(description)
-                    .font(.callout)
-                    .textSelection(.enabled)
-                    .lineLimit(isDescriptionExpanded ? nil : 8)
-                    .fixedSize(horizontal: false, vertical: true)
-
                 // Lange Kommentartexte schoben früher alles Übrige aus dem
                 // Bild; sie stehen jetzt gekürzt und lassen sich aufklappen.
-                if description.count > 420 {
-                    Button(isDescriptionExpanded ? "Weniger anzeigen" : "Weiterlesen") {
-                        withAnimation { isDescriptionExpanded.toggle() }
-                    }
-                    .font(.caption.weight(.semibold))
-                }
+                ExpandableText(raw: description)
             }
 
-            if let extra = course.miscellaneous?.strippingHTML.nilIfEmpty {
+            if let extra = course.miscellaneous?.nilIfEmpty {
                 if description != nil { Divider().padding(.vertical, 2) }
                 Text("Sonstiges")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.secondary)
-                Text(extra)
-                    .font(.callout)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
+                ExpandableText(raw: extra)
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    /// Wer nicht eingetragen ist, sieht bei Terminen, Personen und Aushang
+    /// nichts — das ist die Rechtelage, kein Fehler. Vorher stand in jedem
+    /// dieser Bereiche „Für diesen Bereich fehlen die Rechte".
+    private var outsiderNote: some View {
+        HStack(spacing: 11) {
+            Image(systemName: "lock")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isStudygroup ? "Du bist in dieser Gruppe nicht dabei"
+                                  : "Du bist hier nicht eingetragen")
+                    .font(.subheadline.weight(.semibold))
+                Text("Termine, Personen und Aushang gibt Stud.IP nur Mitgliedern heraus. \(isStudygroup ? "Beitreten" : "Eintragen") geht über die Weboberfläche.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
