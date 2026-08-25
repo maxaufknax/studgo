@@ -58,6 +58,7 @@ struct CourseDetailView: View {
                 sections
                 if description != nil || course.miscellaneous != nil { about }
                 facts
+                webActions
             }
             .padding(.horizontal)
             .padding(.bottom, 28)
@@ -281,6 +282,52 @@ struct CourseDetailView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
+    }
+
+    /// Was die JSON:API nicht kann, aber die Weboberfläche schon.
+    ///
+    /// Ein- und Austragen gibt es in der Schnittstelle **nicht**:
+    /// `Routes\Courses\Rel\Memberships::authorize()` gibt für jede Methode
+    /// außer GET hart `false` zurück. Der Knopf führt deshalb dorthin, wo es
+    /// geht — mit einem Satz dazu, warum.
+    private var webActions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("In Stud.IP erledigen")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            webButton(isStudygroup ? "Beitreten oder verlassen" : "Eintragen oder austragen",
+                      symbol: "person.badge.plus",
+                      url: StudIPClient.enrolmentURL(courseID: course.id))
+            webButton("Dateiverwaltung öffnen",
+                      symbol: "folder.badge.gearshape",
+                      url: WebLinks.courseFiles(course.id))
+            webButton("Veranstaltungsseite öffnen",
+                      symbol: "safari",
+                      url: WebLinks.course(course.id))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    private func webButton(_ title: String, symbol: String, url: URL) -> some View {
+        Button {
+            webTarget = WebTarget(url: url)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.footnote)
+                    .foregroundStyle(.tint)
+                    .frame(width: 20)
+                Text(title).font(.callout)
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right.square")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Eckdaten
