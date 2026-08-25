@@ -55,7 +55,9 @@ enum AppTheme: String, CaseIterable, Identifiable, Sendable {
     /// wirkt sie auf schwarzem Grund wie ein Loch statt wie eine Farbe.
     private var accentSpec: (hue: Double, light: (Double, Double), dark: (Double, Double)) {
         switch self {
-        case .leibniz:  return (203, (1.00, 0.61), (0.62, 0.92))
+        // 202° ist der Farbton der Wortmarke (#38B6FF). Im Hellmodus
+        // abgedunkelt, sonst wäre Text darauf nicht mehr zu lesen.
+        case .leibniz:  return (202, (0.90, 0.66), (0.72, 0.98))
         case .ocean:    return (186, (0.95, 0.58), (0.60, 0.88))
         case .forest:   return (150, (0.85, 0.50), (0.55, 0.80))
         case .sunset:   return (18,  (0.88, 0.85), (0.62, 0.95))
@@ -87,7 +89,7 @@ enum AppTheme: String, CaseIterable, Identifiable, Sendable {
     var hues: [Double] {
         switch self {
         case .leibniz:
-            return [203, 218, 232, 248, 262, 280, 300, 322, 344, 8, 25, 188]
+            return [202, 218, 232, 248, 262, 280, 300, 322, 344, 8, 25, 188]
         case .ocean:
             return [186, 196, 172, 158, 206, 220, 234, 250, 300, 326, 348, 16]
         case .forest:

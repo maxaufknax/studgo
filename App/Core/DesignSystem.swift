@@ -9,6 +9,48 @@ enum Design {
     static let chipCorner: CGFloat = 8
     static let cardPadding: CGFloat = 14
     static let rowGap: CGFloat = 12
+    /// Haarlinie am Kartenrand. Bei aktivem Dunkelmodus liegt eine Karte sonst
+    /// fast tonlos auf dem Untergrund und die Gliederung verschwindet.
+    static let hairline: CGFloat = 0.5
+}
+
+/// Die Farben des Logos.
+///
+/// Sie kommen aus der Bilddatei
+/// (`App/Resources/Assets.xcassets/AppLogo.imageset`) und nicht aus dem
+/// gewählten Thema: Anmeldebildschirm und App-Symbol sollen aussehen wie das
+/// Logo, unabhängig davon, welche Farbwelt jemand später einstellt.
+enum Brand {
+    /// Der Untergrund des Logos.
+    static let night = Color(red: 10 / 255, green: 14 / 255, blue: 34 / 255)
+    /// Das kräftige Blau am unteren Ende des Verlaufs im App-Symbol.
+    static let deep = Color(red: 33 / 255, green: 130 / 255, blue: 220 / 255)
+    /// Das Blau der Wortmarke, #38B6FF.
+    static let blue = Color(red: 56 / 255, green: 182 / 255, blue: 255 / 255)
+
+    static var gradient: LinearGradient {
+        LinearGradient(colors: [night, deep], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+}
+
+/// Das Logo als Kachel mit abgerundeten Ecken.
+///
+/// Die Bilddatei ist quadratisch und trägt ihren eigenen dunklen Untergrund —
+/// beschnitten wie ein App-Symbol sieht sie überall gleich aus, auch auf
+/// hellem Grund.
+struct AppLogoView: View {
+    var size: CGFloat = 96
+    var cornerRadius: CGFloat = 22
+
+    var body: some View {
+        Image("AppLogo")
+            .resizable()
+            .interpolation(.high)
+            .scaledToFill()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .accessibilityLabel("StudGo")
+    }
 }
 
 /// Jede Veranstaltung bekommt eine eigene, dauerhaft gleiche Farbe.
@@ -69,6 +111,14 @@ struct CardBackground: ViewModifier {
                 RoundedRectangle(cornerRadius: Design.cardCorner, style: .continuous)
                     .fill(fill)
             )
+            // Haarlinie plus ein Hauch Schatten: Im Dunkelmodus unterscheidet
+            // sich `secondarySystemGroupedBackground` kaum vom Untergrund, und
+            // ohne Kante zerfloss die Seite zu einer einzigen grauen Fläche.
+            .overlay(
+                RoundedRectangle(cornerRadius: Design.cardCorner, style: .continuous)
+                    .strokeBorder(Color(.separator).opacity(0.30), lineWidth: Design.hairline)
+            )
+            .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
     }
 }
 
