@@ -10,6 +10,7 @@ struct TodayView: View {
     @State private var semesters = Loadable<[Semester]>()
     @State private var messages = Loadable<[Message]>()
     @State private var news = Loadable<[NewsItem]>()
+    @State private var isShowingSettings = false
 
     /// Persönliche Termine plus die aus dem Stundenplan abgeleiteten
     /// Sitzungen — warum das nötig ist, steht in `EventMerge`.
@@ -113,6 +114,19 @@ struct TodayView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: Message.self) { MessageDetailView(message: $0) }
             .navigationDestination(for: NewsItem.self) { NewsDetailView(item: $0) }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        InitialsBadge(initials: user.initials, size: 30)
+                    }
+                    .accessibilityLabel("Profil und Einstellungen")
+                }
+            }
+            .sheet(isPresented: $isShowingSettings) {
+                SettingsView(user: user)
+            }
             .refreshable { await reload(fresh: true) }
             .task { if !events.hasValue || !plan.hasValue { await reload(fresh: false) } }
         }

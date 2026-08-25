@@ -15,14 +15,9 @@ enum Design {
 ///
 /// Die Farbe wird aus der ID abgeleitet statt gespeichert: derselbe Kurs ist
 /// dadurch in Stundenplan, Terminliste und Kursliste immer gleich eingefärbt,
-/// ohne dass es dafür eine Verwaltung bräuchte.
+/// ohne dass es dafür eine Verwaltung bräuchte. Aus welchem Vorrat an
+/// Farbtönen gezogen wird, bestimmt das gewählte Thema — siehe `AppTheme`.
 enum Tint {
-    /// Zwölf Farbtöne, die sowohl auf hellem als auch auf dunklem Grund
-    /// tragen. Das Gelb-Grün-Band zwischen 40° und 140° ist bewusst
-    /// ausgespart — dort wird jede Sättigung entweder blass oder grell.
-    private static let hues: [Double] = [210, 232, 255, 278, 300, 325,
-                                         348, 12, 28, 152, 172, 192]
-
     /// FNV-1a. `hashValue` verbietet sich hier: Swift salzt ihn pro
     /// Programmstart neu, die Farbe eines Kurses wechselte dann bei jedem
     /// App-Start.
@@ -36,32 +31,29 @@ enum Tint {
     }
 
     private static func hue(_ seed: String) -> Double {
-        hues[Int(fingerprint(seed) % UInt64(hues.count))] / 360.0
+        let hues = Palette.current.hues
+        return hues[Int(fingerprint(seed) % UInt64(hues.count))]
     }
 
     /// Kräftige Variante für Text, Symbole und Balken.
     static func color(_ seed: String) -> Color {
-        let h = hue(seed)
-        return Color(UIColor { traits in
-            let isDark = traits.userInterfaceStyle == .dark
-            return UIColor(hue: CGFloat(h),
-                           saturation: isDark ? 0.58 : 0.78,
-                           brightness: isDark ? 0.95 : 0.72,
-                           alpha: 1)
-        })
+        Palette.current.courseColor(hue: hue(seed))
     }
 
     /// Flächenvariante für Kartenhintergründe — so blass, dass Text darauf
     /// in beiden Erscheinungsbildern lesbar bleibt.
     static func surface(_ seed: String) -> Color {
-        let h = hue(seed)
-        return Color(UIColor { traits in
-            let isDark = traits.userInterfaceStyle == .dark
-            return UIColor(hue: CGFloat(h),
-                           saturation: isDark ? 0.42 : 0.30,
-                           brightness: isDark ? 0.28 : 0.97,
-                           alpha: 1)
-        })
+        Palette.current.courseSurface(hue: hue(seed))
+    }
+
+    /// Verlauf aus der Kursfarbe — für Kopfflächen, die mehr tragen sollen
+    /// als eine einzelne Fläche.
+    static func gradient(_ seed: String) -> LinearGradient {
+        let base = hue(seed)
+        return LinearGradient(colors: [Palette.current.courseColor(hue: base),
+                                       Palette.current.courseColor(hue: base + 22)],
+                              startPoint: .topLeading,
+                              endPoint: .bottomTrailing)
     }
 }
 

@@ -28,19 +28,29 @@ struct MainTabView: View {
     let user: StudIPUser
     @Environment(AuthStore.self) private var auth
 
+    /// Fünf Reiter, benannt nach dem, was dahinter liegt, nicht nach dem
+    /// Stud.IP-Fachbegriff: „Postfach" statt „Nachrichten", weil dort auch
+    /// die Blubber-Unterhaltungen liegen, und „Campus" statt „Mehr", weil
+    /// „Mehr" nichts darüber verrät, was man dort findet. Profil und
+    /// Einstellungen sitzen als Knopf oben auf „Heute" — ein eigener Reiter
+    /// dafür wäre der am seltensten benutzte von fünf.
     var body: some View {
         TabView {
             TodayView(user: user)
-                .tabItem { Label("Heute", systemImage: "sun.max") }
+                .tabItem { Label("Heute", systemImage: "sun.max.fill") }
+
             ScheduleView(user: user)
                 .tabItem { Label("Plan", systemImage: "calendar") }
+
             CoursesView(user: user)
-                .tabItem { Label("Kurse", systemImage: "books.vertical") }
-            MessagesView(user: user)
-                .tabItem { Label("Nachrichten", systemImage: "envelope") }
+                .tabItem { Label("Kurse", systemImage: "books.vertical.fill") }
+
+            PostfachView(user: user)
+                .tabItem { Label("Postfach", systemImage: "tray.full.fill") }
                 .badge(auth.unreadCount)
-            MoreView(user: user)
-                .tabItem { Label("Mehr", systemImage: "ellipsis.circle") }
+
+            CampusView(user: user)
+                .tabItem { Label("Campus", systemImage: "person.2.fill") }
         }
         .task { await auth.loadSemTypes() }
     }
