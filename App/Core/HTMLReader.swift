@@ -44,13 +44,19 @@ extension StudipMarkup {
         /// Dokumentdeklaration.
         private static func strippingNoise(from raw: String) -> String {
             var text = raw
-            for pattern in ["<!--.*?-->",
-                            "<script\\b[^>]*>.*?</script\\s*>",
-                            "<style\\b[^>]*>.*?</style\\s*>",
+            // `(?s)` statt `.dotMatchesLineSeparators`: Der Punkt soll auch
+            // Zeilenumbrüche treffen — ein Kommentar oder ein `<script>` geht
+            // über mehrere Zeilen. Die Option dafür gibt es aber nur bei
+            // `NSRegularExpression.Options`; `String.replacingOccurrences`
+            // nimmt `String.CompareOptions`, und dort ist sie nicht enthalten.
+            // Der ICU-Ausdruck kennt den Schalter als Präfix im Muster selbst.
+            for pattern in ["(?s)<!--.*?-->",
+                            "(?s)<script\\b[^>]*>.*?</script\\s*>",
+                            "(?s)<style\\b[^>]*>.*?</style\\s*>",
                             "<!DOCTYPE[^>]*>"] {
                 text = text.replacingOccurrences(
                     of: pattern, with: "",
-                    options: [.regularExpression, .caseInsensitive, .dotMatchesLineSeparators])
+                    options: [.regularExpression, .caseInsensitive])
             }
             return text
         }
