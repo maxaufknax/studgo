@@ -62,7 +62,7 @@ struct CourseParticipantsView: View {
     @Environment(AuthStore.self) private var auth
 
     @State private var search = ""
-    @State private var writingTo: Participant?
+    @State private var selected: Participant?
 
     private var filtered: [Participant] {
         let all = participants.value ?? []
@@ -87,7 +87,7 @@ struct CourseParticipantsView: View {
                 Section("\(group.role) (\(group.people.count))") {
                     ForEach(group.people) { member in
                         Button {
-                            writingTo = member
+                            selected = member
                         } label: {
                             ParticipantRow(member: member)
                         }
@@ -109,8 +109,15 @@ struct CourseParticipantsView: View {
         .searchable(text: $search, prompt: "Personen durchsuchen")
         .navigationTitle("Personen")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $writingTo) { participant in
-            ComposeMessageView(presetRecipientID: participant.userID)
+        // Nicht mehr direkt ins Nachrichtenfenster: von hier aus lässt sich
+        // jetzt auch die Sprechstunde buchen oder die Person in die Kontakte
+        // aufnehmen.
+        .sheet(item: $selected) { participant in
+            if let userID = participant.userID {
+                PersonSheet(personID: userID,
+                            name: participant.name,
+                            subtitle: participant.label ?? participant.role)
+            }
         }
         .refreshable { await reload() }
     }
@@ -136,9 +143,9 @@ struct ParticipantRow: View {
                 }
             }
             Spacer(minLength: 0)
-            Image(systemName: "square.and.pencil")
-                .font(.caption)
-                .foregroundStyle(.tint)
+            Image(systemName: "chevron.right")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 1)
     }
@@ -436,5 +443,57 @@ struct WikiPageView: View {
         }
         .navigationTitle("Wiki")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+
+// MARK: - Blubber einer Veranstaltung
+
+struct CourseBlubberView: View {
+    let course: Course
+    @Environment(AuthStore.self) private var auth
+
+    @State private var threads = Loadable<[BlubberThread]>()
+    @State private var isWriting = false
+
+    var body: some View {
+        List(threads.value ?? []) { thread in
+            NavigationLink {
+                BlubberThreadView(thread: thread)
+            } label: {
+                BlubberThreadRow(thread: thread)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .overlay {
+            StateOverlay(isLoading: threads.isLoading,
+                         errorMessage: threads.errorMessage,
+                         isEmpty: (threads.value ?? []).isEmpty,
+                         emptyText: "Noch keine Beiträge",
+                         emptySymbol: "bubble.left.and.bubble.right",
+                         retry: { Task { await reload(fresh: true) } })
+        }
+        .navigationTitle("Blubber")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isWriting = true
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                }
+                .accessibilityLabel("Beitrag schreiben")
+            }
+        }
+        .sheet(isPresented: $isWriting) {
+            NewBlubberThreadView(courses: [course]) { await reload(fresh: true) }
+        }
+        .refreshable { await reload(fresh: true) }
+        .task { if threads.value == nil { await reload(fresh: false) } }
+    }
+
+    private func reload(fresh: Bool) async {
+        let client = fresh ? auth.freshClient : auth.client
+        await threads.load { try await client.blubberThreads(.course(id: course.id)) }
     }
 }
