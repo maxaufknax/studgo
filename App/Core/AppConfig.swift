@@ -19,6 +19,11 @@ enum AppConfig {
         baseURL.appendingPathComponent("jsonapi.php")
     }
 
+    /// SOGo-Weboberfläche der LUH. `webmail.uni-hannover.de` leitet dorthin
+    /// weiter; die Zieladresse zu nehmen spart die Umleitung.
+    /// Warum StudGo Mail nur verlinkt statt einzubauen: docs/SOGO-MAIL.md.
+    static let webmailURL = URL(string: "https://kalender.uni-hannover.de/SOGo/")!
+
     static let callbackScheme = "studgo"
     static let redirectURI = "studgo://oauth/callback"
     static let scope = "api"

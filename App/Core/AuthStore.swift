@@ -57,6 +57,13 @@ final class AuthStore {
         unreadCount = count
     }
 
+    /// Die eigene Nutzer-ID, sofern angemeldet. Der Blubber-Verlauf braucht
+    /// sie, um eigene Beiträge von fremden zu unterscheiden.
+    var currentUserID: String? {
+        if case .signedIn(let user) = state { return user.id }
+        return nil
+    }
+
     func courseTypeName(_ id: Int?) -> String? {
         guard let id else { return nil }
         return semTypes[String(id)]?.nilIfEmpty

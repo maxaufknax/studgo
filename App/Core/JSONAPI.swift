@@ -53,6 +53,9 @@ struct Resource {
     let id: String
     let attributes: [String: Any]
     let relationships: [String: Any]
+    /// Ressourceneigenes `meta` — Stud.IP legt dort Dinge ab, die kein
+    /// Attribut sind, etwa die Avatar-Adresse eines Blubber-Beitrags.
+    let meta: [String: Any]
 
     init?(_ raw: [String: Any]) {
         guard let type = raw["type"] as? String, let id = raw["id"] as? String else { return nil }
@@ -60,6 +63,23 @@ struct Resource {
         self.id = id
         self.attributes = raw["attributes"] as? [String: Any] ?? [:]
         self.relationships = raw["relationships"] as? [String: Any] ?? [:]
+        self.meta = raw["meta"] as? [String: Any] ?? [:]
+    }
+
+    /// Zahl aus dem `meta` eines Beziehungs-Links.
+    ///
+    /// Die Zahl ungelesener Blubber-Kommentare steht nicht bei den
+    /// Attributen, sondern unter
+    /// `relationships.comments.links.related.meta["unseen-comments"]` —
+    /// Stud.IP hängt sie an den Link, nicht an die Ressource.
+    func relationshipLinkMeta(_ name: String, _ key: String) -> Int? {
+        guard let relation = relationships[name] as? [String: Any],
+              let links = relation["links"] as? [String: Any],
+              let related = links["related"] as? [String: Any],
+              let meta = related["meta"] as? [String: Any] else { return nil }
+        if let number = meta[key] as? NSNumber { return number.intValue }
+        if let text = meta[key] as? String { return Int(text) }
+        return nil
     }
 
     func string(_ key: String) -> String? {
