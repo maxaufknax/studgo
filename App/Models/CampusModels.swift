@@ -337,3 +337,74 @@ extension String {
         split(separator: "\n").first.map(String.init) ?? self
     }
 }
+
+// MARK: - Sprechstunden
+
+/// Ein Sprechstundenblock — der Rahmen, in dem einzelne Termine liegen.
+struct ConsultationBlock: Identifiable, Equatable, Hashable {
+    let id: String
+    let start: Date?
+    let end: Date?
+    let room: String?
+    let note: String?
+    /// Wie viele Personen sich einen Termin teilen dürfen.
+    let size: Int
+    let requiresReason: Bool
+
+    init?(_ resource: Resource) {
+        guard resource.type == "consultation-blocks" else { return nil }
+        id = resource.id
+        start = resource.date("start")
+        end = resource.date("end")
+        room = resource.string("room")?.strippingHTML.nilIfEmpty
+        note = resource.string("note")?.strippingHTML.nilIfEmpty
+        size = resource.int("size") ?? 1
+        requiresReason = resource.bool("require-reason")
+    }
+
+    var dayLabel: String {
+        guard let start else { return "Sprechstunde" }
+        return Format.dayShort(start)
+    }
+}
+
+/// Ein einzelner buchbarer Termin innerhalb eines Blocks.
+///
+/// Achtung: Die Zeitattribute heißen hier `start_time`/`end_time` mit
+/// **Unterstrich** — anders als überall sonst in der Stud.IP-API, wo
+/// Bindestriche stehen. Wer `start-time` liest, bekommt nichts.
+struct ConsultationSlot: Identifiable, Equatable, Hashable {
+    let id: String
+    let start: Date?
+    let end: Date?
+    let note: String?
+    let isBookable: Bool
+    let isLocked: Bool
+
+    init?(_ resource: Resource) {
+        guard resource.type == "consultation-slots" else { return nil }
+        id = resource.id
+        start = resource.date("start_time")
+        end = resource.date("end_time")
+        note = resource.string("note")?.strippingHTML.nilIfEmpty
+        isBookable = resource.bool("is-bookable")
+        isLocked = resource.bool("is-locked")
+    }
+
+    var timeLabel: String {
+        guard let start else { return "—" }
+        guard let end else { return start.formatted(date: .omitted, time: .shortened) }
+        return Format.timeRange(start, end)
+    }
+
+    var isPast: Bool {
+        guard let start else { return false }
+        return start < Date()
+    }
+
+    var statusLabel: String {
+        if isPast { return "vorbei" }
+        if isBookable { return "frei" }
+        return isLocked ? "gesperrt" : "belegt"
+    }
+}

@@ -9,6 +9,7 @@ struct CampusView: View {
 
     @State private var activities = Loadable<[ActivityItem]>()
     @State private var publicThreads = Loadable<[BlubberThread]>()
+    @State private var isWritingThread = false
 
     private var recentActivities: [ActivityItem] {
         Array((activities.value ?? []).prefix(6))
@@ -21,6 +22,7 @@ struct CampusView: View {
     var body: some View {
         NavigationStack {
             List {
+                meSection
                 activitySection
                 blubberSection
                 directorySection
@@ -28,10 +30,37 @@ struct CampusView: View {
             .listStyle(.insetGrouped)
             .navigationTitle("Campus")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isWritingThread = true
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                    }
+                    .accessibilityLabel("Neuen Blubber-Faden schreiben")
+                }
+            }
+            .sheet(isPresented: $isWritingThread) {
+                NewBlubberThreadView { await reload(fresh: true) }
+            }
             .navigationDestination(for: BlubberThread.self) { BlubberThreadView(thread: $0) }
             .navigationDestination(for: Course.self) { CourseDetailView(course: $0) }
             .refreshable { await reload(fresh: true) }
             .task { if activities.value == nil { await reload(fresh: false) } }
+        }
+    }
+
+    // MARK: - Eigene Zahlen
+
+    private var meSection: some View {
+        Section {
+            NavigationLink {
+                StatisticsView(user: user)
+            } label: {
+                RowLabel(symbol: "chart.bar.xaxis",
+                         title: "Dein Semester",
+                         subtitle: "Fortschritt, Wochenlast, dein Verlauf")
+            }
         }
     }
 
@@ -97,9 +126,23 @@ struct CampusView: View {
                          subtitle: "Das ganze Vorlesungsverzeichnis")
             }
             NavigationLink {
+                PersonSearchView()
+            } label: {
+                RowLabel(symbol: "person.crop.circle.badge.questionmark",
+                         title: "Personen finden",
+                         subtitle: "Nach Name oder Kennung")
+            }
+            NavigationLink {
                 ContactsView(user: user)
             } label: {
                 RowLabel(symbol: "person.crop.circle", title: "Meine Kontakte")
+            }
+            NavigationLink {
+                StudygroupsView()
+            } label: {
+                RowLabel(symbol: "person.3",
+                         title: "Studiengruppen",
+                         subtitle: "Vorschläge aus deinem Umfeld")
             }
             NavigationLink {
                 InstitutesView(user: user)
@@ -336,7 +379,7 @@ struct ContactsView: View {
 
     @State private var contacts = Loadable<[Contact]>()
     @State private var search = ""
-    @State private var writingTo: Contact?
+    @State private var selected: Contact?
 
     private var filtered: [Contact] {
         let all = contacts.value ?? []
@@ -350,7 +393,7 @@ struct ContactsView: View {
     var body: some View {
         List(filtered) { contact in
             Button {
-                writingTo = contact
+                selected = contact
             } label: {
                 HStack(spacing: 12) {
                     InitialsBadge(initials: contact.initials, size: 36)
@@ -363,12 +406,19 @@ struct ContactsView: View {
                         }
                     }
                     Spacer(minLength: 0)
-                    Image(systemName: "square.and.pencil")
-                        .font(.caption)
-                        .foregroundStyle(.tint)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
             }
             .buttonStyle(.plain)
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    Task { await remove(contact) }
+                } label: {
+                    Label("Entfernen", systemImage: "person.badge.minus")
+                }
+            }
         }
         .listStyle(.insetGrouped)
         .overlay {
@@ -382,8 +432,21 @@ struct ContactsView: View {
         .searchable(text: $search, prompt: "Kontakte durchsuchen")
         .navigationTitle("Kontakte")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $writingTo) { contact in
-            ComposeMessageView(presetRecipientID: contact.id)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    PersonSearchView()
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Kontakt hinzufügen")
+            }
+        }
+        .sheet(item: $selected) { contact in
+            PersonSheet(personID: contact.id,
+                        name: contact.name,
+                        subtitle: contact.username.map { "@\($0)" },
+                        isContact: true)
         }
         .refreshable { await reload(fresh: true) }
         .task { if contacts.value == nil { await reload(fresh: false) } }
@@ -392,6 +455,11 @@ struct ContactsView: View {
     private func reload(fresh: Bool) async {
         let client = fresh ? auth.freshClient : auth.client
         await contacts.load { try await client.contacts(for: user.id) }
+    }
+
+    private func remove(_ contact: Contact) async {
+        try? await auth.client.removeContact(contact.id, for: user.id)
+        await reload(fresh: true)
     }
 }
 
