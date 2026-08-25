@@ -1,6 +1,6 @@
 import Foundation
 
-/// Führt die beiden Terminquellen von Stud.IP zusammen.
+/// Führt die Terminquellen von Stud.IP zusammen.
 ///
 /// `/v1/users/{id}/events` liefert **nur den persönlichen Kalender**: die Route
 /// filtert auf `range_id = user`, Veranstaltungstermine hängen dagegen am Kurs.
@@ -8,21 +8,50 @@ import Foundation
 /// obwohl ihr Stundenplan voll ist. Die Sitzungen der belegten Veranstaltungen
 /// werden deshalb aus den Turnusterminen des Stundenplans abgeleitet.
 enum EventMerge {
+
+    /// Ein Stundenplan zusammen mit der Vorlesungszeit, für die er gilt.
+    ///
+    /// **Warum die Zeit mitgeführt wird:** `/v1/users/{id}/schedule` gibt
+    /// immer den Plan *eines* Semesters — welches, entscheidet
+    /// `filter[timestamp]`. Würde man den Plan des laufenden Semesters über
+    /// Tage des nächsten legen, stünden dort Sitzungen, die es nicht gibt.
+    /// Seit der Kalender in der vorlesungsfreien Zeit vorausschaut, liegen
+    /// zwei Pläne gleichzeitig vor, und jeder gilt nur in seinem Fenster.
+    struct PlanWindow {
+        let entries: [ScheduleEntry]
+        let period: ClosedRange<Date>?
+
+        init(entries: [ScheduleEntry], period: ClosedRange<Date>?) {
+            self.entries = entries
+            self.period = period
+        }
+
+        /// Bequemer Weg für den Regelfall: der Plan des Semesters, in dessen
+        /// Vorlesungszeit `reference` liegt.
+        init(entries: [ScheduleEntry], semester: Semester?) {
+            self.entries = entries
+            self.period = semester.flatMap(SemesterContext.lecturePeriod(of:))
+        }
+    }
+
     /// Persönliche Termine und abgeleitete Sitzungen, nach Zeit sortiert.
     static func combine(dated: [CourseEvent],
-                        plan: [ScheduleEntry],
-                        semesters: [Semester],
+                        plans: [PlanWindow],
+                        from start: Date = Date(),
                         days: Int) -> [CourseEvent] {
         var seen = Set(dated.map(slot))
         var merged = dated
 
-        for session in plannedSessions(from: plan,
-                                       days: days,
-                                       within: lecturePeriod(in: semesters)) {
-            let key = slot(session)
-            guard !seen.contains(key) else { continue }
-            seen.insert(key)
-            merged.append(session)
+        for plan in plans {
+            for session in plannedSessions(from: plan.entries,
+                                           startingAt: start,
+                                           days: days,
+                                           within: plan.period) {
+                let key = slot(session)
+                guard !seen.contains(key) else { continue }
+                seen.insert(key)
+                merged.append(session)
+            }
         }
         return merged.sorted { $0.start < $1.start }
     }
@@ -38,32 +67,25 @@ enum EventMerge {
         return "\(Int(day.timeIntervalSince1970))/\(minutes)"
     }
 
-    /// Vorlesungszeit des laufenden Semesters. Ohne diese Grenze stünden in
-    /// der vorlesungsfreien Zeit Sitzungen im Kalender, die nicht
-    /// stattfinden: Der Stundenplan führt seine Turnustermine das ganze
-    /// Semester über, abgehalten werden sie nur während der Vorlesungszeit.
-    static func lecturePeriod(in semesters: [Semester]) -> ClosedRange<Date>? {
-        guard let current = semesters.first(where: { $0.isCurrent }),
-              let from = current.lectureStart,
-              let to = current.lectureEnd,
-              from <= to else { return nil }
-        return from...to
-    }
-
-    /// Die Sitzungen der nächsten Tage aus dem Wochenplan. Ohne bekannte
-    /// Vorlesungszeit wird bewusst nichts abgeleitet — lieber eine Quelle
-    /// weniger als erfundene Termine.
+    /// Die Sitzungen aus einem Wochenplan, Tag für Tag ausgerollt.
+    ///
+    /// Ohne bekannte Vorlesungszeit wird bewusst nichts abgeleitet — lieber
+    /// eine Quelle weniger als erfundene Termine. Und außerhalb der
+    /// Vorlesungszeit ebenfalls nichts: Der Stundenplan führt seine
+    /// Turnustermine das ganze Semester über, abgehalten werden sie nur
+    /// während der Vorlesungszeit.
     static func plannedSessions(from entries: [ScheduleEntry],
+                                startingAt start: Date = Date(),
                                 days: Int,
                                 within period: ClosedRange<Date>?) -> [CourseEvent] {
         let cycles = entries.filter(\.isCourse)
-        guard !cycles.isEmpty, let period else { return [] }
+        guard !cycles.isEmpty, let period, days > 0 else { return [] }
 
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let first = calendar.startOfDay(for: start)
 
         return (0..<days).flatMap { offset -> [CourseEvent] in
-            guard let day = calendar.date(byAdding: .day, value: offset, to: today),
+            guard let day = calendar.date(byAdding: .day, value: offset, to: first),
                   period.contains(day) else { return [] }
             let weekday = TimetableView.weekday(of: day)
             return cycles

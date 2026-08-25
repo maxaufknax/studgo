@@ -154,6 +154,59 @@ struct StudIPClient {
         }
     }
 
+    /// **Die** Terminquelle: alle echten Sitzungen ab heute.
+    ///
+    /// `GET /users/{id}/events.ics` ruft serverseitig
+    /// `exportCalendarDates() + exportCourseDates() + exportCourseExDates()`
+    /// auf und schreibt jede Sitzung als eigenes `VEVENT` — vom heutigen Tag
+    /// bis 2036, ohne Wiederholungsregel, samt Raum, Thema und den
+    /// ausgefallenen Terminen. Alles, was `/v1/users/{id}/events` **nicht**
+    /// hergibt (das liefert nur den persönlichen Kalender, und den nur zwei
+    /// Wochen weit).
+    ///
+    /// `courses` dient allein der Zuordnung: Der ICS-Strom nennt den
+    /// Veranstaltungsnamen, nicht ihre Kennung. Ohne die Zuordnung hätte
+    /// derselbe Kurs im Kalender eine andere Farbe als im Stundenplan und
+    /// ließe sich von dort aus nicht öffnen.
+    func calendarEvents(for userID: String, courses: [Course] = []) async throws -> [CourseEvent] {
+        let feed = try await text("/v1/users/\(userID)/events.ics")
+        let index = Self.courseIndex(courses)
+        return ICSParser.events(in: feed)
+            .map { CourseEvent(ics: $0, courseID: Self.matchCourse($0.summary, in: index)) }
+            .sorted { $0.start < $1.start }
+    }
+
+    /// Titel → Kennung, für die Zuordnung der ICS-Termine.
+    private static func courseIndex(_ courses: [Course]) -> [(key: String, id: String)] {
+        courses.flatMap { course -> [(key: String, id: String)] in
+            [course.title, course.shortTitle]
+                .map(normalizedTitle)
+                .filter { $0.count >= 6 }
+                .map { (key: $0, id: course.id) }
+        }
+    }
+
+    /// Vergleicht großzügig: Stud.IP setzt in den ICS-Titel
+    /// `Course::getFullName()`, also je nach Einstellung mit oder ohne
+    /// Veranstaltungsnummer und mit angehängtem Untertitel.
+    private static func matchCourse(_ summary: String, in index: [(key: String, id: String)]) -> String? {
+        guard !index.isEmpty else { return nil }
+        let candidate = normalizedTitle(summary)
+        guard !candidate.isEmpty else { return nil }
+        // Der längste Treffer gewinnt: „Analysis I" darf nicht die Termine
+        // von „Analysis II" einsammeln.
+        return index
+            .filter { candidate.contains($0.key) || $0.key.contains(candidate) }
+            .max { $0.key.count < $1.key.count }?
+            .id
+    }
+
+    private static func normalizedTitle(_ raw: String) -> String {
+        raw.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+            .replacingOccurrences(of: "[^a-z0-9]+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+    }
+
     func semesters() async throws -> [Semester] {
         try await get("/v1/semesters", limit: 100).resources.compactMap(Semester.init)
     }
@@ -349,6 +402,44 @@ struct StudIPClient {
                 if let hit = ResponseCache.load(for: key),
                    let document = try? JSONAPIDocument(data: hit.data) {
                     return document
+                }
+                throw APIError.offline
+            }
+            throw error
+        }
+    }
+
+    /// Rohtext einer Route, die **kein** JSON:API spricht.
+    ///
+    /// Es gibt genau eine solche in StudGo: `GET /users/{id}/events.ics`
+    /// (`NonJsonApiController`, `Content-Type: text/calendar`). Der übliche
+    /// Weg über `JSONAPIDocument` scheitert daran mit „Antwort ist kein
+    /// JSON-Objekt" — deshalb ein eigener Zugang, der aber denselben
+    /// Zwischenspeicher und dieselbe Fehlerbehandlung benutzt.
+    func text(_ path: String, extra: [URLQueryItem] = []) async throws -> String {
+        let address = url(path: path, query: extra)
+        let key = address.absoluteString
+
+        if !revalidates, let hit = ResponseCache.load(for: key), hit.age < ResponseCache.maxAge,
+           let cached = String(data: hit.data, encoding: .utf8) {
+            return cached
+        }
+
+        do {
+            var request = URLRequest(url: address)
+            request.httpMethod = "GET"
+            request.setValue("Bearer \(try await tokenProvider())",
+                             forHTTPHeaderField: "Authorization")
+            request.setValue("text/calendar", forHTTPHeaderField: "Accept")
+
+            let data = try await perform(request)
+            ResponseCache.store(data, for: key)
+            return String(data: data, encoding: .utf8) ?? ""
+        } catch {
+            if error.isConnectivityFailure {
+                if let hit = ResponseCache.load(for: key),
+                   let cached = String(data: hit.data, encoding: .utf8) {
+                    return cached
                 }
                 throw APIError.offline
             }
