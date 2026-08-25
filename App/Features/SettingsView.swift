@@ -1,11 +1,17 @@
 import SwiftUI
+import UIKit
 
-/// Profil, Ankündigungen, Semesterübersicht und alles Rechtliche.
-struct MoreView: View {
+/// Profil, Darstellung, Semesterübersicht und alles Rechtliche.
+///
+/// Erscheint als Blatt über „Heute" statt als eigener Reiter — ein fünfter
+/// Reiter „Mehr" hätte den Platz gekostet, den jetzt „Campus" bekommt.
+struct SettingsView: View {
     let user: StudIPUser
     @Environment(AuthStore.self) private var auth
+    @Environment(\.dismiss) private var dismiss
     @State private var showsSignOutConfirmation = false
     @State private var didClearCache = false
+    @State private var webTarget: WebTarget?
 
     var body: some View {
         NavigationStack {
@@ -25,6 +31,16 @@ struct MoreView: View {
                     .accessibilityElement(children: .combine)
                 }
 
+                Section("Darstellung") {
+                    NavigationLink {
+                        AppearanceView()
+                    } label: {
+                        RowLabel(symbol: "paintpalette",
+                                 title: "Farben & Erscheinungsbild",
+                                 subtitle: ThemeStore.currentName)
+                    }
+                }
+
                 Section {
                     NavigationLink {
                         NewsView(user: user)
@@ -35,6 +51,11 @@ struct MoreView: View {
                         SemesterListView()
                     } label: {
                         RowLabel(symbol: "calendar.badge.clock", title: "Semester")
+                    }
+                    Link(destination: StudIPClient.myCoursesURL) {
+                        RowLabel(symbol: "rectangle.stack.badge.person.crop",
+                                 title: "Veranstaltungen verwalten",
+                                 subtitle: "Ein- und austragen in Stud.IP")
                     }
                 }
 
@@ -59,6 +80,28 @@ struct MoreView: View {
                 }
 
                 Section {
+                    Button {
+                        webTarget = WebTarget(url: AppConfig.webmailURL)
+                    } label: {
+                        RowLabel(symbol: "envelope",
+                                 title: "Uni-Mail (SOGo)",
+                                 subtitle: "Öffnet kalender.uni-hannover.de")
+                    }
+                    .buttonStyle(.plain)
+                    NavigationLink {
+                        MailSetupView()
+                    } label: {
+                        RowLabel(symbol: "gearshape.2",
+                                 title: "Uni-Mail einrichten",
+                                 subtitle: "Serverdaten für Apple Mail")
+                    }
+                } footer: {
+                    // Warum StudGo kein eigener Mailclient ist, steht
+                    // ausführlich in docs/SOGO-MAIL.md.
+                    Text("Die Uni-Mail kennt nur Anmeldung per Passwort — weder IMAP noch SOGo bieten OAuth an. StudGo fragt deshalb grundsätzlich kein Uni-Passwort ab und verweist stattdessen auf SOGo und die Mail-App des Geräts.")
+                }
+
+                Section {
                     NavigationLink {
                         AboutView()
                     } label: {
@@ -78,7 +121,16 @@ struct MoreView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Mehr")
+            .navigationTitle("Profil")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+            .sheet(item: $webTarget) { target in
+                WebSheet(url: target.url).ignoresSafeArea()
+            }
             .confirmationDialog("Wirklich abmelden?",
                                 isPresented: $showsSignOutConfirmation,
                                 titleVisibility: .visible) {
@@ -184,5 +236,84 @@ struct AboutView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Über StudGo")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+
+/// Die Serverdaten der Uni-Mail zum Abtippen — mit Kopierknöpfen.
+///
+/// StudGo baut bewusst **keinen** eigenen Mailclient: Dovecot an der LUH
+/// bietet nur `AUTH=PLAIN`, SOGos DAV-Endpunkt nur HTTP Basic. Ein
+/// Posteingang in der App hieße, das zentrale Uni-Passwort abzufragen und
+/// vorzuhalten — das widerspricht der Zusage, dass nur widerrufbare Tokens
+/// auf dem Gerät liegen. Ausführlich in docs/SOGO-MAIL.md.
+struct MailSetupView: View {
+    private struct Entry: Identifiable {
+        let label: String
+        let value: String
+        var id: String { label }
+    }
+
+    private let incoming = [
+        Entry(label: "Servertyp", value: "IMAP"),
+        Entry(label: "Server", value: "mail.uni-hannover.de"),
+        Entry(label: "Port", value: "993"),
+        Entry(label: "Verschlüsselung", value: "SSL/TLS"),
+    ]
+
+    private let outgoing = [
+        Entry(label: "Server", value: "smtp.uni-hannover.de"),
+        Entry(label: "Port", value: "587"),
+        Entry(label: "Verschlüsselung", value: "STARTTLS"),
+    ]
+
+    private let calendar = [
+        Entry(label: "CalDAV / CardDAV", value: "kalender.uni-hannover.de"),
+        Entry(label: "Pfad", value: "/SOGo/dav/"),
+    ]
+
+    var body: some View {
+        List {
+            Section {
+                Text("Uni-Mail und Uni-Kalender laufen am besten in den Apps des Geräts: Einstellungen → Apps → Mail → Accounts → Account hinzufügen → Andere. Benutzername und Passwort sind die der zentralen LUH-Kennung.")
+                    .font(.callout)
+            }
+
+            Section("Posteingang") { rows(incoming) }
+            Section("Postausgang") { rows(outgoing) }
+
+            Section {
+                rows(calendar)
+            } header: {
+                Text("Kalender und Kontakte")
+            } footer: {
+                Text("Der Stundenplan aus Stud.IP steckt bereits in StudGo — diese Adresse ist für den persönlichen SOGo-Kalender gedacht.")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Uni-Mail einrichten")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func rows(_ entries: [Entry]) -> some View {
+        ForEach(entries) { entry in
+            HStack {
+                Text(entry.label)
+                Spacer(minLength: 8)
+                Text(entry.value)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                Button {
+                    UIPasteboard.general.string = entry.value
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .accessibilityLabel("\(entry.label) kopieren")
+            }
+            .font(.callout)
+        }
     }
 }

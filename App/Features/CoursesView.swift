@@ -17,6 +17,7 @@ struct CoursesView: View {
     @State private var semesters = Loadable<[Semester]>()
     @State private var choice: SemesterChoice = .undecided
     @State private var search = ""
+    @State private var webTarget: WebTarget?
 
     private var sortedSemesters: [Semester] {
         (semesters.value ?? []).sorted { ($0.start ?? .distantPast) > ($1.start ?? .distantPast) }
@@ -57,6 +58,36 @@ struct CoursesView: View {
                     } header: {
                         Text("\(filtered.count) \(filtered.count == 1 ? "Veranstaltung" : "Veranstaltungen")")
                     }
+                } else if courses.value != nil {
+                    // Geladen, aber nichts drin — der Hinweis gehört in die
+                    // Liste, sonst verdeckte er die Einstiege darunter.
+                    Section {
+                        CampusPlaceholderRow(isLoading: false,
+                                             message: emptyText,
+                                             symbol: search.isEmpty ? "books.vertical" : "magnifyingglass")
+                    }
+                }
+
+                Section {
+                    NavigationLink {
+                        CourseSearchView()
+                    } label: {
+                        RowLabel(symbol: "magnifyingglass",
+                                 title: "Weitere Veranstaltungen finden",
+                                 subtitle: "Im ganzen Vorlesungsverzeichnis suchen")
+                    }
+                    Button {
+                        webTarget = WebTarget(url: StudIPClient.myCoursesURL)
+                    } label: {
+                        RowLabel(symbol: "slider.horizontal.3",
+                                 title: "Eintragen und austragen",
+                                 subtitle: "Öffnet Stud.IP")
+                    }
+                    .buttonStyle(.plain)
+                } footer: {
+                    // Ehrlicher Hinweis statt eines Knopfes, der nichts tut:
+                    // die JSON:API hat keine Route zum An- oder Abmelden.
+                    Text("Das Ein- und Austragen zu Veranstaltungen bietet die Stud.IP-Schnittstelle nicht an — es läuft über die Weboberfläche. Danach hier nach unten ziehen, um die Liste zu erneuern.")
                 }
             }
             .listStyle(.insetGrouped)
@@ -65,12 +96,14 @@ struct CoursesView: View {
             .overlay {
                 StateOverlay(isLoading: courses.isLoading,
                              errorMessage: courses.errorMessage,
-                             isEmpty: filtered.isEmpty,
+                             // Nur solange gar nichts geladen ist: sonst läge
+                             // die Meldung über den Einstiegen darunter.
+                             isEmpty: filtered.isEmpty && courses.value == nil,
                              emptyText: emptyText,
                              emptySymbol: search.isEmpty ? "books.vertical" : "magnifyingglass",
                              retry: { Task { await reload(fresh: true) } })
             }
-            .navigationTitle("Veranstaltungen")
+            .navigationTitle("Kurse")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -87,6 +120,9 @@ struct CoursesView: View {
                             .font(.footnote)
                     }
                 }
+            }
+            .sheet(item: $webTarget) { target in
+                WebSheet(url: target.url).ignoresSafeArea()
             }
             .refreshable { await reload(fresh: true) }
             .task { await prepare() }
@@ -163,6 +199,3 @@ struct CourseRow: View {
     }
 }
 
-extension Course: Hashable {
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
-}
