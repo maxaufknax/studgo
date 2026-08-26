@@ -51,7 +51,7 @@ lokal übersetzen und testen — die Swift-Toolchain läuft dafür im Container.
 
 ```bash
 ./tools/swift-lint.sh     # ~8 s — Syntax aller Quellen, auch der Ansichten
-./tools/swift.sh test     # ~10 s — 56 Tests gegen App/Core und App/Models
+./tools/swift.sh test     # ~10 s — 64 Tests gegen App/Core und App/Models
 ```
 
 Beides zusammen fängt ab, was sonst erst nach Minuten bei Codemagic auffiele.

@@ -20,6 +20,14 @@ struct TimetableView: View {
     /// steht von „Grundlagen der Rechnerarchitektur" nichts Lesbares. Deshalb
     /// bestimmt der Kalender die Spaltenzahl (3 / Mo–Fr / ganze Woche).
     var visibleDays: [Int]?
+    /// Blasser setzen, was gerade **nicht stattfindet**.
+    ///
+    /// In der vorlesungsfreien Zeit steht der Plan des Semesters weiterhin im
+    /// Raster — so hält es auch die Weboberfläche, und wer nachschlagen will,
+    /// wann seine Vorlesung lag, findet sie nur dort. Stattfinden tut sie
+    /// aber nicht. Betroffen sind allein die Veranstaltungen; selbst angelegte
+    /// Termine laufen ganzjährig und bleiben in voller Farbe.
+    var dimsCourses = false
     var onSelect: (ScheduleEntry) -> Void = { _ in }
 
     // MARK: - Maße
@@ -231,6 +239,7 @@ struct TimetableView: View {
         let lane = (layout.dayWidth - blockGap) / CGFloat(placement.columnCount)
         let width = lane - blockGap
         let height = max(20, CGFloat(entry.endMinutes - entry.startMinutes) * layout.scale - blockGap)
+        let isDormant = dimsCourses && entry.isCourse
 
         return Button {
             onSelect(entry)
@@ -260,11 +269,16 @@ struct TimetableView: View {
                     .padding(.vertical, 2)
             }
             .foregroundStyle(Tint.color(entry.tintSeed))
+            // Nur die Deckkraft, keine graue Ersatzfarbe: Der Block soll als
+            // *derselbe* Kurs erkennbar bleiben — die Farbe ist in Kursliste,
+            // Terminliste und Raster dieselbe und trägt hier die Zuordnung.
+            .opacity(isDormant ? 0.45 : 1)
         }
         .buttonStyle(.plain)
         .offset(x: blockGap + CGFloat(placement.column) * lane,
                 y: layout.y(of: entry.startMinutes))
         .accessibilityLabel("\(entry.title), \(Weekday.full(entry.normalizedWeekday)) \(entry.timeRange)")
+        .accessibilityValue(isDormant ? "Findet zurzeit nicht statt" : "")
         .accessibilityHint("Öffnet die Einzelheiten")
     }
 

@@ -47,9 +47,14 @@ struct ScheduleView: View {
     @State private var span: GridSpan = .workWeek
 
     @State private var entries = Loadable<[ScheduleEntry]>()
-    /// Der Plan des **kommenden** Semesters — in der vorlesungsfreien Zeit
-    /// das Einzige, was es zu zeigen gibt.
+    /// Der Plan des **kommenden** Semesters. Wird mitgeladen, sobald ein
+    /// solches Semester bekannt ist — nicht erst in der vorlesungsfreien
+    /// Zeit, weil der Umschalter im Raster ihn sonst nur manchmal anböte.
     @State private var preview = Loadable<[ScheduleEntry]>()
+    /// Welchen Plan das Raster zeigt. `nil` heißt „automatisch" — die
+    /// Vorauswahl aus `SchedulePlan.resolve`. Eine Wahl von Hand bleibt
+    /// stehen, auch über das Neuladen hinweg.
+    @State private var chosenPlan: SchedulePlanScope?
     @State private var agenda = Loadable<[CourseEvent]>()
     @State private var semesters = Loadable<[Semester]>()
     @State private var courses: [Course] = []
@@ -70,14 +75,44 @@ struct ScheduleView: View {
 
     private var context: SemesterContext { SemesterContext(semesters.value ?? []) }
 
-    /// Welcher Wochenplan gerade gilt — und ob er schon der des nächsten
-    /// Semesters ist.
-    private var activePlan: (entries: [ScheduleEntry], semester: Semester?, isPreview: Bool) {
-        let ahead = preview.value ?? []
-        if context.isSemesterBreak, !ahead.isEmpty {
-            return (ahead, context.upcoming(), true)
+    /// Welcher Wochenplan gerade gilt. Die Entscheidung selbst steht in
+    /// `App/Core/SchedulePlan.swift` — dort ist sie prüfbar, hier wäre sie es
+    /// nicht.
+    private var plan: SchedulePlan {
+        SchedulePlan.resolve(current: entries.value ?? [],
+                             upcoming: preview.value ?? [],
+                             isSemesterBreak: context.isSemesterBreak,
+                             preferred: chosenPlan)
+    }
+
+    /// Das Semester, zu dem der gezeigte Plan gehört.
+    private var planSemester: Semester? {
+        plan.scope == .upcoming ? context.upcoming() : context.current()
+    }
+
+    /// Läuft im gezeigten Plan **heute** Vorlesungszeit?
+    ///
+    /// Ist sie es nicht, stehen die Veranstaltungen zwar im Raster — so wie in
+    /// Stud.IP auch —, finden aber gerade nicht statt. Das Raster setzt sie
+    /// dann blasser, und darüber steht, woran das liegt.
+    private var planIsRunning: Bool {
+        guard let period = planSemester.flatMap(SemesterContext.lecturePeriod(of:)) else {
+            return false
         }
-        return (entries.value ?? [], context.current(), false)
+        return period.contains(Date())
+    }
+
+    /// Gibt es überhaupt einen zweiten Plan zum Umschalten?
+    private var upcomingHasCourses: Bool {
+        SchedulePlan.hasCourses(preview.value ?? [])
+    }
+
+    /// Der Umschalter im Menü. Er zeigt, was gerade gilt — auch wenn das
+    /// bislang die Automatik entschieden hat; ein Menü, das auf „nichts
+    /// gewählt" steht, während sichtbar ein Plan im Bild ist, ist irreführend.
+    /// Sobald jemand tippt, gilt die Wahl und die Automatik ist außen vor.
+    private var planBinding: Binding<SchedulePlanScope> {
+        Binding(get: { plan.scope }, set: { chosenPlan = $0 })
     }
 
     /// Beide Pläne mit ihrer jeweiligen Vorlesungszeit — daraus leitet
@@ -101,7 +136,7 @@ struct ScheduleView: View {
                                 options: Mode.allCases,
                                 selection: $mode) { $0.rawValue }
 
-                if activePlan.isPreview { previewBanner }
+                if mode == .grid { planBanner }
 
                 switch mode {
                 case .day: dayView
@@ -139,6 +174,18 @@ struct ScheduleView: View {
                     Picker("Spalten", selection: $span) {
                         ForEach(GridSpan.allCases) { option in
                             Text(option.label).tag(option)
+                        }
+                    }
+                    // Der Umschalter steht nur da, wenn es wirklich zwei
+                    // Pläne gibt. Ein Menüeintrag, der auf einen leeren Plan
+                    // führt, wäre schlechter als keiner.
+                    if upcomingHasCourses {
+                        Divider()
+                        Picker("Semester", selection: planBinding) {
+                            Text(context.current()?.title ?? "Laufendes Semester")
+                                .tag(SchedulePlanScope.current)
+                            Text(context.upcoming()?.title ?? "Kommendes Semester")
+                                .tag(SchedulePlanScope.upcoming)
                         }
                     }
                 } label: {
@@ -203,28 +250,119 @@ struct ScheduleView: View {
         }
     }
 
-    /// In der vorlesungsfreien Zeit zeigt das Raster den Plan des **nächsten**
-    /// Semesters. Ohne diesen Hinweis sähe es aus, als liefe das Semester
-    /// bereits.
-    private var previewBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.caption)
-            Text(bannerText)
-                .font(.caption)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
+    /// Was über dem Raster steht — und warum überhaupt etwas.
+    ///
+    /// **Der Befund, der dazu geführt hat.** Nach dem Löschen der beiden
+    /// eigenen Termine standen beim nächsten Aktualisieren schlagartig alle
+    /// Veranstaltungen des laufenden Semesters im Raster. Beides war für sich
+    /// genommen richtig — die Weboberfläche zeigt sie in den Semesterferien
+    /// genauso —, aber ohne ein Wort dazu wirkt es wie ein Sprung: Eben noch
+    /// zwei Blöcke, jetzt eine volle Woche, und keiner dieser Termine findet
+    /// gerade statt.
+    ///
+    /// Das Raster beantwortet „wie liegt meine Woche", nicht „was steht
+    /// an" — dafür gibt es Tag und Liste. Deshalb bleiben die Veranstaltungen
+    /// stehen; darüber steht, für welches Semester sie gelten und ob gerade
+    /// Vorlesungszeit ist.
+    @ViewBuilder
+    private var planBanner: some View {
+        if let note = planNote {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: note.symbol)
+                    .font(.caption)
+                    .padding(.top, 1)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(note.title)
+                        .font(.caption.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let detail = note.detail {
+                        Text(detail)
+                            .font(.caption2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .opacity(0.85)
+                    }
+                    if let action = note.action {
+                        Button(action.title) { chosenPlan = action.scope }
+                            .font(.caption2.weight(.semibold))
+                            .buttonStyle(.plain)
+                            .padding(.top, 2)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.tint)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Color.accentColor.opacity(0.10))
         }
-        .foregroundStyle(.tint)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(Color.accentColor.opacity(0.10))
     }
 
-    private var bannerText: String {
-        guard let semester = activePlan.semester else { return "Plan des kommenden Semesters" }
-        guard let start = semester.lectureStart else { return "Plan für \(semester.title)" }
-        return "Vorschau auf \(semester.title) — Vorlesungsbeginn \(start.formatted(.dateTime.day().month(.abbreviated)))"
+    private struct PlanNote {
+        let symbol: String
+        let title: String
+        var detail: String?
+        var action: (title: String, scope: SchedulePlanScope)?
+    }
+
+    /// Nur belegte Angaben, keine Schätzungen.
+    ///
+    /// Es wäre verlockend, je Veranstaltung zu schreiben „ist beendet" — die
+    /// Kennungen dafür ständen im ICS-Strom. Sie kommen dort aber über einen
+    /// Namensabgleich zustande (`StudIPClient.matchCourse`), und ein
+    /// verfehlter Abgleich erklärte eine laufende Veranstaltung für beendet.
+    /// Das Semester dagegen liefert seine Vorlesungszeit als Datum mit; darauf
+    /// ist Verlass, und für die Frage „findet das gerade statt" genügt sie.
+    private var planNote: PlanNote? {
+        // Vorlesungszeit im gezeigten Plan: Das Raster gilt, kein Hinweis
+        // nötig.
+        if planIsRunning { return nil }
+
+        let name = planSemester?.title
+
+        switch plan.scope {
+        case .upcoming:
+            var detail: String?
+            if let start = planSemester?.lectureStart {
+                detail = "Vorlesungsbeginn \(Format.longDay(start))\(countdownSuffix)."
+            }
+            let title = name.map { "Vorschau auf \($0)" } ?? "Plan des kommenden Semesters"
+            let backAction: (title: String, scope: SchedulePlanScope)? =
+                (title: "Zurück zum laufenden Semester", scope: .current)
+            return PlanNote(symbol: "sparkles",
+                            title: title,
+                            detail: detail,
+                            action: backAction)
+
+        case .current:
+            // Der Fall aus der Rückmeldung: Semesterferien, im Raster steht
+            // der Plan des gerade beendeten Semesters — so wie in Stud.IP.
+            var parts: [String] = []
+            if let name {
+                if let ende = planSemester?.lectureEnd {
+                    parts.append("Im Raster steht der Plan des \(name); die Vorlesungszeit endete am \(Format.longDay(ende)).")
+                } else {
+                    parts.append("Im Raster steht der Plan des \(name).")
+                }
+            }
+            if let next = context.upcoming(), let begin = next.lectureStart {
+                parts.append("\(next.title) beginnt am \(Format.longDay(begin))\(countdownSuffix).")
+            }
+            let switchAction: (title: String, scope: SchedulePlanScope)? =
+                upcomingHasCourses
+                    ? (title: "Plan des kommenden Semesters zeigen", scope: .upcoming)
+                    : nil
+            return PlanNote(symbol: "moon.zzz",
+                            title: "Vorlesungsfreie Zeit — nichts davon findet gerade statt",
+                            detail: parts.isEmpty ? nil : parts.joined(separator: " "),
+                            action: switchAction)
+        }
+    }
+
+    /// „ (in 47 Tagen)" — oder nichts, wenn sich das nicht ausrechnen lässt.
+    private var countdownSuffix: String {
+        guard let days = context.daysUntilLectures(), days > 0 else { return "" }
+        return days == 1 ? " (morgen)" : " (in \(days) Tagen)"
     }
 
     // MARK: - Tag
@@ -282,9 +420,10 @@ struct ScheduleView: View {
 
     private var gridView: some View {
         Group {
-            if !activePlan.entries.isEmpty {
-                TimetableView(entries: activePlan.entries,
-                              visibleDays: gridColumns) { navigator.push($0) }
+            if !plan.entries.isEmpty {
+                TimetableView(entries: plan.entries,
+                              visibleDays: gridColumns,
+                              dimsCourses: !planIsRunning) { navigator.push($0) }
             } else {
                 CalendarEmptyState(symbol: "calendar",
                                    title: gridEmptyTitle,
@@ -295,13 +434,20 @@ struct ScheduleView: View {
         }
     }
 
+    /// Seit 1.4.1 steht hier **nicht** mehr „Semesterferien": Der Plan des
+    /// Semesters bleibt in der vorlesungsfreien Zeit im Raster stehen, das
+    /// Raster ist dann also gar nicht leer. Wer diesen Hinweis jetzt noch
+    /// sieht, hat wirklich keinen Stundenplan — weil er in keiner
+    /// Veranstaltung eingetragen ist oder noch keinen eigenen Termin angelegt
+    /// hat.
     private var gridEmptyTitle: String {
-        context.isSemesterBreak ? "Semesterferien" : "Kein Stundenplan hinterlegt"
+        "Kein Stundenplan hinterlegt"
     }
 
-    /// In der vorlesungsfreien Zeit ist „erneut versuchen" die falsche
-    /// Antwort — es gibt schlicht nichts. Ein Weg in die Terminliste dagegen
-    /// führt zu dem, was es doch noch gibt: Klausuren und eigene Termine.
+    /// Ist das Raster wirklich leer, hilft „erneut versuchen" nur, wenn das
+    /// Laden schiefging. In der vorlesungsfreien Zeit ist es dagegen der
+    /// erwartete Zustand — dort führt der Weg zu dem, was man selbst
+    /// eintragen kann.
     private var gridEmptyAction: CalendarEmptyState.Action? {
         if context.isSemesterBreak {
             return CalendarEmptyState.Action(title: "Eigene Termine verwalten",
@@ -386,15 +532,20 @@ struct ScheduleView: View {
         _ = await (plan, ahead, dates)
     }
 
-    /// Der Plan des kommenden Semesters — nur in der vorlesungsfreien Zeit.
+    /// Der Plan des kommenden Semesters.
     ///
     /// `filter[timestamp]` wählt in `UserScheduleShow` das Semester über
     /// `Semester::findByTimestamp()`. Kommt nichts zurück, ist man in dessen
     /// Veranstaltungen schlicht noch nicht eingetragen — das ist der
     /// Regelfall zwei Monate vor Beginn und kein Fehler.
+    ///
+    /// **Bis 1.4.0 lief das nur in der vorlesungsfreien Zeit.** Jetzt immer,
+    /// sobald ein kommendes Semester bekannt ist: Der Umschalter im Raster
+    /// muss wissen, ob es dort etwas zu sehen gibt, und diese Auskunft darf
+    /// nicht von der Jahreszeit abhängen. Die Anfrage ist klein und liegt nach
+    /// dem ersten Mal fünf Minuten im `ResponseCache`.
     private func loadPreview(client: StudIPClient, context: SemesterContext) async {
-        guard context.isSemesterBreak, let upcoming = context.upcoming(),
-              let start = upcoming.start else {
+        guard let upcoming = context.upcoming(), let start = upcoming.start else {
             preview.value = []
             return
         }
