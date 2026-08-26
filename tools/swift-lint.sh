@@ -19,7 +19,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 TARGET="${1:-App}"
 
-mapfile -t FILES < <(find "$TARGET" -name '*.swift' | sort)
+# Kein `mapfile`: macOS liefert bis heute bash 3.2 aus, und dort gibt es das
+# nicht — auf Codemagic scheiterte der Schritt daran mit Status 127.
+FILES=()
+while IFS= read -r datei; do
+    FILES+=("$datei")
+done < <(find "$TARGET" -name '*.swift' | sort)
 if [ ${#FILES[@]} -eq 0 ]; then
     echo "Keine Swift-Dateien unter $TARGET" >&2
     exit 1

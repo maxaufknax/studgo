@@ -87,32 +87,58 @@ cmd_watch() {
 }
 
 # --- Log holen -------------------------------------------------------------
-# Der check-Workflow legt build/logs/xcodebuild.log als Artefakt ab; von dort
-# kommt das Log. Gibt es keins (Abbruch vor dem Bauen), sagt das Skript das.
-fetch_log() {
-    local id="$1"
-    local url; url=$(build_json "$id" | jq -r '
-        (.build.artefacts // []) | map(select(.name | test("\\.log$"))) | .[0].url // empty')
-    if [ -z "$url" ]; then
-        echo "Kein Log-Artefakt an Build $id — Lauf brach vermutlich vor dem Bauen ab." >&2
-        echo "Weboberfläche: https://codemagic.io/app/$APP_ID/build/$id" >&2
-        return 1
-    fi
-    api -L "$url"
+# Jeder Schritt hat sein eigenes Protokoll unter
+# buildActions[].subactions[].logUrl. Das ist der verlässliche Weg: das
+# Artefakt build/logs/xcodebuild.log entsteht erst, wenn der Bauschritt
+# überhaupt lief — scheitert vorher der Lint, gibt es keins, und die erste
+# Fassung dieses Skripts stand dann ohne Auskunft da.
+step_logs() {
+    local id="$1" nur_fehler="${2:-}"
+    local filter='.build.buildActions[]'
+    [ -n "$nur_fehler" ] && filter="$filter | select(.status == \"failed\")"
+
+    build_json "$id" | jq -r "$filter"' | "\(.name)\t\(.status)\t\((.subactions // []) | map(.logUrl // empty) | join(" "))"' \
+    | while IFS=$'\t' read -r name status urls; do
+        printf '\n══ %s  [%s]\n' "$name" "$status"
+        for url in $urls; do api -L "$url"; done
+    done
 }
 
-cmd_log()    { fetch_log "$(resolve_id "${1:-}")"; }
+cmd_log() {
+    local id; id=$(resolve_id "${1:-}")
+    step_logs "$id"
+}
 
 cmd_errors() {
     local id; id=$(resolve_id "${1:-}")
-    local log; log=$(fetch_log "$id") || return 1
-    local errs; errs=$(printf '%s\n' "$log" | grep -E '(error|fehler):' | sed 's|/Users/builder/clone/||' | sort -u)
-    if [ -z "$errs" ]; then
-        echo "Keine Compilerfehler im Log — Ursache liegt woanders (Signatur, Upload, Skript)." >&2
-        printf '%s\n' "$log" | tail -30
+    local status; status=$(build_json "$id" | jq -r '.build.status')
+
+    if [ "$status" = "finished" ]; then
+        echo "Build $id lief durch — keine Fehler." >&2
+        return 0
+    fi
+
+    local logs; logs=$(step_logs "$id" nur_fehler)
+    if [ -z "$logs" ]; then
+        echo "Kein fehlgeschlagener Schritt mit Protokoll an Build $id (Status: $status)." >&2
+        echo "Weboberfläche: https://codemagic.io/app/$APP_ID/build/$id" >&2
         return 1
     fi
-    printf '%s\n' "$errs"
+
+    # Compilerfehler zuerst, danach das ganze Protokoll des Schritts — bei
+    # einem Abbruch ausserhalb des Übersetzens (Skript, Signatur) steht die
+    # Ursache nur dort.
+    local errs
+    errs=$(printf '%s\n' "$logs" | grep -E 'error:|exited with status code' \
+           | sed 's|/Users/builder/clone/||' | sort -u)
+    if [ -n "$errs" ]; then
+        echo "── Fehler ──"
+        printf '%s\n' "$errs"
+        echo
+    fi
+    echo "── Protokoll der fehlgeschlagenen Schritte ──"
+    printf '%s\n' "$logs" | tail -60
+    return 1
 }
 
 cmd_list() {
