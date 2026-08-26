@@ -40,6 +40,18 @@ enum Format {
         String(format: "%02d:%02d", minutes / 60, minutes % 60)
     }
 
+    /// Uhrzeit eines Datums als "HH:mm" — im 24-Stunden-Format, unabhängig
+    /// von der Systemeinstellung.
+    ///
+    /// Das Formular von Stud.IP (`calendar/schedule/entry/add`) liest
+    /// `start` und `end` mit `strtotime`-Semantik; „4:00 PM" käme dort falsch
+    /// oder gar nicht an. Deshalb nicht `formatted(date:time:)`, sondern
+    /// dieselbe feste Schreibweise, die auch `schedule-entries` liefert.
+    static func clock(_ date: Date, calendar: Calendar = .current) -> String {
+        let parts = calendar.dateComponents([.hour, .minute], from: date)
+        return String(format: "%02d:%02d", parts.hour ?? 0, parts.minute ?? 0)
+    }
+
     static func dayHeader(_ date: Date) -> String {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) { return "Heute" }

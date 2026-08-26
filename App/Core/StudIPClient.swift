@@ -456,7 +456,7 @@ struct StudIPClient {
     /// beantwortet ein unerlaubtes `include` dann mit 400. Das darf nicht die
     /// ganze Liste kosten — im Zweifel eben ohne die Zusatzdaten.
     func documentAllowingMissingIncludes(path: String,
-                                         limit: Int,
+                                         limit: Int?,
                                          offset: Int? = nil,
                                          include: [String],
                                          fallback: [String],

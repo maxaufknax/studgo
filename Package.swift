@@ -64,6 +64,7 @@ let package = Package(
                 "Core/ResponseCache.swift",
                 "Core/SemesterContext.swift",
                 "Core/StudIPClient.swift",
+                "Core/StudIPClient+Blubber.swift",
                 "Core/StudIPClient+Campus.swift",
                 "Core/StudIPClient+Files.swift",
                 "Core/StudIPErrorPage.swift",

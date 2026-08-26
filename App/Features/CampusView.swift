@@ -20,7 +20,7 @@ struct CampusView: View {
     }
 
     var body: some View {
-        StudGoStack {
+        StudGoStack(user: user) {
             List {
                 meSection
                 activitySection
@@ -38,9 +38,7 @@ struct CampusView: View {
 
     private var meSection: some View {
         Section {
-            NavigationLink {
-                StatisticsView(user: user)
-            } label: {
+            PushLink(value: Route.statistics) {
                 RowLabel(symbol: "chart.bar.xaxis",
                          title: "Dein Semester",
                          subtitle: "Fortschritt, Wochenlast, dein Verlauf")
@@ -61,9 +59,7 @@ struct CampusView: View {
                 ForEach(recentActivities) { item in
                     PushLink(value: item) { ActivityRow(item: item) }
                 }
-                NavigationLink {
-                    ActivityStreamView(user: user)
-                } label: {
+                PushLink(value: Route.activityStream) {
                     RowLabel(symbol: "clock.arrow.circlepath", title: "Ganzer Verlauf")
                 }
             }
@@ -78,41 +74,29 @@ struct CampusView: View {
 
     private var directorySection: some View {
         Section("Verzeichnis") {
-            NavigationLink {
-                CourseSearchView()
-            } label: {
+            PushLink(value: Route.courseSearch) {
                 RowLabel(symbol: "magnifyingglass",
                          title: "Veranstaltungen suchen",
                          subtitle: "Das ganze Vorlesungsverzeichnis")
             }
-            NavigationLink {
-                PersonSearchView()
-            } label: {
+            PushLink(value: Route.personSearch) {
                 RowLabel(symbol: "person.crop.circle.badge.questionmark",
                          title: "Personen finden",
                          subtitle: "Nach Name oder Kennung")
             }
-            NavigationLink {
-                ContactsView(user: user)
-            } label: {
+            PushLink(value: Route.contacts) {
                 RowLabel(symbol: "person.crop.circle", title: "Meine Kontakte")
             }
-            NavigationLink {
-                StudygroupsView()
-            } label: {
+            PushLink(value: Route.studygroups) {
                 RowLabel(symbol: "person.3",
                          title: "Studiengruppen",
                          subtitle: "Deine Gruppen, Vorschläge und Suche")
             }
-            NavigationLink {
-                InstitutesView(user: user)
-            } label: {
+            PushLink(value: Route.institutes) {
                 RowLabel(symbol: "building.columns", title: "Meine Einrichtungen")
             }
-            NavigationLink {
-                NewsView(user: user)
-            } label: {
-                RowLabel(symbol: "megaphone", title: "Ankündigungen")
+            PushLink(value: Route.announcements) {
+                RowLabel(symbol: "megaphone", title: "Ankündigungen der Uni")
             }
         }
     }
@@ -383,9 +367,7 @@ struct ContactsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    PersonSearchView()
-                } label: {
+                PushButton(value: Route.personSearch) {
                     Image(systemName: "plus")
                 }
                 .accessibilityLabel("Kontakt hinzufügen")

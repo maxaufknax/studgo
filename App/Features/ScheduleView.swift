@@ -55,6 +55,9 @@ struct ScheduleView: View {
     @State private var courses: [Course] = []
     @State private var exportURL: URL?
     @State private var isExporting = false
+    /// Stud.IP-Seite im Blatt — für das Anlegen eigener Termine, das die
+    /// JSON:API nicht anbietet.
+    @State private var webTarget: WebTarget?
 
     /// Ein eigener `Navigator`, weil das Wochenraster aus einem Rückruf heraus
     /// weiterschaltet — ein `NavigationLink` sitzt in einem angetippten Block
@@ -113,7 +116,13 @@ struct ScheduleView: View {
             .sheet(item: exportTarget) { target in
                 ShareSheet(items: [target.url])
             }
-            .studGoDestinations()
+            .sheet(item: $webTarget, onDismiss: {
+                // Was in Stud.IP angelegt wurde, soll danach hier stehen.
+                Task { await load(fresh: true) }
+            }) { target in
+                WebSheet(url: target.url)
+            }
+            .studGoDestinations(user: user)
             .refreshable { await load(fresh: true) }
             .task { if entries.value == nil { await load(fresh: false) } }
         }
@@ -154,6 +163,25 @@ struct ScheduleView: View {
                     } label: {
                         Label("Zum Vorlesungsbeginn", systemImage: "arrow.right.to.line")
                     }
+                }
+                Divider()
+                Button {
+                    navigator.push(Route.ownScheduleEntries)
+                } label: {
+                    Label("Eigene Termine", systemImage: "calendar.badge.plus")
+                }
+                // Der angetippte Tag wird als Vorgabe mitgegeben: Das Formular
+                // in Stud.IP liest `dow` und `start` (siehe
+                // `WebLinks.newScheduleEntry`), sodass Wochentag und Uhrzeit
+                // schon stehen.
+                Button {
+                    webTarget = WebTarget(url: WebLinks.newScheduleEntry(
+                        weekday: Weekday.of(anchor),
+                        start: Format.clock(nextFullHour),
+                        end: Format.clock(nextFullHour.addingTimeInterval(3600))))
+                } label: {
+                    Label("Termin für \(Weekday.full(Weekday.of(anchor))) anlegen",
+                          systemImage: "plus.circle")
                 }
                 Divider()
                 Button {
@@ -209,7 +237,13 @@ struct ScheduleView: View {
                       events: events(from: anchor, days: 1)
                         .filter { Calendar.current.isDate($0.start, inSameDayAs: anchor) },
                       isLoading: agenda.isLoading && !agenda.hasValue,
-                      explanation: emptyDayText)
+                      explanation: emptyDayText,
+                      addEntry: {
+                          webTarget = WebTarget(url: WebLinks.newScheduleEntry(
+                              weekday: Weekday.of(anchor),
+                              start: Format.clock(nextFullHour),
+                              end: Format.clock(nextFullHour.addingTimeInterval(3600))))
+                      })
         }
     }
 
@@ -219,6 +253,18 @@ struct ScheduleView: View {
         let calendar = Calendar.current
         let from = calendar.startOfDay(for: min(anchor, Date()))
         return Set(events(from: from, days: 35).map { calendar.startOfDay(for: $0.start) })
+    }
+
+    /// Die nächste volle Stunde auf dem gewählten Tag — als Vorgabe für ein
+    /// neu anzulegendes Fenster. Für heute ab jetzt, für jeden anderen Tag
+    /// ab 10 Uhr; „0 Uhr" wäre als Vorschlag nutzlos.
+    private var nextFullHour: Date {
+        let calendar = Calendar.current
+        guard calendar.isDateInToday(anchor) else {
+            return calendar.date(bySettingHour: 10, minute: 0, second: 0, of: anchor) ?? anchor
+        }
+        let hour = calendar.component(.hour, from: Date())
+        return calendar.date(bySettingHour: min(hour + 1, 23), minute: 0, second: 0, of: anchor) ?? anchor
     }
 
     private var emptyDayText: String {
@@ -258,9 +304,9 @@ struct ScheduleView: View {
     /// führt zu dem, was es doch noch gibt: Klausuren und eigene Termine.
     private var gridEmptyAction: CalendarEmptyState.Action? {
         if context.isSemesterBreak {
-            return CalendarEmptyState.Action(title: "Anstehende Termine ansehen",
-                                             symbol: "list.bullet") {
-                withAnimation { mode = .list }
+            return CalendarEmptyState.Action(title: "Eigene Termine verwalten",
+                                             symbol: "calendar.badge.plus") {
+                navigator.push(Route.ownScheduleEntries)
             }
         }
         return CalendarEmptyState.Action(title: "Erneut versuchen",
@@ -291,7 +337,7 @@ struct ScheduleView: View {
             ForEach(byDay, id: \.day) { group in
                 Section(Format.dayHeader(group.day)) {
                     ForEach(group.events) { event in
-                        NavigationLink(value: event) { EventRow(event: event) }
+                        PushLink(value: event) { EventRow(event: event) }
                     }
                 }
             }
@@ -479,6 +525,10 @@ struct DayAgenda: View {
     let events: [CourseEvent]
     var isLoading = false
     var explanation: String = ""
+    /// Wird angeboten, wenn an diesem Tag nichts steht: In Stud.IP lässt sich
+    /// genau dann ein eigener Block eintragen, und das ist der häufigste
+    /// Grund, warum jemand einen leeren Tag ansieht.
+    var addEntry: (() -> Void)?
 
     private var total: TimeInterval {
         events.filter { !$0.isCancelled }.reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
@@ -492,14 +542,17 @@ struct DayAgenda: View {
                                    title: Format.dayHeader(date),
                                    message: explanation,
                                    isLoading: isLoading,
-                                   action: nil)
+                                   action: addEntry.map {
+                                       CalendarEmptyState.Action(title: "Eigenen Termin eintragen",
+                                                                 symbol: "plus.circle",
+                                                                 perform: $0)
+                                   })
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         summary
                         ForEach(events) { event in
-                            NavigationLink(value: event) { DayAgendaRow(event: event) }
-                                .buttonStyle(.plain)
+                            PushButton(value: event) { DayAgendaRow(event: event) }
                         }
                     }
                     .padding(.horizontal)

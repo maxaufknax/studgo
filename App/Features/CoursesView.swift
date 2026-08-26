@@ -45,7 +45,7 @@ struct CoursesView: View {
     }
 
     var body: some View {
-        StudGoStack {
+        StudGoStack(user: user) {
             List {
                 if !filtered.isEmpty {
                     Section {
@@ -69,9 +69,7 @@ struct CoursesView: View {
                 }
 
                 Section {
-                    NavigationLink {
-                        CourseSearchView()
-                    } label: {
+                    PushLink(value: Route.courseSearch) {
                         RowLabel(symbol: "magnifyingglass",
                                  title: "Weitere Veranstaltungen finden",
                                  subtitle: "Im ganzen Vorlesungsverzeichnis suchen")

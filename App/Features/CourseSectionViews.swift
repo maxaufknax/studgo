@@ -1,15 +1,23 @@
 import SwiftUI
 
-/// Die Unterseiten einer Veranstaltung. Termine, Aushang und Teilnehmende
-/// bekommen die bereits geladene Liste von der Übersicht gereicht — sie ist
-/// ein `Loadable`, also ein Referenztyp, und bleibt damit dieselbe Instanz.
+/// Die Unterseiten einer Veranstaltung.
+///
+/// **Jede lädt ihre Liste selbst.** Bis 1.3.0 reichte die Übersicht ihr
+/// bereits geladenes `Loadable` herein — das ging nur, solange sie die
+/// Unterseite als `NavigationLink { … }` selbst aufbaute, und genau diese
+/// Bauform war die Ursache der Routing-Fehler (siehe `Route`). Über den Pfad
+/// geschoben wird ein *Wert*, keine Ansicht; die Liste muss also von hier aus
+/// beschafft werden. Teuer ist das nicht: Die Übersicht hat dieselbe Adresse
+/// gerade eben abgefragt, und `ResponseCache` beantwortet sie fünf Minuten
+/// lang von der Platte.
 
 // MARK: - Termine
 
 struct CourseDatesView: View {
     let course: Course
-    let events: Loadable<[CourseEvent]>
     @Environment(AuthStore.self) private var auth
+
+    @State private var events = Loadable<[CourseEvent]>()
 
     private var upcoming: [CourseEvent] {
         (events.value ?? []).filter { !$0.isOver }
@@ -26,7 +34,7 @@ struct CourseDatesView: View {
             if !upcoming.isEmpty {
                 Section("Anstehend") {
                     ForEach(upcoming) { event in
-                        NavigationLink(value: event) {
+                        PushLink(value: event) {
                             EventRow(event: event, showDay: true, preferTopic: true)
                         }
                     }
@@ -35,7 +43,7 @@ struct CourseDatesView: View {
             if !past.isEmpty {
                 Section("Vergangen") {
                     ForEach(past) { event in
-                        NavigationLink(value: event) {
+                        PushLink(value: event) {
                             EventRow(event: event, showDay: true, preferTopic: true)
                         }
                     }
@@ -49,15 +57,16 @@ struct CourseDatesView: View {
                          isEmpty: (events.value ?? []).isEmpty,
                          emptyText: "Keine Termine",
                          emptySymbol: "calendar",
-                         retry: { Task { await reload() } })
+                         retry: { Task { await reload(fresh: true) } })
         }
         .navigationTitle("Termine")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await reload() }
+        .refreshable { await reload(fresh: true) }
+        .task { if events.value == nil { await reload(fresh: false) } }
     }
 
-    private func reload() async {
-        let client = auth.freshClient
+    private func reload(fresh: Bool) async {
+        let client = fresh ? auth.freshClient : auth.client
         await events.load { try await client.events(for: course) }
     }
 }
@@ -66,9 +75,9 @@ struct CourseDatesView: View {
 
 struct CourseParticipantsView: View {
     let course: Course
-    let participants: Loadable<[Participant]>
     @Environment(AuthStore.self) private var auth
 
+    @State private var participants = Loadable<[Participant]>()
     @State private var search = ""
     @State private var selected: Participant?
 
@@ -112,7 +121,7 @@ struct CourseParticipantsView: View {
                          isEmpty: filtered.isEmpty,
                          emptyText: search.isEmpty ? "Keine Teilnehmendenliste" : "Nichts gefunden",
                          emptySymbol: search.isEmpty ? "person.2" : "magnifyingglass",
-                         retry: { Task { await reload() } })
+                         retry: { Task { await reload(fresh: true) } })
         }
         .searchable(text: $search, prompt: "Personen durchsuchen")
         .navigationTitle("Personen")
@@ -127,11 +136,12 @@ struct CourseParticipantsView: View {
                             subtitle: participant.label ?? participant.role)
             }
         }
-        .refreshable { await reload() }
+        .refreshable { await reload(fresh: true) }
+        .task { if participants.value == nil { await reload(fresh: false) } }
     }
 
-    private func reload() async {
-        let client = auth.freshClient
+    private func reload(fresh: Bool) async {
+        let client = fresh ? auth.freshClient : auth.client
         await participants.load { try await client.participants(of: course) }
     }
 }
@@ -163,12 +173,13 @@ struct ParticipantRow: View {
 
 struct CourseNewsView: View {
     let course: Course
-    let news: Loadable<[NewsItem]>
     @Environment(AuthStore.self) private var auth
+
+    @State private var news = Loadable<[NewsItem]>()
 
     var body: some View {
         List(news.value ?? []) { item in
-            NavigationLink(value: item) { NewsRow(item: item) }
+            PushLink(value: item) { NewsRow(item: item) }
         }
         .listStyle(.insetGrouped)
         // Das Ziel meldet der Reiter an seiner Wurzel an — siehe
@@ -179,15 +190,16 @@ struct CourseNewsView: View {
                          isEmpty: (news.value ?? []).isEmpty,
                          emptyText: "Keine Ankündigungen",
                          emptySymbol: "megaphone",
-                         retry: { Task { await reload() } })
+                         retry: { Task { await reload(fresh: true) } })
         }
         .navigationTitle("Aushang")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await reload() }
+        .refreshable { await reload(fresh: true) }
+        .task { if news.value == nil { await reload(fresh: false) } }
     }
 
-    private func reload() async {
-        let client = auth.freshClient
+    private func reload(fresh: Bool) async {
+        let client = fresh ? auth.freshClient : auth.client
         await news.load { try await client.news(for: course) }
     }
 }
@@ -207,9 +219,7 @@ struct CourseForumView: View {
 
     var body: some View {
         List(categories.value ?? []) { category in
-            NavigationLink {
-                ForumCategoryView(category: category)
-            } label: {
+            PushLink(value: Route.forumCategory(category)) {
                 RowLabel(symbol: "folder.badge.person.crop", title: category.title)
             }
         }
@@ -242,9 +252,7 @@ struct ForumCategoryView: View {
 
     var body: some View {
         List(entries.value ?? []) { entry in
-            NavigationLink {
-                ForumEntryView(entry: entry)
-            } label: {
+            PushLink(value: Route.forumEntry(entry)) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(entry.title)
                         .font(.subheadline.weight(.medium))
@@ -399,9 +407,7 @@ struct CourseWikiView: View {
 
     var body: some View {
         List(pages.value ?? []) { page in
-            NavigationLink {
-                WikiPageView(page: page)
-            } label: {
+            PushLink(value: Route.wikiPage(page)) {
                 RowLabel(symbol: "doc.text",
                          title: page.name,
                          subtitle: page.changedAt.map { "Geändert \(Format.listDate($0))" },
@@ -481,11 +487,11 @@ struct CourseBlubberView: View {
     @State private var threads = Loadable<[BlubberThread]>()
     @State private var isWriting = false
 
+    private var isStudygroup: Bool { auth.studygroupKinds.contains(course.typeID) }
+
     var body: some View {
         List(threads.value ?? []) { thread in
-            NavigationLink {
-                BlubberThreadView(thread: thread)
-            } label: {
+            PushLink(value: thread) {
                 BlubberThreadRow(thread: thread)
             }
         }
@@ -494,7 +500,9 @@ struct CourseBlubberView: View {
             StateOverlay(isLoading: threads.isLoading,
                          errorMessage: threads.errorMessage,
                          isEmpty: (threads.value ?? []).isEmpty,
-                         emptyText: "Noch keine Beiträge",
+                         emptyText: isStudygroup
+                            ? "In dieser Gruppe wurde noch nichts geschrieben"
+                            : "In dieser Veranstaltung wurde noch nichts geschrieben",
                          emptySymbol: "bubble.left.and.bubble.right",
                          retry: { Task { await reload(fresh: true) } })
         }

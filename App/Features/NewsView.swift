@@ -24,7 +24,7 @@ struct NewsView: View {
                             selection: $scope) { $0.rawValue }
 
             List(current.value ?? []) { item in
-                NavigationLink(value: item) { NewsRow(item: item) }
+                PushLink(value: item) { NewsRow(item: item) }
             }
             .listStyle(.insetGrouped)
             .overlay {

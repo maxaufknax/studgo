@@ -69,28 +69,47 @@ enum EventMerge {
 
     /// Die Sitzungen aus einem Wochenplan, Tag für Tag ausgerollt.
     ///
-    /// Ohne bekannte Vorlesungszeit wird bewusst nichts abgeleitet — lieber
-    /// eine Quelle weniger als erfundene Termine. Und außerhalb der
-    /// Vorlesungszeit ebenfalls nichts: Der Stundenplan führt seine
-    /// Turnustermine das ganze Semester über, abgehalten werden sie nur
-    /// während der Vorlesungszeit.
+    /// **Zwei Sorten Eintrag, zwei Regeln.** `/v1/users/{id}/schedule` mischt
+    /// beides in eine Liste:
+    ///
+    /// * **Turnustermine von Veranstaltungen** (`seminar-cycle-dates`). Sie
+    ///   gelten nur während der **Vorlesungszeit**; ohne bekanntes Fenster
+    ///   wird bewusst nichts abgeleitet — lieber eine Quelle weniger als
+    ///   erfundene Termine.
+    /// * **Selbst angelegte Termine** (`schedule-entries`) — das Tutorium,
+    ///   die AG, der Sport am Donnerstag. Die gelten **das ganze Jahr**:
+    ///   `ScheduleEntry::findByUser_id()` läuft serverseitig ohne
+    ///   Semesterfilter, und in der Weboberfläche stehen sie auch in den
+    ///   Semesterferien im Stundenplan.
+    ///
+    /// Bis 1.3.0 galt für beide dieselbe Regel, und die Folge war der Befund
+    /// aus dem Testflug: Zwei eigene Termine standen im **Wochenraster** (das
+    /// zeigt die Einträge unmittelbar), in der **Tagesansicht** dagegen nicht
+    /// — die leitet aus denselben Einträgen datierte Sitzungen ab und warf
+    /// sie mit der vorlesungsfreien Zeit gleich wieder weg.
     static func plannedSessions(from entries: [ScheduleEntry],
                                 startingAt start: Date = Date(),
                                 days: Int,
                                 within period: ClosedRange<Date>?) -> [CourseEvent] {
+        guard days > 0 else { return [] }
+
         let cycles = entries.filter(\.isCourse)
-        guard !cycles.isEmpty, let period, days > 0 else { return [] }
+        let personal = entries.filter { !$0.isCourse }
+        guard !cycles.isEmpty || !personal.isEmpty else { return [] }
 
         let calendar = Calendar.current
         let first = calendar.startOfDay(for: start)
 
         return (0..<days).flatMap { offset -> [CourseEvent] in
-            guard let day = calendar.date(byAdding: .day, value: offset, to: first),
-                  period.contains(day) else { return [] }
+            guard let day = calendar.date(byAdding: .day, value: offset, to: first) else { return [] }
             let weekday = Weekday.of(day)
-            return cycles
-                .filter { $0.normalizedWeekday == weekday }
-                .map { CourseEvent(entry: $0, on: day) }
+            let inLecturePeriod = period?.contains(day) ?? false
+
+            var matching = personal.filter { $0.normalizedWeekday == weekday }
+            if inLecturePeriod {
+                matching += cycles.filter { $0.normalizedWeekday == weekday }
+            }
+            return matching.map { CourseEvent(entry: $0, on: day) }
         }
     }
 }

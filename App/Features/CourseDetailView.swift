@@ -51,8 +51,7 @@ struct CourseDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header
                 if let nextEvent {
-                    NavigationLink(value: nextEvent) { nextCard(nextEvent) }
-                        .buttonStyle(.plain)
+                    PushButton(value: nextEvent) { nextCard(nextEvent) }
                 }
                 if isOutsider { outsiderNote }
                 sections
@@ -171,62 +170,33 @@ struct CourseDetailView: View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12),
                             GridItem(.flexible(), spacing: 12)],
                   spacing: 12) {
-            NavigationLink {
-                CourseDatesView(course: course, events: events)
-            } label: {
-                CourseTile(symbol: "calendar", title: "Termine",
-                           count: events.value?.count, seed: course.id)
+            ForEach(tiles, id: \.route) { tile in
+                PushButton(value: tile.route) {
+                    CourseTile(symbol: tile.symbol, title: tile.title,
+                               count: tile.count, seed: course.id)
+                }
             }
-            .buttonStyle(.plain)
-
-            NavigationLink {
-                FolderBrowserView(course: course)
-            } label: {
-                CourseTile(symbol: "folder", title: "Dateien",
-                           count: nil, seed: course.id)
-            }
-            .buttonStyle(.plain)
-
-            NavigationLink {
-                CourseParticipantsView(course: course, participants: participants)
-            } label: {
-                CourseTile(symbol: "person.2", title: "Personen",
-                           count: participants.value?.count, seed: course.id)
-            }
-            .buttonStyle(.plain)
-
-            NavigationLink {
-                CourseNewsView(course: course, news: news)
-            } label: {
-                CourseTile(symbol: "megaphone", title: "Aushang",
-                           count: news.value?.count, seed: course.id)
-            }
-            .buttonStyle(.plain)
-
-            NavigationLink {
-                CourseForumView(course: course)
-            } label: {
-                CourseTile(symbol: "text.bubble", title: "Forum",
-                           count: nil, seed: course.id)
-            }
-            .buttonStyle(.plain)
-
-            NavigationLink {
-                CourseWikiView(course: course)
-            } label: {
-                CourseTile(symbol: "book.closed", title: "Wiki",
-                           count: nil, seed: course.id)
-            }
-            .buttonStyle(.plain)
-
-            NavigationLink {
-                CourseBlubberView(course: course)
-            } label: {
-                CourseTile(symbol: "bubble.left.and.bubble.right", title: "Blubber",
-                           count: nil, seed: course.id)
-            }
-            .buttonStyle(.plain)
         }
+    }
+
+    /// Was hinter der Veranstaltung liegt — als Werte, nicht als Ansichten.
+    ///
+    /// Bis 1.3.0 stand hier je Kachel ein `NavigationLink { Ziel }`. Das
+    /// schob an `Navigator.path` vorbei; sobald auf der so geöffneten Seite
+    /// eine `PushLink`-Zeile lag — im Aushang jede Ankündigung —, geriet der
+    /// Stapel mit dem Pfad in Widerspruch und das Zurückgehen sprang zu weit.
+    /// Siehe `Route`.
+    private var tiles: [(route: Route, symbol: String, title: String, count: Int?)] {
+        [
+            (.courseDates(course), "calendar", "Termine", events.value?.count),
+            (.courseFiles(course), "folder", "Dateien", nil),
+            (.courseParticipants(course), "person.2", "Personen", participants.value?.count),
+            (.courseNews(course), "megaphone", "Aushang", news.value?.count),
+            (.courseForum(course), "text.bubble", "Forum", nil),
+            (.courseWiki(course), "book.closed", "Wiki", nil),
+            (.courseBlubber(course), "bubble.left.and.bubble.right",
+             isStudygroup ? "Gruppenchat" : "Blubber", nil),
+        ]
     }
 
     // MARK: - Beschreibung
@@ -266,19 +236,44 @@ struct CourseDetailView: View {
     /// nichts — das ist die Rechtelage, kein Fehler. Vorher stand in jedem
     /// dieser Bereiche „Für diesen Bereich fehlen die Rechte".
     private var outsiderNote: some View {
-        HStack(spacing: 11) {
-            Image(systemName: "lock")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(isStudygroup ? "Du bist in dieser Gruppe nicht dabei"
-                                  : "Du bist hier nicht eingetragen")
-                    .font(.subheadline.weight(.semibold))
-                Text("Termine, Personen und Aushang gibt Stud.IP nur Mitgliedern heraus. \(isStudygroup ? "Beitreten" : "Eintragen") geht über die Weboberfläche.")
-                    .font(.caption)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 11) {
+                Image(systemName: "lock")
+                    .font(.title3)
                     .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isStudygroup ? "Du bist in dieser Gruppe nicht dabei"
+                                      : "Du bist hier nicht eingetragen")
+                        .font(.subheadline.weight(.semibold))
+                    Text(isStudygroup
+                         ? "Termine, Personen, Aushang und der Gruppenchat gehören den Mitgliedern. Wer beitritt, sieht sie sofort — auch hier in StudGo."
+                         : "Termine, Personen und Aushang gibt Stud.IP nur Eingetragenen heraus.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+
+            // Der auffällige Knopf statt eines Menüeintrags: Für wen die
+            // Veranstaltung zu ist, ist genau das der nächste Schritt.
+            Button {
+                webTarget = WebTarget(url: StudIPClient.enrolmentURL(courseID: course.id))
+            } label: {
+                Label(isStudygroup ? "Gruppe beitreten" : "Eintragen",
+                      systemImage: "person.badge.plus")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+            }
+            .buttonStyle(.borderedProminent)
+
+            // Ehrlich bleiben, warum das die Weboberfläche öffnet:
+            // `Routes\Courses\Rel\Memberships::authorize()` gibt für jede
+            // Methode ausser GET hart `false` zurück — es gibt keine Route
+            // zum Ein- oder Austragen, auch keine übersehene.
+            Text("Öffnet Stud.IP: Das Ein- und Austragen bietet die Schnittstelle nicht an. Danach hier nach unten ziehen.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()

@@ -17,8 +17,8 @@ deshalb in zwei Hälften geteilt:
 Vor jedem Commit, in dieser Reihenfolge:
 
 ```bash
-./tools/swift-lint.sh     # ~8 s — alle 54 Dateien, volle Grammatik
-./tools/swift.sh test     # ~10 s — 51 Tests gegen die Logikschicht
+./tools/swift-lint.sh     # ~8 s — alle 56 Dateien, volle Grammatik
+./tools/swift.sh test     # ~10 s — 56 Tests gegen die Logikschicht
 ```
 
 Beides zusammen fängt den Großteil dessen ab, was sonst erst nach Minuten bei
@@ -83,9 +83,10 @@ entweder eine Weiche setzen oder die Datei aus dem Paket nehmen.
 
 ## Tests
 
-`Tests/StudGoKitTests/` — swift-testing (`@Test`, `#expect`), 51 Stück.
+`Tests/StudGoKitTests/` — swift-testing (`@Test`, `#expect`), 56 Stück.
 Schwerpunkt liegt auf dem, was still falsch sein kann: ICS-Zeitzonen,
-JSON:API-Eigenheiten von Stud.IP, HTML-Entitäten, PKCE.
+JSON:API-Eigenheiten von Stud.IP, HTML-Entitäten, PKCE, das Ausrollen des
+Wochenplans zu datierten Terminen.
 
 Zwei Regeln aus der Erfahrung:
 
@@ -120,5 +121,11 @@ git push && ./tools/codemagic.sh build     # stößt an, wartet, zeigt Fehler
   Schlüge der Aufruf fehl, bestünde der Verifier aus Nullbytes und der
   PKCE-Schutz wäre wirkungslos, ohne dass es auffiele. Wie zu reagieren ist
   (Abbruch? Wiederholung?), ist eine offene Entscheidung — `TODO` steht dort.
-- `./tools/codemagic.sh` ist gegen die Codemagic-API geschrieben, aber noch
-  nie mit einem echten Schlüssel gelaufen. Erster Lauf mit wachem Auge.
+- Der leere Blubber-Verlauf aus 1.3.0 liess sich von hier aus **nicht**
+  nachstellen: Ohne Token gibt die LUH-API auf jede Route 401, und der
+  `login --cookie`-Weg von `tools/studip-cli.py` verlangt eine Browsersitzung.
+  1.4.0 geht deshalb über drei Wege gleichzeitig an den Verlauf und führt
+  eine Spur mit, welche Route was geantwortet hat
+  (`BlubberConversation.trail`, sichtbar in der App unter „Warum ist hier
+  nichts?"). Bleibt ein Faden im Testflug leer, steht die Ursache dort —
+  das ist die eigentliche Rückmeldung, auf die 1.4.0 wartet.

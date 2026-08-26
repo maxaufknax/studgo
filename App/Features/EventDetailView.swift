@@ -153,9 +153,7 @@ struct EventDetailView: View {
     }
 
     private func courseLink(_ courseID: String) -> some View {
-        NavigationLink {
-            CourseLoaderView(courseID: courseID)
-        } label: {
+        PushButton(value: Route.courseByID(courseID)) {
             RowLabel(symbol: "books.vertical",
                      title: "Zur Veranstaltung",
                      subtitle: courseTitle ?? event.title) {
@@ -165,7 +163,6 @@ struct EventDetailView: View {
             }
             .card()
         }
-        .buttonStyle(.plain)
     }
 
     /// Ehrlich bleiben: Aus dem Stundenplan abgeleitete Sitzungen kennen
@@ -188,6 +185,7 @@ extension CourseEvent: Hashable {
 /// einzelne Sitzung.
 struct ScheduleEntryDetailView: View {
     let entry: ScheduleEntry
+    @State private var webTarget: WebTarget?
 
     var body: some View {
         ScrollView {
@@ -233,9 +231,7 @@ struct ScheduleEntryDetailView: View {
                 }
 
                 if let courseID = entry.courseID {
-                    NavigationLink {
-                        CourseLoaderView(courseID: courseID)
-                    } label: {
+                    PushButton(value: Route.courseByID(courseID)) {
                         RowLabel(symbol: "books.vertical",
                                  title: "Zur Veranstaltung",
                                  subtitle: entry.title) {
@@ -245,7 +241,34 @@ struct ScheduleEntryDetailView: View {
                         }
                         .card()
                     }
-                    .buttonStyle(.plain)
+                }
+
+                // Nur eigene Einträge: Turnustermine einer Veranstaltung
+                // gehören der Veranstaltung, die ändert man nicht von hier
+                // aus. Ändern und Löschen laufen über die Weboberfläche — zu
+                // `schedule-entries` kennt die JSON:API ausschliesslich
+                // Lesezugriff.
+                if !entry.isCourse {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button {
+                            webTarget = WebTarget(url: WebLinks.scheduleEntry(entry.id))
+                        } label: {
+                            RowLabel(symbol: "pencil",
+                                     title: "Ändern oder löschen",
+                                     subtitle: "Öffnet Stud.IP") {
+                                Image(systemName: "arrow.up.right.square")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        Text("Eigene Termine lassen sich über die Stud.IP-Schnittstelle nur lesen; geschrieben wird in der Weboberfläche.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card()
                 }
             }
             .padding(.horizontal)
@@ -254,6 +277,9 @@ struct ScheduleEntryDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Stundenplan")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $webTarget) { target in
+            WebSheet(url: target.url)
+        }
     }
 }
 

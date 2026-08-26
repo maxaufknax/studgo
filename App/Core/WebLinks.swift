@@ -61,6 +61,67 @@ enum WebLinks {
         studip("dispatch.php/course/files", query: [URLQueryItem(name: "cid", value: courseID)])
     }
 
+    // MARK: - Blubber
+
+    /// Der Blubber der Weboberfläche — ohne Kennung der globale Strom, mit
+    /// Kennung genau dieser Faden.
+    ///
+    /// `app/controllers/blubber.php::index_action($thread_id = null)`. Die
+    /// Oberfläche hängt hinter der Adresse noch ein `#/` an; nötig ist es
+    /// nicht, der Router liest den Faden aus dem Pfad.
+    static func blubber(thread id: String? = nil) -> URL {
+        guard let id, !id.isEmpty else { return studip("dispatch.php/blubber") }
+        return studip("dispatch.php/blubber/index/\(id)")
+    }
+
+    // MARK: - Stundenplan: eigene Termine
+
+    /// Der Stundenplan der Weboberfläche.
+    static var schedule: URL { studip("dispatch.php/calendar/schedule") }
+
+    /// **Einen eigenen Termin anlegen.**
+    ///
+    /// In der JSON:API gibt es dafür nichts: `RouteMap.php` kennt zu
+    /// `schedule-entries` genau eine Route, und die ist ein `GET`
+    /// (`Routes\Schedule\ScheduleEntriesShow`). Kein POST, kein PATCH, kein
+    /// DELETE — auch nicht unter `/users/{id}/schedule`. Die Weboberfläche
+    /// legt Termine über `calendar/schedule/entry/add` an; dieselbe Seite
+    /// nimmt Wochentag und Uhrzeit als Vorgabewerte entgegen
+    /// (`Request::int('dow')`, `Request::get('start'|'end')`), sodass der
+    /// Knopf aus der App heraus schon mit dem angetippten Tag aufgeht.
+    ///
+    /// - Parameters:
+    ///   - weekday: 1 = Montag … 7 = Sonntag, wie in Stud.IP.
+    ///   - start: "HH:mm"
+    ///   - end: "HH:mm"
+    static func newScheduleEntry(weekday: Int? = nil,
+                                 start: String? = nil,
+                                 end: String? = nil) -> URL {
+        var query: [URLQueryItem] = []
+        if let weekday { query.append(URLQueryItem(name: "dow", value: String(weekday))) }
+        if let start {
+            // Das Formular verzweigt auf das Feld `start`; ohne es greifen die
+            // Vorgaben „nächste volle Stunde", und der angetippte Tag wäre
+            // verloren.
+            query.append(URLQueryItem(name: "start", value: start))
+            query.append(URLQueryItem(name: "end", value: end ?? start))
+        }
+        return studip("dispatch.php/calendar/schedule/entry/add", query: query)
+    }
+
+    /// **Einen eigenen Termin bearbeiten oder löschen.**
+    ///
+    /// Dieselbe Seite trägt beides; das Löschen läuft serverseitig über einen
+    /// `POST` mit CSRF-Merkmal (`CSRFProtection::verifyUnsafeRequest()`) und
+    /// ist deshalb nicht als Verweis nachzubauen.
+    static func scheduleEntry(_ id: String) -> URL {
+        studip("dispatch.php/calendar/schedule/entry/\(id)")
+    }
+
+    /// Der persönliche Kalender der Weboberfläche — dort liegen die datierten
+    /// Einzeltermine, die nicht Teil des Wochenplans sind.
+    static var calendar: URL { studip("dispatch.php/calendar/single") }
+
     /// Das eigene Profilbild ändern. In der API gibt es dafür nichts:
     /// `Schemas/User` liefert die Adresse des Bildes, mehr nicht.
     static var avatarSettings: URL { studip("dispatch.php/settings/avatar") }
