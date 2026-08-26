@@ -90,9 +90,16 @@ Wochenplans zu datierten Terminen.
 
 Zwei Regeln aus der Erfahrung:
 
-1. **Kalender und Zeitzone immer als Parameter setzen**, nie `.current`
-   erwarten. `tools/swift.sh` setzt `TZ=Europe/Berlin`, aber ein Test, der
-   das braucht, ist ein zerbrechlicher Test.
+1. **Zeitzone nie voraussetzen.** `tools/swift.sh` setzt `TZ=Europe/Berlin`,
+   der Codemagic-Läufer steht unter **UTC** — ein Test, der die eine oder die
+   andere braucht, läuft hier durch und fällt dort um. Zwei Wege, je nachdem
+   was geprüft wird:
+   * Der Prüfling nimmt einen Kalender entgegen (`Weekday.of(_:in:)`,
+     `SemesterContext`)? Dann einen festen mitgeben.
+   * Der Prüfling rechnet mit `Calendar.current` (`EventMerge`)? Dann die
+     Erwartungswerte **ebenfalls** in `Calendar.current` bauen. Ein in
+     Europe/Berlin gebauter Montag 00:00 ist unter UTC der Sonntag davor —
+     genau daran sind die ersten `EventMergeTests` gescheitert.
 2. **Schlägt ein neuer Test an, erst prüfen, wessen Erwartung falsch ist.**
    Die Überschriftenebenen in `HTMLReader` sind absichtlich umgedreht
    (1 = kleinste Stufe) — das sah zuerst nach einem Fehler aus.
@@ -103,6 +110,11 @@ Zwei Workflows in `codemagic.yaml`:
 
 - **`check`** — bei jedem Push. Lint → StudGoKit-Tests → Simulator-Build ohne
   Signatur. Braucht kein Apple-Konto.
+
+  Der Testschritt endet auf `| tail -40` und **braucht deshalb `pipefail`** —
+  ohne ihn ist der Rückgabewert der von `tail`, also immer 0, und
+  fehlgeschlagene Tests melden Erfolg. Wer hier eine Pipeline anfügt: daran
+  denken.
 - **`testflight`** — nur bei Tags `v*`. Baut, signiert, lädt hoch. Meldet
   **nicht** zur Prüfung an (`submit_to_testflight` bleibt aus — siehe die
   Begründung in der Datei; ein laufendes App-Store-Review darf das nicht
