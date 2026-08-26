@@ -19,7 +19,7 @@ struct PostfachView: View {
     @State private var section: Section = .messages
 
     var body: some View {
-        StudGoStack {
+        StudGoStack(user: user) {
             VStack(spacing: 0) {
                 SegmentedHeader(title: "Bereich",
                                 options: Section.allCases,
@@ -181,20 +181,23 @@ struct MailboxView: View {
 
 /// Blubber als Nachrichtenliste.
 ///
-/// Stud.IP führt Direktnachrichten, Veranstaltungs- und öffentliche Fäden über
-/// dieselbe Ressource — nur unter verschiedenen Pfaden. Hier liegen alle drei
-/// beieinander, weil sie für den Lesenden dasselbe sind: Unterhaltungen. Der
-/// öffentliche Strom stand bis 1.2.0 im Campus-Reiter; dort suchte ihn
-/// niemand, und er lud eine Liste, die mit „Verzeichnis" nichts zu tun hat.
+/// **Wie die Weboberfläche das führt:** `dispatch.php/blubber` zeigt links
+/// alle Fäden untereinander — den globalen Strom, die Direktnachrichten und
+/// die Ströme der Veranstaltungen und Studiengruppen —, rechts den gewählten
+/// Verlauf. Genau diese eine Liste steht hier. Bis 1.3.0 fehlte darin der
+/// **globale Blubber**, obwohl er in der Weboberfläche der erste Eintrag ist:
+/// Er trägt `context-type = public` und fiel damit durch dasselbe Sieb, das
+/// den öffentlichen Strom aus dem Postfach heraushält.
 struct BlubberInboxView: View {
     let user: StudIPUser
     @Environment(AuthStore.self) private var auth
 
     /// Welche Fäden gezeigt werden.
     enum Scope: String, CaseIterable, Identifiable {
-        /// Alles Persönliche: Direktnachrichten und die eigenen Kursfäden.
-        case mine = "Meine Chats"
-        /// Nur die Fäden aus belegten Veranstaltungen.
+        /// Alles Persönliche: der globale Strom, Direktnachrichten und die
+        /// eigenen Kursfäden — die Auswahl der Weboberfläche.
+        case mine = "Alle Chats"
+        /// Nur die Fäden aus belegten Veranstaltungen und Studiengruppen.
         case courses = "Veranstaltungen"
         /// Der Strom der ganzen Universität.
         case openStream = "Öffentlich"
@@ -220,9 +223,9 @@ struct BlubberInboxView: View {
         var hint: String {
             switch self {
             case .mine:
-                return "Direktnachrichten und die Fäden deiner Veranstaltungen."
+                return "Der globale Blubber, deine Direktnachrichten und die Ströme deiner Veranstaltungen und Studiengruppen — dieselbe Auswahl wie unter „Blubber“ in Stud.IP."
             case .courses:
-                return "Nur, was in belegten Veranstaltungen geschrieben wurde."
+                return "Nur, was in belegten Veranstaltungen und Studiengruppen geschrieben wurde."
             case .openStream:
                 return "Der offene Strom der ganzen Universität. Alle Angemeldeten können mitlesen."
             }
@@ -232,6 +235,9 @@ struct BlubberInboxView: View {
     @State private var scope: Scope = .mine
     @State private var personal = Loadable<[BlubberThread]>()
     @State private var openStream = Loadable<[BlubberThread]>()
+    /// Der globale Strom wird eigens geholt: Er soll auch dann in der Liste
+    /// stehen, wenn die Sammelroute an einem verwaisten Faden scheitert.
+    @State private var global: BlubberThread?
     @State private var search = ""
     @State private var isWriting = false
     /// Erst beim Öffnen des Verfassen-Blatts geholt: Für die Liste selbst
@@ -242,25 +248,38 @@ struct BlubberInboxView: View {
         scope == .openStream ? openStream : personal
     }
 
+    /// Alle Fäden des Bereichs — mit dem globalen Strom vorn, falls er nicht
+    /// ohnehin schon aus der Sammelroute kam.
+    private var all: [BlubberThread] {
+        var threads = current.value ?? []
+        if scope != .courses, let global, !threads.contains(where: { $0.isGlobal }) {
+            threads.insert(global, at: 0)
+        }
+        return threads
+    }
+
     private var filtered: [BlubberThread] {
-        var all = current.value ?? []
-        if scope == .courses { all = all.filter { $0.context == .course } }
-        guard !search.isEmpty else { return all }
-        return all.filter {
-            $0.name.localizedCaseInsensitiveContains(search)
+        var threads = all
+        if scope == .courses { threads = threads.filter { $0.context == .course } }
+        guard !search.isEmpty else { return threads }
+        return threads.filter {
+            $0.displayName.localizedCaseInsensitiveContains(search)
                 || $0.preview.localizedCaseInsensitiveContains(search)
         }
     }
 
-    /// Fäden mit Neuigkeiten zuerst — sonst rutscht eine frische Antwort
-    /// unter zwanzig stille Kursfäden. Darunter, in „Meine Chats", nach Art
-    /// getrennt: Direktnachrichten, Kursfäden und der Rest. Genau diese
-    /// Unterscheidung — persönlich, aus einer Veranstaltung, offen — sucht man
-    /// im Postfach.
+    /// Der globale Strom steht ganz oben — wie in der Weboberfläche. Darunter
+    /// Fäden mit Neuigkeiten, sonst rutscht eine frische Antwort unter zwanzig
+    /// stille Kursfäden. Und darunter, in „Alle Chats", nach Art getrennt:
+    /// Direktnachrichten, Kursfäden und der Rest.
     private var grouped: [(title: String, threads: [BlubberThread])] {
-        let fresh = filtered.filter(\.hasNews)
-        let rest = filtered.filter { !$0.hasNews }
+        let pinned = filtered.filter(\.isGlobal)
+        let others = filtered.filter { !$0.isGlobal }
+        let fresh = others.filter(\.hasNews)
+        let rest = others.filter { !$0.hasNews }
+
         var sections: [(String, [BlubberThread])] = []
+        if !pinned.isEmpty { sections.append(("Universität", pinned)) }
         if !fresh.isEmpty { sections.append(("Neu", fresh)) }
 
         switch scope {
@@ -358,6 +377,10 @@ struct BlubberInboxView: View {
         switch scope {
         case .mine, .courses:
             await personal.load { try await client.personalBlubberThreads(for: userID) }
+            // Nacheinander statt nebenläufig: `StudIPClient` trägt zwei
+            // Closures (Tokenbeschaffung, 401-Meldung) und ist damit nicht
+            // `Sendable` — ein `async let` schöbe ihn über eine Aufgabengrenze.
+            if let found = await client.globalBlubberThread() { global = found }
         case .openStream:
             let term = search.trimmingCharacters(in: .whitespacesAndNewlines)
             await openStream.load {
@@ -374,15 +397,35 @@ struct BlubberThreadRow: View {
     let thread: BlubberThread
 
     private var initials: String {
-        let source = thread.context == .privateChat ? (thread.authorName ?? thread.name) : thread.name
+        let source = thread.context == .privateChat
+            ? (thread.authorName ?? thread.displayName)
+            : thread.displayName
         let parts = source.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init)
         return parts.isEmpty ? "?" : parts.joined()
+    }
+
+    /// Der globale Strom trägt keinen Aufschlag — dort stünde sonst eine
+    /// leere Zeile, wo die Weboberfläche „Was gibt es Neues?" zeigt.
+    private var subtitle: String {
+        let preview = thread.preview
+        if !preview.isEmpty { return preview }
+        return thread.isGlobal
+            ? "Der offene Strom der ganzen Universität"
+            : "Unterhaltung öffnen"
     }
 
     var body: some View {
         HStack(alignment: .top, spacing: 11) {
             ZStack(alignment: .topTrailing) {
-                InitialsBadge(initials: initials, size: 38)
+                if thread.isGlobal {
+                    Image(systemName: "globe.europe.africa.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 38, height: 38)
+                        .background(Circle().fill(Color.accentColor))
+                } else {
+                    InitialsBadge(initials: initials, size: 38)
+                }
                 if thread.hasNews {
                     Circle()
                         .fill(Color.accentColor)
@@ -393,18 +436,18 @@ struct BlubberThreadRow: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(thread.name)
+                Text(thread.displayName)
                     .font(thread.hasNews ? .subheadline.bold() : .subheadline)
                     .lineLimit(1)
 
-                Text(thread.preview)
+                Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
 
                 HStack(spacing: 6) {
-                    Chip(text: thread.context.label,
-                         symbol: thread.context.symbol,
+                    Chip(text: thread.isGlobal ? "Universität" : thread.context.label,
+                         symbol: thread.isGlobal ? "globe.europe.africa.fill" : thread.context.symbol,
                          color: Tint.color(thread.tintSeed))
                     if thread.unseenComments > 0 {
                         Chip(text: "\(thread.unseenComments) neu", color: .accentColor)
@@ -426,6 +469,18 @@ struct BlubberThreadRow: View {
 }
 
 /// Ein Faden als Verlauf — Beiträge von unten nach oben, Eingabefeld am Fuß.
+///
+/// **Was hier 1.3.0 nicht konnte:** In jedem Chat stand „Noch keine
+/// Beiträge". Der Grund liegt im Aufbau von Stud.IP: Ein Faden trägt einen
+/// eigenen Text und darunter die Beiträge — bei Direktnachrichten und beim
+/// globalen Strom ist der Text aber **leer**, der ganze Verlauf steckt in den
+/// Beiträgen. Kam von der Kommentarroute nichts, blieb der Bildschirm leer,
+/// ohne dass irgendwo stand, woran es lag.
+///
+/// Jetzt holt `StudIPClient.blubberConversation(id:)` den Verlauf über drei
+/// verschiedene Wege und meldet zurück, welcher getragen hat. Bleibt es
+/// wirklich bei nichts, steht die Spur unter „Warum ist hier nichts?" —
+/// zusammen mit dem Knopf, der denselben Faden in Stud.IP öffnet.
 struct BlubberThreadView: View {
     let thread: BlubberThread
     @Environment(AuthStore.self) private var auth
@@ -440,6 +495,10 @@ struct BlubberThreadView: View {
     /// Der vollständig nachgeladene Faden. Die Liste reicht den Faden ohne
     /// gesicherten Anfangsbeitrag herein — die Einzelroute holt ihn nach.
     @State private var resolved: BlubberThread?
+    /// Welche Route was geantwortet hat. Steht nur im Bild, wenn nichts kam.
+    @State private var trail: [String] = []
+    @State private var showsTrail = false
+    @State private var webTarget: WebTarget?
 
     /// Wie viele Beiträge auf einmal geholt werden.
     private let pageSize = 60
@@ -447,6 +506,11 @@ struct BlubberThreadView: View {
     /// Der Faden, wie er angezeigt wird: der nachgeladene, sobald er da ist,
     /// sonst der aus der Liste.
     private var shown: BlubberThread { resolved ?? thread }
+
+    /// Wirklich leer — weder Aufschlag noch ein einziger Beitrag.
+    private var isBlank: Bool {
+        (comments.value ?? []).isEmpty && shown.preview.isEmpty
+    }
 
     private var canSend: Bool {
         shown.isCommentable
@@ -462,31 +526,31 @@ struct BlubberThreadView: View {
                 composer
             }
         }
-        .navigationTitle(shown.name)
+        .navigationTitle(shown.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    webTarget = WebTarget(url: WebLinks.blubber(thread: thread.id))
+                } label: {
+                    Image(systemName: "safari")
+                }
+                .accessibilityLabel("In Stud.IP öffnen")
+            }
+        }
+        .sheet(item: $webTarget) { target in
+            WebSheet(url: target.url)
+        }
         .task { await load() }
     }
 
-    /// Anfangsbeitrag und Verlauf holen. Erst den vollständigen Faden — damit
-    /// der Aufschlag steht, noch während die Beiträge laden —, dann den
-    /// Verlauf. Solange etwas unterwegs ist, trägt `comments.isLoading` den
-    /// Spinner; „Noch keine Beiträge" erscheint erst, wenn beides durch und
-    /// wirklich nichts da ist.
+    /// Anfangsbeitrag und Verlauf in **einem** Ablauf holen. Solange etwas
+    /// unterwegs ist, trägt `comments.isLoading` den Spinner; „Noch keine
+    /// Beiträge" erscheint erst, wenn alle Wege durch sind und wirklich
+    /// nichts da ist.
     private func load() async {
-        if comments.value == nil { comments.isLoading = true }
-        await resolveThread()
-        if comments.value == nil {
-            await reload(fresh: false)
-        } else {
-            comments.isLoading = false
-        }
-    }
-
-    private func resolveThread() async {
-        guard resolved == nil else { return }
-        if let full = try? await auth.client.blubberThread(id: thread.id) {
-            resolved = full
-        }
+        guard comments.value == nil else { return }
+        await reload(fresh: false)
     }
 
     private var transcript: some View {
@@ -501,19 +565,21 @@ struct BlubberThreadView: View {
                                              isOwn: comment.authorID == auth.currentUserID)
                             .id(comment.id)
                     }
+
+                    if isBlank && !comments.isLoading { blankNote }
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 14)
             }
             .background(Color(.systemGroupedBackground))
             .overlay {
-                // Nur wirklich leer, wenn weder ein Anfangsbeitrag noch eine
-                // Antwort da ist — sonst steht der Aufschlag im Bild und der
-                // Hinweis wäre schlicht falsch.
+                // Der Leerzustand wird hier bewusst **nicht** überlagert: Er
+                // steht als Karte im Verlauf, damit die Spur darunter passt
+                // und der Verweis nach Stud.IP antippbar bleibt.
                 StateOverlay(isLoading: comments.isLoading,
                              errorMessage: comments.errorMessage,
-                             isEmpty: (comments.value ?? []).isEmpty && shown.preview.isEmpty,
-                             emptyText: "Noch keine Beiträge",
+                             isEmpty: isBlank && comments.value == nil,
+                             emptyText: "Wird geladen…",
                              emptySymbol: "bubble.left",
                              retry: { Task { await reload(fresh: true) } })
             }
@@ -577,6 +643,44 @@ struct BlubberThreadView: View {
         }
     }
 
+    /// Steht wirklich nichts da, dann bitte mit Begründung.
+    private var blankNote: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Noch keine Beiträge", systemImage: "bubble.left")
+                .font(.subheadline.weight(.semibold))
+
+            Text(shown.isCommentable
+                 ? "Schreib den ersten Beitrag — das Feld unten gehört dazu."
+                 : "In diesem Faden darfst du nicht schreiben.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Button {
+                webTarget = WebTarget(url: WebLinks.blubber(thread: thread.id))
+            } label: {
+                Label("In Stud.IP ansehen", systemImage: "safari")
+                    .font(.footnote.weight(.medium))
+            }
+
+            if !trail.isEmpty {
+                DisclosureGroup("Warum ist hier nichts?", isExpanded: $showsTrail) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(trail, id: \.self) { line in
+                            Text("• " + line)
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.top, 6)
+                }
+                .font(.footnote)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
     private var composer: some View {
         VStack(spacing: 6) {
             if let sendError {
@@ -617,24 +721,21 @@ struct BlubberThreadView: View {
 
     // MARK: - Laden und Senden
 
-    /// Holt die **jüngste** Seite des Verlaufs.
-    ///
-    /// Ohne `sort` gibt Stud.IP die *ältesten* Beiträge heraus
-    /// (`CommentsByThreadIndex` sortiert `ORDER BY mkdate` und schneidet
-    /// vorne ab). In einer laufenden Unterhaltung stand deshalb der Anfang
-    /// von vor Monaten im Bild, während die letzten Antworten gar nicht
-    /// geladen wurden — der Chat wirkte leer oder eingefroren.
+    /// Holt Faden und jüngste Seite des Verlaufs über alle Wege, die es gibt.
     private func reload(fresh: Bool) async {
         let client = fresh ? auth.freshClient : auth.client
-        // Ohne `Loadable.load`, weil neben der Liste noch `hasOlder` aus
-        // derselben Antwort kommt. Die Regel bleibt dieselbe: Ein
+        // Ohne `Loadable.load`, weil neben der Liste noch `hasOlder` und die
+        // Spur aus derselben Antwort kommen. Die Regel bleibt dieselbe: Ein
         // fehlgeschlagenes Nachladen lässt den bisherigen Verlauf stehen.
         if comments.value == nil { comments.isLoading = true }
         do {
-            let page = try await client.blubberComments(threadID: thread.id, limit: pageSize)
-            comments.value = page.comments
+            let conversation = try await client.blubberConversation(id: thread.id,
+                                                                    limit: pageSize)
+            if let full = conversation.thread { resolved = full }
+            comments.value = conversation.comments
             comments.errorMessage = nil
-            hasOlder = page.hasOlder
+            hasOlder = conversation.hasOlder
+            trail = conversation.trail
         } catch {
             comments.errorMessage = error.localizedDescription
         }

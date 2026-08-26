@@ -674,17 +674,153 @@ Merke: Bei diesen Sammel-Routen lösen **`400` und `500`** denselben Schritt aus
 — das eine heißt „`include` nicht erlaubt", das andere „ein Datensatz ließ sich
 nicht serialisieren". Beide sind mit weniger Beziehungen zu überstehen.
 
-## 14. Der Anfangsbeitrag eines Blubber-Fadens fehlt in der **Liste**
+## 14. Der Anfangsbeitrag eines Blubber-Fadens
 
-`/v1/blubber-threads` (und die Kurs-/öffentlichen Varianten) geben den Faden mit
-Namen, Zeitstempeln und Zusammenhang zurück, den `content-html` des
-Anfangsbeitrags aber nicht verlässlich mit. Beim Öffnen eines Fadens **ohne**
-eigene Antworten stand dann weder Aufschlag noch Beitrag da — „Noch keine
-Beiträge", obwohl der Faden einen Text trägt. `/v1/blubber-threads/{id}` (Show,
-**kein** `page[...]`) liefert ihn nach; `StudIPClient.blubberThread(id:)` holt
-ihn beim Öffnen und setzt ihn als Aufschlag über den Verlauf.
+`/v1/blubber-threads/{id}` (Show, **kein** `page[...]`) liefert `content` und
+`content-html` verlässlich; `StudIPClient.blubberThread(id:)` holt den Faden
+beim Öffnen und setzt den Aufschlag über den Verlauf.
+
+**Berichtigung zu 1.3.0:** Hier stand, die *Listen*routen gäben `content-html`
+nicht mit. Das stimmt nicht. `getOrderedThreads()` verbindet zwar
+`blubber_threads` per `LEFT JOIN` mit `blubber_comments`, wählt aber
+ausdrücklich nur die Fadenspalten aus:
+
+```php
+// SQLQuery::fetchAll($sorm_class) — lib/classes/SQLQuery.php
+$sql = "SELECT `{$this->settings['table']}`.* ";
+```
+
+Der Anfangsbeitrag ist also auch in der Liste da. Die Einzelroute bleibt
+trotzdem richtig — sie kostet nichts (`ResponseCache`) und ist die einzige
+Quelle, wenn der Faden gar nicht aus einer Liste kam.
 
 Und: Die Kommentar-Route lässt `sort=-mkdate` zu (`$allowedSortFields =
 ['mkdate']`, Befund 2) — falls eine Installation das doch mit `400` quittiert,
 fällt `blubberComments` auf die unsortierte Reihenfolge (ältestezuerst) zurück,
 statt den Verlauf leer zu lassen.
+
+
+---
+
+# Befunde aus Fassung 1.4.0
+
+## 15. Der **globale Blubber** heißt `global` — und ist in der API ein Faden wie jeder andere
+
+Der Strom, den die Weboberfläche unter `dispatch.php/blubber` zuerst zeigt, ist
+kein eigener Endpunkt. Es ist ein gewöhnlicher Datensatz in `blubber_threads`
+mit der fest verdrahteten Kennung `global`:
+
+```php
+// BlubberThread::findMyGlobalThreads()
+$query->where('public/global/mentions', implode(' OR ', [
+    "blubber_threads.thread_id = 'global'",
+    "user_id = :user_id",
+    "thread_id IN (SELECT thread_id FROM blubber_comments WHERE user_id = :user_id)"
+]), [':user_id' => $user_id]);
+```
+
+Sein `display_class` ist `BlubberGlobalThread`; `BlubberThread::upgradeThread()`
+macht daraus beim Laden die Unterklasse, deren `isReadable()` für **jeden**
+Angemeldeten `true` liefert und deren `getName()` „Globaler Blubber" heißt.
+
+Damit ist er über `GET /v1/blubber-threads/global` und
+`GET /v1/blubber-threads/global/comments` erreichbar — ohne die teure Route
+`/v1/studip/blubber-threads` (Befund 9).
+
+**Die Falle:** Er trägt `context-type = public`. Wer im Postfach den
+öffentlichen Strom heraussiebt (`thread.context != .publicStream`), siebt ihn
+mit heraus. Genau deshalb fehlte er in StudGo bis 1.3.0 vollständig, obwohl er
+in der Weboberfläche der erste Eintrag ist.
+
+## 16. Ein Blubber-Faden trägt seinen Inhalt **entweder** im Aufschlag **oder** in den Beiträgen
+
+Die Sorte entscheidet, wo der Text steckt:
+
+| `context_type` | Aufschlag (`content`) | Verlauf (`blubber_comments`) |
+| --- | --- | --- |
+| `course`, `institute` | der geschriebene Beitrag | die Antworten darauf |
+| `private` (Direktnachricht) | **leer** | die ganze Unterhaltung |
+| `public` mit `thread_id = 'global'` | **leer** | der ganze Strom |
+
+Eine Ansicht, die nur den Faden liest, zeigt bei den letzten beiden Sorten
+nichts. Umgekehrt zeigt eine Ansicht, die nur die Kommentare liest, bei einem
+Kursfaden ohne Antworten nichts. Beide Quellen gehören zusammen.
+
+Nebenbei erklärt das die Aufräumabfrage am Anfang von `findMyGlobalThreads()`:
+Fäden **ohne** Aufschlag **und ohne** Beitrag, älter als eine Stunde, werden
+gelöscht. Ein Faden ohne beides ist in Stud.IP kein gültiger Zustand.
+
+## 17. Die Beiträge lassen sich auch über die **Show**-Route holen
+
+`Schemas/BlubberThread` erlaubt `include=comments`:
+
+```php
+protected ?array $allowedIncludes = [self::REL_AUTHOR, self::REL_COMMENTS,
+                                     self::REL_CONTEXT, self::REL_MENTIONS];
+```
+
+und `getCommentsRelationship()` legt bei gesetztem `include` schlicht
+`$resource->comments` (die `has_many`-Beziehung) in die Antwort. Das ist ein
+**völlig anderer Weg** als `CommentsByThreadIndex`, das eine eigene SQL-Abfrage
+mit `LIMIT`/`OFFSET` und Sortierung zusammensetzt und vorher
+`Authority::canShowBlubberThread()` prüft.
+
+`StudIPClient.blubberConversation(id:)` nutzt das als dritte Stufe:
+
+1. `…/{id}/comments?sort=-mkdate` — Regelweg, mit Seitenaufteilung.
+2. dieselbe Route ohne `sort` — für Fassungen, die es mit `400` ablehnen.
+3. `…/{id}?include=comments.author` — holt alles auf einmal, ohne Paging.
+
+Verschachteltes `include` ist erlaubt: `$allowedIncludePaths` steht im
+`JsonApiController` auf `null` (= alle Pfade), und `BlubberComment` führt
+`author` in seinen eigenen `allowedIncludes`.
+
+Was auf welchem Weg herauskam, sammelt `BlubberConversation.trail` — die App
+zeigt es unter „Warum ist hier nichts?", wenn ein Faden wirklich leer bleibt.
+Ein stiller Leerstand war der teuerste Fehler der Fassung 1.3.0: „Noch keine
+Beiträge", ohne dass irgendwo stand, welche Route was geantwortet hatte.
+
+## 18. Zu `schedule-entries` gibt es **keine** schreibende Route
+
+Der komplette Bestand in `RouteMap.php`:
+
+```php
+$group->get('/users/{id}/schedule',      Routes\Schedule\UserScheduleShow::class);
+$group->get('/schedule-entries/{id}',    Routes\Schedule\ScheduleEntriesShow::class);
+$group->get('/seminar-cycle-dates/{id}', Routes\Schedule\SeminarCycleDatesShow::class);
+```
+
+Kein POST, kein PATCH, kein DELETE — selbst angelegte Termine lassen sich über
+die JSON:API nur lesen. Geschrieben wird in der Weboberfläche über
+`app/controllers/calendar/schedule.php`:
+
+| Zweck | Adresse |
+| --- | --- |
+| Übersicht | `dispatch.php/calendar/schedule` |
+| Anlegen | `dispatch.php/calendar/schedule/entry/add` |
+| Ändern/Löschen | `dispatch.php/calendar/schedule/entry/{id}` |
+
+Die Anlegen-Seite nimmt Vorgaben entgegen — `entry_action()` liest
+`Request::int('dow')` sowie `Request::get('start'|'end')`, wenn `start`
+mitgeschickt wird. StudGo hängt beim Anlegen aus dem Kalender heraus den
+angetippten Wochentag und die nächste volle Stunde an
+(`WebLinks.newScheduleEntry(weekday:start:end:)`). Löschen läuft serverseitig
+über einen `POST` mit `CSRFProtection::verifyUnsafeRequest()` und ist deshalb
+nicht als Verweis nachzubauen; die Änderungsseite trägt den Knopf dafür.
+
+## 19. Selbst angelegte Termine kennen **kein** Semester
+
+Schon in Befund 11 vermerkt, aber mit Folgen, die erst 1.4.0 aufgefallen sind:
+
+```php
+ScheduleEntry::findByUser_id()   // ohne Semesterfilter
+```
+
+`/v1/users/{id}/schedule` liefert deshalb bei **jedem** `filter[timestamp]`
+dieselben eigenen Termine — und in der Weboberfläche stehen sie auch in den
+Semesterferien im Stundenplan. Wer beim Ausrollen zu datierten Terminen
+dieselbe Regel anwendet wie auf `seminar-cycle-dates` (nur innerhalb der
+Vorlesungszeit), verliert sie in der vorlesungsfreien Zeit — im Wochenraster
+stehen sie dann noch (das zeigt die Einträge unmittelbar), in der Tagesansicht
+nicht mehr. `EventMerge.plannedSessions` unterscheidet die beiden Sorten
+seit 1.4.0.

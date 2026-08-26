@@ -11,11 +11,12 @@ Quelloffenes Studierendenprojekt, keine offizielle App der Universität.
 | Bereich | Inhalt |
 | --- | --- |
 | **Heute** | Was gerade läuft oder als Nächstes ansteht, mit Countdown; der restliche Tag, die nächsten Termine, ungelesene Nachrichten, neue Ankündigungen |
-| **Plan** | Stundenplan als **Wochenraster** mit Kursfarben und Überschneidungen — dazu die datierte Terminliste |
+| **Plan** | Tag, Woche und Liste: Wochenraster mit Kursfarben und Überschneidungen, Tagesansicht mit Datumsleiste, datierte Terminliste. Eigene Termine gelten ganzjährig; anlegen und ändern führt an die richtige Stelle in Stud.IP |
 | **Kurse** | Veranstaltungen des laufenden Semesters (umschaltbar) mit Suche; je Kurs Info, Termine, Aushang, Dateien und Teilnehmende |
 | **Dateien** | Ordner durchblättern, herunterladen, in der Systemvorschau öffnen und teilen |
-| **Nachrichten** | Posteingang und Gesendet, Volltextsuche, Lesen, Antworten, Verfassen mit Personensuche; ungelesene als Kennzeichen am Tab |
-| **Mehr** | Profil, Ankündigungen der Uni, Semesterübersicht, Zwischenspeicher, Datenschutzhinweise, Abmelden |
+| **Postfach** | Nachrichten (Posteingang, Gesendet, Suche, Antworten, Verfassen mit Personensuche) und **Blubber**: globaler Strom, Direktnachrichten und die Ströme der Veranstaltungen und Studiengruppen in einer Liste |
+| **Campus** | Eigene Zahlen, Aktivitätenstrom, Verzeichnis: Veranstaltungs- und Personensuche, Kontakte, Studiengruppen, Einrichtungen, Ankündigungen |
+| **Profil** | Darstellung, Benachrichtigungen, Semesterübersicht, Uni-Mail, Zwischenspeicher, Datenschutzhinweise, Abmelden |
 
 Anmeldung über **OAuth2 Authorization Code Flow mit PKCE** in einer
 `ASWebAuthenticationSession` — das Passwort sieht die App nie.
@@ -50,7 +51,7 @@ lokal übersetzen und testen — die Swift-Toolchain läuft dafür im Container.
 
 ```bash
 ./tools/swift-lint.sh     # ~8 s — Syntax aller Quellen, auch der Ansichten
-./tools/swift.sh test     # ~10 s — 51 Tests gegen App/Core und App/Models
+./tools/swift.sh test     # ~10 s — 56 Tests gegen App/Core und App/Models
 ```
 
 Beides zusammen fängt ab, was sonst erst nach Minuten bei Codemagic auffiele.

@@ -13,6 +13,8 @@ struct SettingsView: View {
     @State private var showsSignOutConfirmation = false
     @State private var didClearCache = false
     @State private var webTarget: WebTarget?
+    /// Der Pfad dieses Blatts — siehe Kommentar an `NavigationStack` unten.
+    @State private var navigator = Navigator()
 
     private var notificationSummary: String {
         var parts: [String] = []
@@ -60,7 +62,11 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        // Ein **eigener** Navigator: Das Profil ist ein Blatt über dem Reiter
+        // und führt seinen Stapel getrennt. Ohne ihn landeten Sprünge von
+        // hier aus im Pfad des Reiters darunter — sichtbar würde davon
+        // nichts, bis man das Blatt schliesst.
+        NavigationStack(path: $navigator.path) {
             List {
                 Section {
                     HStack(spacing: 14) {
@@ -96,16 +102,12 @@ struct SettingsView: View {
                 }
 
                 Section("Darstellung") {
-                    NavigationLink {
-                        AppearanceView()
-                    } label: {
+                    PushLink(value: Route.appearance) {
                         RowLabel(symbol: "paintpalette",
                                  title: "Farben & Erscheinungsbild",
                                  subtitle: ThemeStore.currentName)
                     }
-                    NavigationLink {
-                        NotificationSettingsView()
-                    } label: {
+                    PushLink(value: Route.notificationSettings) {
                         RowLabel(symbol: "bell.badge",
                                  title: "Benachrichtigungen",
                                  subtitle: notificationSummary)
@@ -115,14 +117,10 @@ struct SettingsView: View {
                 quickLinks
 
                 Section {
-                    NavigationLink {
-                        NewsView(user: user)
-                    } label: {
+                    PushLink(value: Route.announcements) {
                         RowLabel(symbol: "megaphone", title: "Ankündigungen")
                     }
-                    NavigationLink {
-                        SemesterListView()
-                    } label: {
+                    PushLink(value: Route.semesters) {
                         RowLabel(symbol: "calendar.badge.clock", title: "Semester")
                     }
                     Link(destination: StudIPClient.myCoursesURL) {
@@ -174,9 +172,7 @@ struct SettingsView: View {
                                  subtitle: "Öffnet kalender.uni-hannover.de")
                     }
                     .buttonStyle(.plain)
-                    NavigationLink {
-                        MailSetupView()
-                    } label: {
+                    PushLink(value: Route.mailSetup) {
                         RowLabel(symbol: "gearshape.2",
                                  title: "Uni-Mail einrichten",
                                  subtitle: "Serverdaten für Apple Mail")
@@ -188,9 +184,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    NavigationLink {
-                        AboutView()
-                    } label: {
+                    PushLink(value: Route.about) {
                         RowLabel(symbol: "info.circle", title: "Über StudGo")
                     }
                     Button {
@@ -210,7 +204,7 @@ struct SettingsView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .studGoDestinations()
+            .studGoDestinations(user: user)
             .navigationTitle("Profil")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -238,6 +232,7 @@ struct SettingsView: View {
                      : "Tokens und Zwischenspeicher werden gelöscht.")
             }
         }
+        .environment(navigator)
     }
 }
 

@@ -293,6 +293,10 @@ struct StudygroupsView: View {
             }
         } header: {
             Text("Meine Gruppen")
+        } footer: {
+            if (mine.value ?? []).isEmpty && !mine.isLoading {
+                Text("Studiengruppen sind in Stud.IP gewöhnliche Veranstaltungen einer eigenen Art — deshalb stehen sie, sobald du beigetreten bist, auch unter „Kurse“.")
+            }
         }
     }
 
@@ -313,7 +317,7 @@ struct StudygroupsView: View {
         } header: {
             Text("Vorschläge")
         } footer: {
-            Text("Vorgeschlagen, weil Leute aus deinen Veranstaltungen dabei sind oder die Gruppe zu deinem Studiengang passt. Stud.IP mischt die Auswahl bei jedem Laden neu. Beitreten läuft über die Weboberfläche.")
+            Text("Vorgeschlagen, weil Leute aus deinen Veranstaltungen dabei sind oder die Gruppe zu deinem Studiengang passt. Stud.IP mischt die Auswahl bei jedem Laden neu.\n\nEine Gruppe öffnen und dort „Gruppe beitreten“ antippen: Termine, Personen, Aushang und der Gruppenchat gehören den Mitgliedern und bleiben bis dahin leer.")
         }
     }
 

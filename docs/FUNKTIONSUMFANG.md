@@ -1,6 +1,6 @@
 # Wie vollständig ist StudGo?
 
-Stand: **2026-08-25**, Fassung 1.2.0. Gegenübergestellt werden drei Dinge:
+Stand: **2026-08-26**, Fassung 1.4.0. Gegenübergestellt werden drei Dinge:
 was die **Stud.IP-Weboberfläche** an der LUH kann, was die **JSON:API**
 überhaupt hergibt, und was **StudGo** heute daraus macht.
 
@@ -64,7 +64,7 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Forum: **neues Thema** | `POST /forum-categories/{id}/entries` | ⬜ Antworten geht, neues Thema noch nicht |
 | Wiki lesen | `GET /courses/{id}/wiki-pages` | ✅ mit Auszeichnung, Startseite oben |
 | Wiki **bearbeiten** | `POST`/`PATCH /wiki-pages/{id}` | ⬜ möglich, noch nicht gebaut |
-| Blubber der Veranstaltung | `/courses/{id}/blubber-threads` | ✅ lesen und schreiben |
+| Blubber der Veranstaltung | `/courses/{id}/blubber-threads` | ✅ lesen und schreiben; in Studiengruppen heißt die Kachel „Gruppenchat" |
 | Ankündigungen der Veranstaltung | `/courses/{id}/news` | ✅ |
 | **Ein- und Austragen** | – | 🚫 `Rel\Memberships::authorize()` gibt für alles außer `GET` hart `false` zurück. StudGo öffnet dafür die Weboberfläche. |
 | Sichtbarkeit in der Teilnehmendenliste | `PATCH /course-memberships/{id}` | 🟡 im Client vorhanden, ohne Oberfläche |
@@ -78,7 +78,9 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Stundenplan (Woche) | `GET /users/{id}/schedule` | ✅ Wochenraster mit Überschneidungen, Jetzt-Linie, angepasst an Hoch- und Querformat |
 | Terminliste | `GET /users/{id}/events` | ✅ nach Tagen, **jeder Termin zu öffnen** |
 | Termindetails (Raum, Turnus, Thema) | Attribute `recurrence`, `categories` | ✅ |
-| Termin **anlegen oder ändern** | – | 🚫 Es gibt **nur** `GET` für `events` und `schedule-entries`. Der Kalender ist über die Schnittstelle nur lesbar. |
+| Tagesansicht | abgeleitet | ✅ Datumsleiste mit Punkten an belegten Tagen; **eigene Termine gelten ganzjährig**, Kurssitzungen nur in der Vorlesungszeit |
+| Eigene Termine ansehen | `GET /users/{id}/schedule` | ✅ eigener Bereich „Eigene Termine", nach Wochentag gruppiert |
+| Termin **anlegen, ändern, löschen** | – | 🚫 Zu `schedule-entries` gibt es **nur** `GET` (Befund 18). StudGo führt an Ort und Stelle in die Weboberfläche — beim Anlegen aus dem Kalender heraus mit vorbelegtem Wochentag und Uhrzeit. |
 | Kalender abonnieren (iCal) | `GET /users/{id}/events.ics` | ⬜ Möglichkeit, den Plan in die Kalender-App zu legen |
 | Feiertage | `GET /holidays` | ⬜ |
 
@@ -87,13 +89,16 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Stud.IP | JSON:API | StudGo |
 | --- | --- | --- |
 | Nachrichten lesen, senden, antworten | `/inbox`, `/outbox`, `POST /messages` | ✅ mit Gelesen-Markierung und Empfängersuche |
-| Blubber | `/blubber-threads`, `/comments` | ✅ Verlauf **mit den neuesten Beiträgen zuerst geladen**, Älteres nachladbar, schreiben |
+| Blubber: alle Fäden | `GET /blubber-threads` | ✅ Postfach → Chats, in derselben Auswahl wie `dispatch.php/blubber` |
+| Blubber: **globaler Strom** | `GET /blubber-threads/global` | ✅ fest oben in der Chatliste (Befund 15) |
+| Blubber: Verlauf | `…/{id}/comments`, ersatzweise `…/{id}?include=comments` | ✅ neueste zuerst geladen, Älteres nachladbar, schreiben; über drei Wege geholt und mit Diagnose, wenn keiner trägt (Befund 17) |
+| Blubber: Direktnachrichten | `GET /blubber-threads` (`context-type=private`) | ✅ — der Text steckt dort **ausschließlich** in den Beiträgen (Befund 16) |
 | Kontakte | `/users/{id}/contacts`, `relationships/contacts` | ✅ ansehen, hinzufügen, entfernen |
 | Personensuche | `GET /users` mit `filter[search]` | ✅ |
 | Studiengruppen: meine | aus `/users/{id}/courses` gefiltert | ✅ (die API hat dafür keine eigene Route) |
 | Studiengruppen: Vorschläge | `GET /studygroup-proposals` | ✅ |
 | Studiengruppen: Suche | `GET /courses` mit `filter[category]` | ✅ |
-| Studiengruppe **gründen / beitreten** | – | 🚫 wie beim Eintragen: nur über die Weboberfläche |
+| Studiengruppe **gründen / beitreten** | – | 🚫 wie beim Eintragen: nur über die Weboberfläche. Auf der Gruppenseite steht dafür seit 1.4.0 ein eigener Knopf „Gruppe beitreten" statt eines Menüeintrags — ohne Beitritt bleiben Termine, Personen, Aushang und Gruppenchat leer, und das steht jetzt auch dort. |
 | Sprechstunden buchen | `/consultations` → `/slots` → `/bookings` | ✅ inklusive Absage |
 | Wer ist online? | – | 🚫 keine Route |
 | Rangliste | – | 🚫 Die Weboberfläche hat eine Rangliste (`CommunityNavigation`), die JSON:API bietet dafür **keine** Route. |

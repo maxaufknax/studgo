@@ -91,6 +91,23 @@ struct BlubberThread: Identifiable, Equatable, Hashable {
         name = given ?? StudipMarkup.plain(from: content).firstLine.nilIfEmpty ?? "Ohne Titel"
     }
 
+    /// Der **globale Blubber** der Installation.
+    ///
+    /// Stud.IP führt ihn als gewöhnlichen Faden mit der festen Kennung
+    /// `global` und `context-type = public` (`BlubberGlobalThread`,
+    /// `display_class` in der Datenbank). Er ist der Strom, den die
+    /// Weboberfläche unter `dispatch.php/blubber` zuerst zeigt — und er
+    /// trägt seinen Inhalt ausschließlich in den Beiträgen, nie im Aufschlag.
+    var isGlobal: Bool { id == "global" }
+
+    /// Der Name, wie er in der App stehen soll. Stud.IP nennt den globalen
+    /// Faden serverseitig „Globaler Blubber"; kommt gar kein Name mit — was
+    /// bei leerem Aufschlag vorkommt —, stünde dort sonst „Ohne Titel".
+    var displayName: String {
+        guard isGlobal else { return name }
+        return name == "Ohne Titel" ? "Globaler Blubber" : name
+    }
+
     /// Faden mit ungelesenen Kommentaren oder neuer als der letzte Besuch.
     var hasNews: Bool {
         if unseenComments > 0 { return true }
