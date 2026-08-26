@@ -280,6 +280,15 @@ workflows:
       events:
         - push
         - pull_request
+      # Codemagic dokumentiert nicht, was ohne branch_patterns gilt — jedes
+      # Beispiel in der Doku setzt sie. `testflight` nebenan nennt seine
+      # tag_patterns ausdrücklich und lief; dieser Workflow nannte nichts.
+      # Deshalb hier ausdrücklich alle Zweige, statt sich auf einen
+      # Vorgabewert zu verlassen, den niemand zusichert.
+      branch_patterns:
+        - pattern: '*'
+          include: true
+          source: true
     scripts:
       - name: Syntaxprüfung der Swift-Quellen
         script: |
