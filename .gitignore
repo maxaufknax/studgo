@@ -26,3 +26,8 @@ docs/mail-*.md
 
 # Zertifikats-Schlüssel für die iOS-Signatur — niemals committen
 .secrets/
+
+# SwiftPM — lokales Übersetzen und Testen von StudGoKit
+.build/
+.swiftpm/
+.swiftpm-home/
