@@ -198,7 +198,7 @@ struct SemesterStats {
         let weekday: Int
         let minutes: Int
         var id: Int { weekday }
-        var label: String { TimetableView.shortName(weekday) }
+        var label: String { Weekday.short(weekday) }
     }
 
     /// Montag bis Freitag stehen immer, damit ein freier Freitag als freier
@@ -383,7 +383,7 @@ struct WeekLoadCard: View {
         if stats.weeklyMinutes == 0 { return "Kein Stundenplan hinterlegt" }
         var parts: [String] = []
         if let busiest = stats.busiestDay, busiest.minutes > 0 {
-            parts.append("Vollster Tag: \(TimetableView.fullName(busiest.weekday))")
+            parts.append("Vollster Tag: \(Weekday.full(busiest.weekday))")
         }
         let free = stats.freeDays
         if !free.isEmpty {
@@ -411,7 +411,7 @@ struct WeekLoadCard: View {
                         }
                         .frame(maxWidth: .infinity)
                         .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(TimetableView.fullName(day.weekday)): \(day.minutes / 60) Stunden")
+                        .accessibilityLabel("\(Weekday.full(day.weekday)): \(day.minutes / 60) Stunden")
                     }
                 }
                 .frame(height: 106, alignment: .bottom)
