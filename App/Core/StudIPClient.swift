@@ -1,4 +1,9 @@
 import Foundation
+// URLSession sitzt auf Linux in einem eigenen Modul. Auf iOS ist der
+// Block wirkungslos — dort gibt es FoundationNetworking nicht.
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Zugriff auf die Stud.IP JSON:API. Der Token kommt bei jedem Aufruf frisch
 /// vom `AuthStore`, damit ein abgelaufener Access-Token transparent erneuert wird.

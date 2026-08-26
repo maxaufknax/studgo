@@ -1,5 +1,9 @@
 import Foundation
+// SwiftUI steuert `underlineStyle` und `strikethroughStyle` bei. Auf
+// Linux übernimmt das LinuxAttributeShim.swift — siehe dort.
+#if canImport(SwiftUI)
 import SwiftUI
+#endif
 
 /// Wandelt Stud.IP-Texte in darstellbare Blöcke um.
 ///
