@@ -127,9 +127,9 @@ struct TimetableView: View {
         HStack(spacing: 0) {
             Color.clear.frame(width: layout.rulerWidth)
             ForEach(layout.days, id: \.self) { day in
-                let isToday = day == Self.todayWeekday
+                let isToday = day == Weekday.today
                 VStack(spacing: 2) {
-                    Text(Self.shortName(day))
+                    Text(Weekday.short(day))
                         .font(.caption.weight(isToday ? .bold : .semibold))
                         .foregroundStyle(isToday ? Color.accentColor : .primary)
                     Circle()
@@ -137,7 +137,7 @@ struct TimetableView: View {
                         .frame(width: 4, height: 4)
                 }
                 .frame(width: layout.dayWidth)
-                .accessibilityLabel(Self.fullName(day))
+                .accessibilityLabel(Weekday.full(day))
             }
         }
         .frame(height: headerHeight)
@@ -175,7 +175,7 @@ struct TimetableView: View {
     private func column(for day: Int, layout: Layout) -> some View {
         ZStack(alignment: .topLeading) {
             // Der heutige Tag zuerst — als Hintergrund, nicht über die Linien.
-            if day == Self.todayWeekday {
+            if day == Weekday.today {
                 Rectangle()
                     .fill(Color.accentColor.opacity(0.07))
                     .frame(width: layout.dayWidth, height: layout.gridHeight)
@@ -208,7 +208,7 @@ struct TimetableView: View {
         let calendar = Calendar.current
         let minutes = calendar.component(.hour, from: Date()) * 60
             + calendar.component(.minute, from: Date())
-        if layout.days.contains(Self.todayWeekday),
+        if layout.days.contains(Weekday.today),
            minutes >= layout.startMinute, minutes <= layout.endMinute {
             HStack(spacing: 0) {
                 Circle()
@@ -219,7 +219,7 @@ struct TimetableView: View {
                     .frame(height: 1)
             }
             .frame(width: layout.dayWidth)
-            .offset(x: layout.rulerWidth + layout.x(of: Self.todayWeekday),
+            .offset(x: layout.rulerWidth + layout.x(of: Weekday.today),
                     y: layout.y(of: minutes) - 2.5)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
@@ -264,7 +264,7 @@ struct TimetableView: View {
         .buttonStyle(.plain)
         .offset(x: blockGap + CGFloat(placement.column) * lane,
                 y: layout.y(of: entry.startMinutes))
-        .accessibilityLabel("\(entry.title), \(Self.fullName(entry.normalizedWeekday)) \(entry.timeRange)")
+        .accessibilityLabel("\(entry.title), \(Weekday.full(entry.normalizedWeekday)) \(entry.timeRange)")
         .accessibilityHint("Öffnet die Einzelheiten")
     }
 
@@ -299,27 +299,4 @@ struct TimetableView: View {
             lane.map { Placement(entry: $0, column: index, columnCount: lanes.count) }
         }
     }
-
-    // MARK: - Wochentage
-
-    static let shortNames = ["", "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-    static let fullNames = ["", "Montag", "Dienstag", "Mittwoch",
-                            "Donnerstag", "Freitag", "Samstag", "Sonntag"]
-
-    static func shortName(_ day: Int) -> String {
-        shortNames.indices.contains(day) ? shortNames[day] : "?"
-    }
-
-    static func fullName(_ day: Int) -> String {
-        fullNames.indices.contains(day) ? fullNames[day] : "Unbekannt"
-    }
-
-    /// Wochentag in Stud.IP-Zählung (1 = Montag … 7 = Sonntag).
-    /// `Calendar` zählt 1 = Sonntag.
-    static func weekday(of date: Date) -> Int {
-        let weekday = Calendar.current.component(.weekday, from: date)
-        return weekday == 1 ? 7 : weekday - 1
-    }
-
-    static var todayWeekday: Int { weekday(of: Date()) }
 }

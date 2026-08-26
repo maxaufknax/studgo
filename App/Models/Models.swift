@@ -180,7 +180,7 @@ struct ScheduleEntry: Identifiable, Equatable {
     }
 
     var weekdayName: String {
-        TimetableView.fullName(normalizedWeekday)
+        Weekday.full(normalizedWeekday)
     }
 
     var timeRange: String { "\(start) – \(end)" }
