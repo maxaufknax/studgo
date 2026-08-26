@@ -11,9 +11,7 @@ struct FolderBrowserView: View {
 
     var body: some View {
         List(folders.value ?? []) { folder in
-            NavigationLink {
-                FolderContentView(folder: folder)
-            } label: {
+            PushLink(value: folder) {
                 RowLabel(symbol: "folder",
                          title: folder.name,
                          subtitle: folder.summary,
@@ -105,9 +103,7 @@ struct FolderContentView: View {
             if let items = subfolders.value, !items.isEmpty {
                 SwiftUI.Section("Ordner") {
                     ForEach(items) { child in
-                        NavigationLink {
-                            FolderContentView(folder: child)
-                        } label: {
+                        PushLink(value: child) {
                             RowLabel(symbol: "folder",
                                      title: child.name,
                                      subtitle: child.summary,
