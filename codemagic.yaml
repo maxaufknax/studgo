@@ -283,9 +283,18 @@ workflows:
     scripts:
       - name: Syntaxprüfung der Swift-Quellen
         script: |
-          # Läuft in Sekunden und bricht ab, bevor eine halbe Xcode-Bauzeit
-          # für eine vergessene Klammer draufgeht.
-          python3 tools/swift-sanity.py App
+          # `swiftc -parse` prüft die vollständige Grammatik und braucht dafür
+          # kein SDK. Läuft in Sekunden und bricht ab, bevor eine halbe
+          # Xcode-Bauzeit für eine vergessene Klammer draufgeht.
+          ./tools/swift-lint.sh App
+
+      - name: StudGoKit-Tests
+        script: |
+          # Dieselben Tests laufen auf dem Entwicklungsrechner unter Linux;
+          # hier laufen sie noch einmal gegen die echten Apple-Frameworks.
+          # Schlagen sie an, liegt der Fehler in der Logik und nicht im Bau —
+          # das spart die Suche im xcodebuild-Log.
+          swift test --package-path . 2>&1 | tail -40
 
       - name: XcodeGen bereitstellen
         script: which xcodegen || brew install xcodegen
