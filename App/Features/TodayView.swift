@@ -55,7 +55,7 @@ struct TodayView: View {
     }
 
     var body: some View {
-        StudGoStack {
+        StudGoStack(user: user) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     greeting
@@ -66,8 +66,7 @@ struct TodayView: View {
                             .padding(.top, 60)
                     } else {
                         if let current {
-                            NavigationLink(value: current) { NextUpCard(event: current) }
-                                .buttonStyle(.plain)
+                            PushButton(value: current) { NextUpCard(event: current) }
                         } else if allEvents.isEmpty, let message = events.errorMessage {
                             problemCard(message)
                         } else {
@@ -77,10 +76,9 @@ struct TodayView: View {
                         if !todaysRemaining.isEmpty {
                             SectionCard(title: "Heute noch", symbol: "clock") {
                                 rows(todaysRemaining) { event in
-                                    NavigationLink(value: event) {
+                                    PushButton(value: event) {
                                         linkRow { EventRow(event: event) }
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
                         }
@@ -88,10 +86,9 @@ struct TodayView: View {
                         if !laterEvents.isEmpty {
                             SectionCard(title: "Demnächst", symbol: "calendar") {
                                 rows(laterEvents) { event in
-                                    NavigationLink(value: event) {
+                                    PushButton(value: event) {
                                         linkRow { EventRow(event: event, showDay: true) }
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
                         }
@@ -101,10 +98,9 @@ struct TodayView: View {
                                                                  : "\(unread.count) ungelesene Nachrichten",
                                         symbol: "envelope.badge") {
                                 rows(Array(unread.prefix(3))) { message in
-                                    NavigationLink(value: message) {
+                                    PushButton(value: message) {
                                         linkRow { MessageRow(message: message) }
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
                         }
@@ -112,10 +108,9 @@ struct TodayView: View {
                         if let items = news.value, !items.isEmpty {
                             SectionCard(title: "Ankündigungen", symbol: "megaphone") {
                                 rows(Array(items.prefix(3))) { item in
-                                    NavigationLink(value: item) {
+                                    PushButton(value: item) {
                                         linkRow { NewsRow(item: item) }
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
                         }

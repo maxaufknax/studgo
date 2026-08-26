@@ -100,9 +100,7 @@ struct ActivityDetailView: View {
     @ViewBuilder
     private func target(_ courseID: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            NavigationLink {
-                CourseLoaderView(courseID: courseID)
-            } label: {
+            PushButton(value: Route.courseByID(courseID)) {
                 RowLabel(symbol: destinationSymbol,
                          title: destinationTitle,
                          subtitle: item.courseName) {
@@ -111,7 +109,6 @@ struct ActivityDetailView: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
