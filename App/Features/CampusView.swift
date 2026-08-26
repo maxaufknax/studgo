@@ -59,7 +59,7 @@ struct CampusView: View {
                                      symbol: "sparkles")
             } else {
                 ForEach(recentActivities) { item in
-                    NavigationLink(value: item) { ActivityRow(item: item) }
+                    PushLink(value: item) { ActivityRow(item: item) }
                 }
                 NavigationLink {
                     ActivityStreamView(user: user)
@@ -267,7 +267,7 @@ struct ActivityStreamView: View {
             ForEach(grouped, id: \.day) { group in
                 Section(Format.dayHeader(group.day)) {
                     ForEach(group.items) { item in
-                        NavigationLink(value: item) { ActivityRow(item: item) }
+                        PushLink(value: item) { ActivityRow(item: item) }
                     }
                 }
             }

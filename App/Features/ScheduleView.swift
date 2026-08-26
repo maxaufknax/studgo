@@ -56,10 +56,12 @@ struct ScheduleView: View {
     @State private var exportURL: URL?
     @State private var isExporting = false
 
-    /// Ein eigener Pfad, weil das Wochenraster aus einem Rückruf heraus
-    /// weiterschaltet — ein `NavigationLink` sitzt in einem angetippten
-    /// Block nicht sinnvoll unter.
-    @State private var path = NavigationPath()
+    /// Ein eigener `Navigator`, weil das Wochenraster aus einem Rückruf heraus
+    /// weiterschaltet — ein `NavigationLink` sitzt in einem angetippten Block
+    /// nicht sinnvoll unter. Er wird zugleich ins Umfeld gelegt, damit die von
+    /// hier erreichbaren `PushLink`-Zeilen (etwa der Dateibereich einer
+    /// Veranstaltung) in *diesen* Stapel schieben.
+    @State private var navigator = Navigator()
 
     // MARK: - Abgeleiteter Zustand
 
@@ -90,7 +92,7 @@ struct ScheduleView: View {
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack(path: $navigator.path) {
             VStack(spacing: 0) {
                 SegmentedHeader(title: "Ansicht",
                                 options: Mode.allCases,
@@ -115,6 +117,7 @@ struct ScheduleView: View {
             .refreshable { await load(fresh: true) }
             .task { if entries.value == nil { await load(fresh: false) } }
         }
+        .environment(navigator)
     }
 
     // MARK: - Werkzeugleiste
@@ -235,7 +238,7 @@ struct ScheduleView: View {
         Group {
             if !activePlan.entries.isEmpty {
                 TimetableView(entries: activePlan.entries,
-                              visibleDays: gridColumns) { path.append($0) }
+                              visibleDays: gridColumns) { navigator.push($0) }
             } else {
                 CalendarEmptyState(symbol: "calendar",
                                    title: gridEmptyTitle,

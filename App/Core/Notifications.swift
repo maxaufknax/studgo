@@ -2,6 +2,39 @@ import BackgroundTasks
 import Foundation
 import UserNotifications
 
+/// Die Reiter der App, benannt statt nummeriert — damit eine angetippte
+/// Benachrichtigung ihren Reiter sicher trifft, auch wenn die Reihenfolge
+/// einmal wechselt.
+enum AppTab: Hashable {
+    case today, schedule, courses, postfach, campus
+}
+
+/// Wohin eine angetippte Benachrichtigung führen soll.
+///
+/// Der `UNUserNotificationCenterDelegate` läuft außerhalb der SwiftUI-Umgebung;
+/// er kann keinen `@Environment`-Wert greifen. Deshalb ein gemeinsamer, im
+/// Umfeld hinterlegter Merker: Der Delegate schreibt das Ziel hinein, der
+/// `MainTabView` liest es und schaltet den Reiter um.
+@MainActor
+@Observable
+final class NotificationRouter {
+    static let shared = NotificationRouter()
+
+    /// Gesetzt, sobald eine Mitteilung angetippt wurde; vom `MainTabView`
+    /// wieder auf `nil` gestellt, sobald der Sprung erledigt ist.
+    var target: AppTab?
+
+    /// Leitet anhand der `threadIdentifier` der Mitteilung auf den richtigen
+    /// Reiter — die Kennungen setzt `Notifications.post` bzw. der Terminwecker.
+    func route(threadIdentifier: String) {
+        switch threadIdentifier {
+        case "studgo.inbox", "studgo.blubber": target = .postfach
+        case "studgo.calendar": target = .schedule
+        default: break
+        }
+    }
+}
+
 /// Benachrichtigungen ohne Push-Server.
 ///
 /// **Warum kein echtes Push:** Push über APNs setzt einen Server voraus, der
@@ -142,6 +175,14 @@ enum Notifications {
     static func clearAll() async {
         center.removeAllPendingNotificationRequests()
         center.removeAllDeliveredNotifications()
+        try? await center.setBadgeCount(0)
+    }
+
+    /// Setzt die Zahl am App-Symbol auf die ungelesenen Nachrichten. Ohne
+    /// erteilte Erlaubnis tut das System nichts — dann ist der Aufruf umsonst,
+    /// aber harmlos.
+    static func setBadge(_ count: Int) async {
+        try? await center.setBadgeCount(max(0, count))
     }
 
     // MARK: - Meldungen aus dem Hintergrund

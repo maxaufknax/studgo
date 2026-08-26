@@ -282,7 +282,7 @@ struct StudygroupsView: View {
         Section {
             if let groups = mine.value, !groups.isEmpty {
                 ForEach(groups) { group in
-                    NavigationLink(value: group) {
+                    PushLink(value: group) {
                         CourseRow(course: group, typeName: auth.courseTypeName(group.typeID))
                     }
                 }
@@ -301,7 +301,7 @@ struct StudygroupsView: View {
         Section {
             if let groups = proposals.value, !groups.isEmpty {
                 ForEach(groups) { group in
-                    NavigationLink(value: group) {
+                    PushLink(value: group) {
                         CourseRow(course: group, typeName: auth.courseTypeName(group.typeID))
                     }
                 }
@@ -332,7 +332,7 @@ struct StudygroupsView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(groups) { group in
-                        NavigationLink(value: group) {
+                        PushLink(value: group) {
                             CourseRow(course: group, typeName: auth.courseTypeName(group.typeID))
                         }
                     }

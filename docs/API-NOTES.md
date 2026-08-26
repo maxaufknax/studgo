@@ -652,3 +652,39 @@ Ob die OAuth-Anmeldung diese Sitzung überhaupt anlegt, entscheidet
 Einstellung „Im Browser angemeldet bleiben" (`Preferences.sharesWebSession`,
 Vorgabe **an**). Mit einer eigenen Sitzung bleibt kein Cookie zurück — dafür
 verlangt jede Webseite eine erneute Anmeldung.
+
+## 13. `/v1/users/{id}/activitystream` scheitert an **einem** verwaisten Ziel
+
+Dieselbe Klasse Fehler wie bei den Blubber-Fäden (Befund 9), nur an einer Route
+ohne offensichtliche Rückfallebene. Der Aktivitätenstrom sammelt aus vielen
+Anbietern (`documents`, `forum`, `wiki`, `news` …). Zieht `include=object` die
+serverseitige Serialisierung eines Ziels nach sich, das nicht mehr existiert —
+eine Datei in einem gelöschten Ordner, ein Beitrag in einer entfernten
+Veranstaltung —, antwortet Stud.IP mit **`500`**. Ein einziger solcher Eintrag
+nimmt den **ganzen** Strom mit; im Campus-Reiter stand dann „Serverfehler 500".
+
+`StudIPClient.activityStream` versucht deshalb in Stufen: erst mit allen
+Beziehungen, dann mit weniger, dann ohne `include` — und, wenn auch das ein
+`500` bleibt, mit einem engen `filter[start]` (letzte 90 Tage), damit die alten,
+verwaisten Einträge gar nicht erst mitgeladen werden. Ohne `include=object`
+fehlt nur der Anzeigename des Ziels; Typ und Kennung stehen weiter im
+`relationships`-Block, ein Eintrag lässt sich also weiterhin öffnen.
+
+Merke: Bei diesen Sammel-Routen lösen **`400` und `500`** denselben Schritt aus
+— das eine heißt „`include` nicht erlaubt", das andere „ein Datensatz ließ sich
+nicht serialisieren". Beide sind mit weniger Beziehungen zu überstehen.
+
+## 14. Der Anfangsbeitrag eines Blubber-Fadens fehlt in der **Liste**
+
+`/v1/blubber-threads` (und die Kurs-/öffentlichen Varianten) geben den Faden mit
+Namen, Zeitstempeln und Zusammenhang zurück, den `content-html` des
+Anfangsbeitrags aber nicht verlässlich mit. Beim Öffnen eines Fadens **ohne**
+eigene Antworten stand dann weder Aufschlag noch Beitrag da — „Noch keine
+Beiträge", obwohl der Faden einen Text trägt. `/v1/blubber-threads/{id}` (Show,
+**kein** `page[...]`) liefert ihn nach; `StudIPClient.blubberThread(id:)` holt
+ihn beim Öffnen und setzt ihn als Aufschlag über den Verlauf.
+
+Und: Die Kommentar-Route lässt `sort=-mkdate` zu (`$allowedSortFields =
+['mkdate']`, Befund 2) — falls eine Installation das doch mit `400` quittiert,
+fällt `blubberComments` auf die unsortierte Reihenfolge (ältestezuerst) zurück,
+statt den Verlauf leer zu lassen.
