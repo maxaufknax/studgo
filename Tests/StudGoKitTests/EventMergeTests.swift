@@ -12,9 +12,18 @@ import Testing
 @Suite("Terminquellen zusammenführen")
 struct EventMergeTests {
 
-    /// Ein Kalender mit fester Zeitzone: `.current` wäre in den Tests
-    /// zerbrechlich, auch wenn `tools/swift.sh` `TZ=Europe/Berlin` setzt.
-    static let zone = TimeZone(identifier: "Europe/Berlin")!
+    /// **Bewusst der Kalender des Systems.** Sonst schlägt der Test genau da
+    /// zu, wo er nichts prüfen soll: `EventMerge` rechnet mit
+    /// `Calendar.current`, und ein hier in Europe/Berlin gebauter Montag
+    /// 00:00 ist unter UTC der Sonntag davor — `startOfDay` schiebt ihn
+    /// zurück, `Weekday.of` liest einen anderen Wochentag, und die Sitzung
+    /// fällt heraus. Genau das ist auf dem Codemagic-Läufer (UTC) passiert,
+    /// während die Suite auf dem Entwicklungsrechner (`TZ=Europe/Berlin`)
+    /// durchlief.
+    ///
+    /// Ein Tag „Montag" heißt hier also: Montag dort, wo das Gerät steht —
+    /// und das ist genau die Zusicherung, die der Kalender in der App gibt.
+    static let calendar = Calendar.current
 
     static func entry(id: String, titel: String, wochentag: Int,
                       von: String, bis: String, kurs: Bool) throws -> ScheduleEntry {
@@ -35,11 +44,8 @@ struct EventMergeTests {
     }
 
     static func am(_ text: String) -> Date {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = zone
         let parts = text.split(separator: "-").compactMap { Int($0) }
-        return calendar.date(from: DateComponents(timeZone: zone,
-                                                  year: parts[0],
+        return calendar.date(from: DateComponents(year: parts[0],
                                                   month: parts[1],
                                                   day: parts[2]))!
     }

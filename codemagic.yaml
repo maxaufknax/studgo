@@ -299,10 +299,16 @@ workflows:
 
       - name: StudGoKit-Tests
         script: |
+          # `pipefail` ist hier nicht Kosmetik: Ohne ihn liefert die Pipeline
+          # den Rückgabewert von `tail`, und der ist immer 0. Der Schritt
+          # meldete deshalb Erfolg, während drei Tests fehlschlugen — genau
+          # einmal passiert, mit einer zeitzonenabhängigen Suite, die unter
+          # Europe/Berlin durchlief und unter UTC nicht.
+          set -eo pipefail
           # Dieselben Tests laufen auf dem Entwicklungsrechner unter Linux;
-          # hier laufen sie noch einmal gegen die echten Apple-Frameworks.
-          # Schlagen sie an, liegt der Fehler in der Logik und nicht im Bau —
-          # das spart die Suche im xcodebuild-Log.
+          # hier laufen sie noch einmal gegen die echten Apple-Frameworks —
+          # und, weil der Läufer unter UTC steht, in einer anderen Zeitzone.
+          # Schlagen sie an, liegt der Fehler in der Logik und nicht im Bau.
           swift test --package-path . 2>&1 | tail -40
 
       - name: XcodeGen bereitstellen
