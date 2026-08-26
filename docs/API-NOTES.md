@@ -824,3 +824,55 @@ Vorlesungszeit), verliert sie in der vorlesungsfreien Zeit — im Wochenraster
 stehen sie dann noch (das zeigt die Einträge unmittelbar), in der Tagesansicht
 nicht mehr. `EventMerge.plannedSessions` unterscheidet die beiden Sorten
 seit 1.4.0.
+
+
+---
+
+# Befunde aus Fassung 1.4.1
+
+## 20. „Ist der Plan des kommenden Semesters leer?" ist die **falsche** Frage
+
+`/v1/users/{id}/schedule` mischt zwei Sorten Eintrag, und nur eine davon hängt
+am Semester:
+
+| Ressource | Semesterbezug | Quelle |
+| --- | --- | --- |
+| `seminar-cycle-dates` | ja — `semester_courses.semester_id` | die belegten Veranstaltungen |
+| `schedule-entries` | **nein** — `ScheduleEntry::findByUser_id()` läuft ohne Filter | selbst angelegte Blöcke |
+
+Wer den Plan des kommenden Semesters mit `filter[timestamp]` holt und prüft,
+ob die Antwort leer ist, prüft in Wahrheit: „Hat die Person irgendeinen eigenen
+Termin?" Denn die kommen bei **jedem** Zeitstempel mit.
+
+Genau daran hing Fassung 1.4.0. Zwei selbst angelegte Tutorien machten die
+Antwort nicht-leer; das Raster zeigte in den Semesterferien deshalb *nur* diese
+beiden, überschrieben mit „Vorschau auf das Wintersemester". Nach dem Löschen
+der beiden in Stud.IP kippte die Antwort auf leer — und beim nächsten
+Aktualisieren standen schlagartig alle Veranstaltungen des Sommersemesters im
+Raster. Beide Zustände sahen nach einem Fehler aus; tatsächlich war es zweimal
+dieselbe falsche Frage.
+
+Richtig ist: **Führt der Plan schon `seminar-cycle-dates`?**
+`SchedulePlan.hasCourses(_:)` prüft genau das, `SchedulePlan.resolve(...)`
+entscheidet damit und setzt die eigenen Termine anschliessend in **jeden**
+Plan — dedupliziert, denn sie stehen in beiden Antworten mit derselben Kennung.
+
+## 21. Der Stundenplan der Weboberfläche zeigt das Semester, nicht die Gegenwart
+
+`dispatch.php/calendar/schedule` zeigt in der vorlesungsfreien Zeit weiterhin
+das volle Wochenraster des Semesters — die Veranstaltungen verschwinden dort
+nicht, wenn die Vorlesungszeit endet. Das ist richtig so: Ein Raster beantwortet
+„wie liegt meine Woche", nicht „was steht heute an".
+
+StudGo hält es seit 1.4.1 genauso, sagt aber dazu, woran man ist: Über dem
+Raster steht, zu welchem Semester der Plan gehört und wann dessen Vorlesungszeit
+endete beziehungsweise die nächste beginnt, und die Veranstaltungsblöcke stehen
+blasser, solange keine Vorlesungszeit läuft. Eigene Termine bleiben in voller
+Farbe — die finden statt.
+
+Beides sind **belegte** Angaben aus `Schemas/Semester` (`start-of-lectures`,
+`end-of-lectures`). Der naheliegende Schritt weiter — je Veranstaltung „ist
+beendet" schreiben — wäre dagegen eine Schätzung: Die Zuordnung der
+ICS-Sitzungen zu einer Veranstaltung läuft über einen Namensabgleich
+(`StudIPClient.matchCourse`), und ein verfehlter Abgleich erklärte eine
+laufende Veranstaltung für beendet. Deshalb bleibt es bei der Semesterangabe.

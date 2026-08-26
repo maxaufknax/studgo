@@ -1,6 +1,6 @@
 # Wie vollständig ist StudGo?
 
-Stand: **2026-08-26**, Fassung 1.4.0. Gegenübergestellt werden drei Dinge:
+Stand: **2026-08-26**, Fassung 1.4.1. Gegenübergestellt werden drei Dinge:
 was die **Stud.IP-Weboberfläche** an der LUH kann, was die **JSON:API**
 überhaupt hergibt, und was **StudGo** heute daraus macht.
 
@@ -75,7 +75,8 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 
 | Stud.IP | JSON:API | StudGo |
 | --- | --- | --- |
-| Stundenplan (Woche) | `GET /users/{id}/schedule` | ✅ Wochenraster mit Überschneidungen, Jetzt-Linie, angepasst an Hoch- und Querformat |
+| Stundenplan (Woche) | `GET /users/{id}/schedule` | ✅ Wochenraster mit Überschneidungen, Jetzt-Linie, angepasst an Hoch- und Querformat. Wie in Stud.IP bleibt der Plan in der vorlesungsfreien Zeit stehen — mit Angabe des Semesters und blasseren Blöcken, solange keine Vorlesungszeit läuft (Befund 21) |
+| Stundenplan: Semester wählen | `filter[timestamp]` | ✅ Umschalter zwischen laufendem und kommendem Semester, sobald dort Veranstaltungen stehen (Befund 20) |
 | Terminliste | `GET /users/{id}/events` | ✅ nach Tagen, **jeder Termin zu öffnen** |
 | Termindetails (Raum, Turnus, Thema) | Attribute `recurrence`, `categories` | ✅ |
 | Tagesansicht | abgeleitet | ✅ Datumsleiste mit Punkten an belegten Tagen; **eigene Termine gelten ganzjährig**, Kurssitzungen nur in der Vorlesungszeit |

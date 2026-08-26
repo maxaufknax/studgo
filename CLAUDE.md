@@ -17,8 +17,8 @@ deshalb in zwei Hälften geteilt:
 Vor jedem Commit, in dieser Reihenfolge:
 
 ```bash
-./tools/swift-lint.sh     # ~8 s — alle 56 Dateien, volle Grammatik
-./tools/swift.sh test     # ~10 s — 56 Tests gegen die Logikschicht
+./tools/swift-lint.sh     # ~8 s — alle 57 Dateien, volle Grammatik
+./tools/swift.sh test     # ~10 s — 64 Tests gegen die Logikschicht
 ```
 
 Beides zusammen fängt den Großteil dessen ab, was sonst erst nach Minuten bei
@@ -83,7 +83,7 @@ entweder eine Weiche setzen oder die Datei aus dem Paket nehmen.
 
 ## Tests
 
-`Tests/StudGoKitTests/` — swift-testing (`@Test`, `#expect`), 56 Stück.
+`Tests/StudGoKitTests/` — swift-testing (`@Test`, `#expect`), 64 Stück.
 Schwerpunkt liegt auf dem, was still falsch sein kann: ICS-Zeitzonen,
 JSON:API-Eigenheiten von Stud.IP, HTML-Entitäten, PKCE, das Ausrollen des
 Wochenplans zu datierten Terminen.

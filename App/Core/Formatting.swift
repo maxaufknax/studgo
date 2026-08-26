@@ -52,6 +52,16 @@ enum Format {
         return String(format: "%02d:%02d", parts.hour ?? 0, parts.minute ?? 0)
     }
 
+    /// „17. Juli" bzw. „17. Juli 2027", wenn das Jahr nicht das laufende ist.
+    /// Für Sätze, in denen ein Datum genannt wird — dort ist „17.07." zu karg
+    /// und die volle Jahresangabe meist überflüssig.
+    static func longDay(_ date: Date, calendar: Calendar = .current) -> String {
+        if calendar.isDate(date, equalTo: .now, toGranularity: .year) {
+            return date.formatted(.dateTime.day().month(.wide))
+        }
+        return date.formatted(.dateTime.day().month(.wide).year())
+    }
+
     static func dayHeader(_ date: Date) -> String {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) { return "Heute" }

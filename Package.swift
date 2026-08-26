@@ -62,6 +62,7 @@ let package = Package(
                 "Core/PKCE.swift",
                 "Core/LinuxAttributeShim.swift",
                 "Core/ResponseCache.swift",
+                "Core/SchedulePlan.swift",
                 "Core/SemesterContext.swift",
                 "Core/StudIPClient.swift",
                 "Core/StudIPClient+Blubber.swift",
