@@ -40,13 +40,21 @@ App/Models      Domänenmodelle (Attributnamen aus den Stud.IP-6.0-Schemas)
 App/Features    SwiftUI-Ansichten
 App/Resources   Assets, Datenschutzmanifest
 docs/           API-Befunde, Codemagic-Anleitung, Schriftverkehr mit der ZQS
-tools/          Dev-CLI, Icon-Generator, Secrets-Bootstrap, Syntaxprüfung
+tools/          Swift-Toolchain im Container, Lint, Codemagic-CLI, Secrets
+Tests/          Tests der Logikschicht (swift-testing)
 ```
 
-Auf dem Entwicklungsrechner (Linux) gibt es keinen Swift-Compiler. Vor jedem
-Push prüft deshalb `./tools/swift-sanity.py App` die Quellen auf unausgeglichene
-Klammern und offene String-Literale — das fängt die Fehlerklassen ab, für die
-sonst ein ganzer Codemagic-Durchlauf draufginge.
+Entwickelt wird unter Linux, gebaut auf Codemagic. SwiftUI gibt es hier nicht,
+die Logikschicht dagegen kommt ohne Apple-Frameworks aus und lässt sich deshalb
+lokal übersetzen und testen — die Swift-Toolchain läuft dafür im Container.
+
+```bash
+./tools/swift-lint.sh     # ~8 s — Syntax aller Quellen, auch der Ansichten
+./tools/swift.sh test     # ~10 s — 51 Tests gegen App/Core und App/Models
+```
+
+Beides zusammen fängt ab, was sonst erst nach Minuten bei Codemagic auffiele.
+Einzelheiten in [CLAUDE.md](CLAUDE.md).
 
 ## Bauen
 
