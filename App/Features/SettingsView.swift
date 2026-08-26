@@ -553,9 +553,14 @@ struct NotificationSettingsView: View {
     /// nicht, tut es die kurze Terminliste auch.
     private func scheduleNow() async {
         guard preferences.eventReminders, let userID = auth.currentUserID else { return }
-        let events = (try? await auth.client.calendarEvents(for: userID))
-            ?? (try? await auth.client.events(for: userID, weeks: 4))
-            ?? []
+        // Zwei getrennte `await`, nicht in einer `??`-Kette: Der rechte Operand
+        // von `??` ist ein nicht-nebenläufiger Autoclosure — ein `await` darin
+        // lehnt der Compiler ab. Der ICS-Strom ist die verlässliche Quelle;
+        // bleibt er leer, tut es die kurze Terminliste auch.
+        var events = (try? await auth.client.calendarEvents(for: userID)) ?? []
+        if events.isEmpty {
+            events = (try? await auth.client.events(for: userID, weeks: 4)) ?? []
+        }
         await Notifications.scheduleEventReminders(events,
                                                    leadMinutes: preferences.leadMinutes,
                                                    quietWeekend: preferences.quietWeekend)
