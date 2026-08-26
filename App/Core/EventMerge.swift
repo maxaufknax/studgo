@@ -87,7 +87,7 @@ enum EventMerge {
         return (0..<days).flatMap { offset -> [CourseEvent] in
             guard let day = calendar.date(byAdding: .day, value: offset, to: first),
                   period.contains(day) else { return [] }
-            let weekday = TimetableView.weekday(of: day)
+            let weekday = Weekday.of(day)
             return cycles
                 .filter { $0.normalizedWeekday == weekday }
                 .map { CourseEvent(entry: $0, on: day) }

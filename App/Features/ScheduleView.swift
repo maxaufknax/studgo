@@ -279,7 +279,7 @@ struct ScheduleView: View {
         case .full: return Array(1...7)
         case .workWeek: return Array(1...5)
         case .three:
-            let first = TimetableView.weekday(of: anchor)
+            let first = Weekday.of(anchor)
             return (0..<3).map { (first - 1 + $0) % 7 + 1 }
         }
     }
