@@ -1,4 +1,10 @@
+// Auf Linux tritt swift-crypto an die Stelle von CryptoKit — gleiche API,
+// gleiche Implementierung. Auf iOS bleibt es bei CryptoKit.
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 /// Legt Antworten der JSON:API auf der Platte ab.

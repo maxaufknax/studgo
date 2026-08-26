@@ -1,4 +1,9 @@
 import Foundation
+// URLSession sitzt auf Linux in einem eigenen Modul. Auf iOS ist der
+// Block wirkungslos — dort gibt es FoundationNetworking nicht.
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Der Dateibereich: hochladen, umbenennen, löschen, Ordner anlegen.
 ///
