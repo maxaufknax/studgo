@@ -83,7 +83,7 @@ struct MailboxView: View {
 
     var body: some View {
         List(filtered) { message in
-            NavigationLink(value: message) {
+            PushLink(value: message) {
                 MessageRow(message: message, outgoing: isOutgoing)
             }
             .swipeActions(edge: .leading) {
@@ -253,13 +253,29 @@ struct BlubberInboxView: View {
     }
 
     /// Fäden mit Neuigkeiten zuerst — sonst rutscht eine frische Antwort
-    /// unter zwanzig stille Kursfäden.
+    /// unter zwanzig stille Kursfäden. Darunter, in „Meine Chats", nach Art
+    /// getrennt: Direktnachrichten, Kursfäden und der Rest. Genau diese
+    /// Unterscheidung — persönlich, aus einer Veranstaltung, offen — sucht man
+    /// im Postfach.
     private var grouped: [(title: String, threads: [BlubberThread])] {
         let fresh = filtered.filter(\.hasNews)
         let rest = filtered.filter { !$0.hasNews }
         var sections: [(String, [BlubberThread])] = []
         if !fresh.isEmpty { sections.append(("Neu", fresh)) }
-        if !rest.isEmpty { sections.append((fresh.isEmpty ? "Unterhaltungen" : "Älter", rest)) }
+
+        switch scope {
+        case .mine:
+            let direct = rest.filter { $0.context == .privateChat }
+            let courseThreads = rest.filter { $0.context == .course }
+            let other = rest.filter { $0.context != .privateChat && $0.context != .course }
+            if !direct.isEmpty { sections.append(("Direktnachrichten", direct)) }
+            if !courseThreads.isEmpty { sections.append(("Aus Veranstaltungen", courseThreads)) }
+            if !other.isEmpty { sections.append(("Weitere", other)) }
+        case .courses, .openStream:
+            if !rest.isEmpty {
+                sections.append((fresh.isEmpty ? "Unterhaltungen" : "Älter", rest))
+            }
+        }
         return sections.map { (title: $0.0, threads: $0.1) }
     }
 
@@ -268,7 +284,7 @@ struct BlubberInboxView: View {
             ForEach(grouped, id: \.title) { group in
                 SwiftUI.Section {
                     ForEach(group.threads) { thread in
-                        NavigationLink(value: thread) {
+                        PushLink(value: thread) {
                             BlubberThreadRow(thread: thread)
                         }
                     }
@@ -421,12 +437,19 @@ struct BlubberThreadView: View {
     /// Steht am Anfang des Verlaufs noch Älteres?
     @State private var hasOlder = false
     @State private var isLoadingOlder = false
+    /// Der vollständig nachgeladene Faden. Die Liste reicht den Faden ohne
+    /// gesicherten Anfangsbeitrag herein — die Einzelroute holt ihn nach.
+    @State private var resolved: BlubberThread?
 
     /// Wie viele Beiträge auf einmal geholt werden.
     private let pageSize = 60
 
+    /// Der Faden, wie er angezeigt wird: der nachgeladene, sobald er da ist,
+    /// sonst der aus der Liste.
+    private var shown: BlubberThread { resolved ?? thread }
+
     private var canSend: Bool {
-        thread.isCommentable
+        shown.isCommentable
             && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !isSending
     }
@@ -434,14 +457,36 @@ struct BlubberThreadView: View {
     var body: some View {
         VStack(spacing: 0) {
             transcript
-            if thread.isCommentable {
+            if shown.isCommentable {
                 Divider()
                 composer
             }
         }
-        .navigationTitle(thread.name)
+        .navigationTitle(shown.name)
         .navigationBarTitleDisplayMode(.inline)
-        .task { if comments.value == nil { await reload(fresh: false) } }
+        .task { await load() }
+    }
+
+    /// Anfangsbeitrag und Verlauf holen. Erst den vollständigen Faden — damit
+    /// der Aufschlag steht, noch während die Beiträge laden —, dann den
+    /// Verlauf. Solange etwas unterwegs ist, trägt `comments.isLoading` den
+    /// Spinner; „Noch keine Beiträge" erscheint erst, wenn beides durch und
+    /// wirklich nichts da ist.
+    private func load() async {
+        if comments.value == nil { comments.isLoading = true }
+        await resolveThread()
+        if comments.value == nil {
+            await reload(fresh: false)
+        } else {
+            comments.isLoading = false
+        }
+    }
+
+    private func resolveThread() async {
+        guard resolved == nil else { return }
+        if let full = try? await auth.client.blubberThread(id: thread.id) {
+            resolved = full
+        }
     }
 
     private var transcript: some View {
@@ -462,9 +507,12 @@ struct BlubberThreadView: View {
             }
             .background(Color(.systemGroupedBackground))
             .overlay {
+                // Nur wirklich leer, wenn weder ein Anfangsbeitrag noch eine
+                // Antwort da ist — sonst steht der Aufschlag im Bild und der
+                // Hinweis wäre schlicht falsch.
                 StateOverlay(isLoading: comments.isLoading,
                              errorMessage: comments.errorMessage,
-                             isEmpty: (comments.value ?? []).isEmpty && thread.preview.isEmpty,
+                             isEmpty: (comments.value ?? []).isEmpty && shown.preview.isEmpty,
                              emptyText: "Noch keine Beiträge",
                              emptySymbol: "bubble.left",
                              retry: { Task { await reload(fresh: true) } })
@@ -507,25 +555,25 @@ struct BlubberThreadView: View {
     /// Der Beitrag, mit dem der Faden aufgemacht wurde.
     @ViewBuilder
     private var opener: some View {
-        if !thread.preview.isEmpty {
+        if !shown.preview.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
-                    Image(systemName: thread.context.symbol).font(.caption2)
-                    Text(thread.authorName ?? thread.context.label)
+                    Image(systemName: shown.context.symbol).font(.caption2)
+                    Text(shown.authorName ?? shown.context.label)
                         .font(.caption.weight(.semibold))
                     Spacer(minLength: 0)
-                    if let created = thread.createdAt {
+                    if let created = shown.createdAt {
                         Text(Format.listDate(created))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
                 }
-                .foregroundStyle(Tint.color(thread.tintSeed))
+                .foregroundStyle(Tint.color(shown.tintSeed))
 
-                FormattedText(raw: thread.content)
+                FormattedText(raw: shown.content)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .card(Tint.surface(thread.tintSeed))
+            .card(Tint.surface(shown.tintSeed))
         }
     }
 

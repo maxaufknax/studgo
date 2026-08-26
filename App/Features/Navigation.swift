@@ -1,5 +1,34 @@
 import SwiftUI
 
+/// Der Navigationspfad eines Reiters — **eine** Quelle der Wahrheit, im Umfeld
+/// hinterlegt, damit ihn jede Zeile erreichen kann.
+///
+/// **Warum das der Kern der Reparatur ist:** Ein `NavigationLink(value:)` in
+/// einer Liste bindet den Sprung an *seine Zeile*. Verschwindet die Zeile,
+/// während die Detailseite aufgeht — die Suchleiste räumt beim Weiterschieben
+/// von selbst ihren Text, eine nachladende Liste tauscht ihren Inhalt, oder
+/// iOS 18 verschluckt sich am Zusammenspiel von `searchable` und `NavigationStack`
+/// —, nimmt SwiftUI den halb geschobenen Push wieder zurück oder schiebt gar
+/// zweimal. Von außen sah das aus wie „Kurs geöffnet, sofort wieder bei der
+/// Auswahl; erst der Zurück-Pfeil führt zur eigentlichen Seite".
+///
+/// Legt der Push den Wert dagegen in *diesen* Pfad, hängt die Detailseite an
+/// nichts, was die Liste darunter tut. Die Zeile darf verschwinden — der Pfad
+/// bleibt, und mit ihm die geöffnete Seite.
+@Observable
+final class Navigator {
+    var path = NavigationPath()
+
+    func push<Value: Hashable>(_ value: Value) {
+        path.append(value)
+    }
+
+    func popToRoot() {
+        guard !path.isEmpty else { return }
+        path = NavigationPath()
+    }
+}
+
 /// Die Ziele, die in jedem Reiter erreichbar sein müssen — **einmal** je
 /// Navigationsstapel angemeldet.
 ///
@@ -23,6 +52,11 @@ struct StudGoDestinations: ViewModifier {
             .navigationDestination(for: ActivityItem.self) { ActivityDetailView(item: $0) }
             .navigationDestination(for: BlubberThread.self) { BlubberThreadView(thread: $0) }
             .navigationDestination(for: Message.self) { MessageDetailView(message: $0) }
+            // Ordner werden **über den Pfad** geschoben (früher: verschachtelte
+            // `NavigationLink { … }`). Ein Ordner in einer nachladenden Liste
+            // fiel sonst wieder zu, sobald der übergeordnete Ordner seinen
+            // Inhalt austauschte.
+            .navigationDestination(for: Folder.self) { FolderContentView(folder: $0) }
     }
 }
 
@@ -33,31 +67,50 @@ extension View {
     }
 }
 
-/// Ein Navigationsstapel mit eigenem Pfad und allen Zielen.
+/// Ein Navigationsstapel mit eigenem `Navigator` und allen Zielen.
 ///
-/// **Warum der Pfad ausdrücklich geführt wird:** Ohne `path`-Bindung hängt ein
-/// `NavigationLink(value:)` an der Zeile, die ihn erzeugt hat. Verschwindet
-/// diese Zeile, während die Detailseite offen ist, nimmt SwiftUI die Seite
-/// wieder vom Stapel — die App springt von selbst zurück.
-///
-/// Genau das passierte bei den **Studiengruppen**: Die Ansicht lädt „Meine
-/// Gruppen" und „Vorschläge" nebenläufig und tauscht beim Suchen den ganzen
-/// Listeninhalt aus. Traf eine Antwort ein, nachdem man eine Gruppe
-/// angetippt hatte — oder räumte die Suchleiste beim Weiterschieben ihren Text
-/// weg —, wurde die Zeile neu gebaut und die eben geöffnete Gruppe fiel wieder
-/// zu. Von außen sah das aus, als schöbe die App eigenmächtig vor und zurück.
-///
-/// Mit eigenem Pfad liegt das Ziel im Stapel, nicht in der Zeile: Die
-/// Detailseite bleibt stehen, egal was die Liste darunter tut.
+/// Der `Navigator` liegt im Umfeld, sodass jede Zeile über `PushLink` oder
+/// direkt `@Environment(Navigator.self)` in *diesen* Stapel schieben kann.
 struct StudGoStack<Content: View>: View {
     @ViewBuilder var content: Content
 
-    @State private var path = NavigationPath()
+    @State private var navigator = Navigator()
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack(path: $navigator.path) {
             content
                 .studGoDestinations()
         }
+        .environment(navigator)
+    }
+}
+
+/// Wie ein `NavigationLink(value:)`, aber der Sprung läuft über den
+/// `Navigator`-Pfad statt über die Zeile.
+///
+/// Damit überlebt die geöffnete Seite alles, was die Liste darunter noch tut:
+/// Nachladen, Umsortieren, das Räumen der Suchleiste. Genau daran scheiterte
+/// die value-basierte Verknüpfung (siehe `Navigator`). Optisch bleibt es eine
+/// Listenzeile mit Verweispfeil rechts.
+struct PushLink<Value: Hashable, Label: View>: View {
+    let value: Value
+    @ViewBuilder var label: Label
+
+    @Environment(Navigator.self) private var navigator
+
+    var body: some View {
+        Button {
+            navigator.push(value)
+        } label: {
+            HStack(spacing: 8) {
+                label
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.forward")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

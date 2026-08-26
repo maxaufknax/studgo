@@ -434,6 +434,7 @@ struct MailSetupView: View {
 /// schlimmer als eine, die von vornherein sagt, woran man ist.
 struct NotificationSettingsView: View {
     @Environment(Preferences.self) private var preferences
+    @Environment(AuthStore.self) private var auth
 
     @State private var isAuthorized: Bool?
     @State private var pendingCount = 0
@@ -533,14 +534,31 @@ struct NotificationSettingsView: View {
     /// wieder zurückstellen, wenn sie verweigert wird. Ein Schalter, der an
     /// bleibt, ohne dass je etwas ankommt, ist eine Lüge.
     private func apply(remindersEnabled: Bool) async {
-        if remindersEnabled, !(await ensureAuthorization()) {
-            preferences.eventReminders = false
-            return
-        }
-        if !remindersEnabled {
+        if remindersEnabled {
+            guard await ensureAuthorization() else {
+                preferences.eventReminders = false
+                return
+            }
+            // Sofort planen, nicht erst beim nächsten Öffnen von „Heute" —
+            // sonst schaltet man es ein und es tut sichtbar nichts.
+            await scheduleNow()
+        } else {
             await Notifications.clearEventReminders()
         }
         await refreshStatus()
+    }
+
+    /// Holt den Kalender und legt die Erinnerungen gleich an. Der ICS-Strom
+    /// ist die verlässliche Quelle (echte Sitzungen samt Ausfällen); klappt er
+    /// nicht, tut es die kurze Terminliste auch.
+    private func scheduleNow() async {
+        guard preferences.eventReminders, let userID = auth.currentUserID else { return }
+        let events = (try? await auth.client.calendarEvents(for: userID))
+            ?? (try? await auth.client.events(for: userID, weeks: 4))
+            ?? []
+        await Notifications.scheduleEventReminders(events,
+                                                   leadMinutes: preferences.leadMinutes,
+                                                   quietWeekend: preferences.quietWeekend)
     }
 
     private func apply(mailboxEnabled: Bool) async {

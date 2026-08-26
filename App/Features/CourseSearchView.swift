@@ -18,6 +18,16 @@ struct CourseSearchView: View {
     @State private var didSearch = false
     /// Läuft, während getippt wird — eine Anfrage je Tastendruck wäre zu viel.
     @State private var pending: Task<Void, Never>?
+    /// Öffnet und fokussiert das Suchfeld, sobald die Ansicht erscheint. Ohne
+    /// das lag die Leiste eingeklappt über der Liste und wurde erst nach dem
+    /// Herunterziehen sichtbar — es sah aus, als gäbe es kein Suchfeld.
+    @State private var searchPresented = false
+    /// Zählt die aufeinanderfolgenden Fehlversuche, damit ein einzelner
+    /// Netzhänger nicht gleich als „Suche fehlgeschlagen" erscheint.
+    @State private var failedAttempts = 0
+    /// Vom ersten getippten Zeichen bis zum Ergebnis — trägt den ruhigen
+    /// „Suche läuft…"-Zustand, auch während der Wartezeit vor dem Absenden.
+    @State private var awaitingResults = false
 
     private var sortedSemesters: [Semester] {
         (semesters.value ?? []).sorted { ($0.start ?? .distantPast) > ($1.start ?? .distantPast) }
@@ -38,11 +48,16 @@ struct CourseSearchView: View {
             resultSection
         }
         .listStyle(.insetGrouped)
-        .searchable(text: $term, prompt: "Titel, Lehrende oder Nummer")
+        // Immer sichtbar statt eingeklappt, und beim Erscheinen gleich
+        // fokussiert: Die Suche ist der Zweck dieser Seite.
+        .searchable(text: $term,
+                    isPresented: $searchPresented,
+                    placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: "Titel, Lehrende oder Nummer")
         .onSubmit(of: .search) { schedule(delay: 0) }
         // Von selbst suchen, sobald genug getippt ist. Vorher musste man die
         // Eingabetaste treffen — wer das nicht tat, hielt die Suche für kaputt.
-        .onChange(of: term) { schedule(delay: 500) }
+        .onChange(of: term) { schedule(delay: 400) }
         .navigationTitle("Suchen")
         .navigationBarTitleDisplayMode(.inline)
         // Kein eigenes `navigationDestination(for: Course.self)`: Diese
@@ -50,6 +65,11 @@ struct CourseSearchView: View {
         // anmeldet. Zwei Anmeldungen desselben Typs im selben Stapel
         // beschwert SwiftUI zur Laufzeit.
         .task { if semesters.value == nil { await loadSemesters() } }
+        .task {
+            // Nach dem Aufbau — nicht in `onAppear`, das liefe noch in die
+            // Schiebe-Animation hinein und der Fokus verpuffte.
+            searchPresented = true
+        }
     }
 
     // MARK: - Filter
@@ -84,46 +104,65 @@ struct CourseSearchView: View {
 
     @ViewBuilder
     private var resultSection: some View {
-        if results.isLoading {
+        if let found = results.value, !found.isEmpty {
+            // Sind Treffer da, gewinnen sie **immer**: Ein misslungenes
+            // Nachschlagen darf die Liste nicht hinter einer Fehlermeldung
+            // wegräumen. Ein neuer Lauf zeigt sich als kleiner Fortschritt in
+            // der Kopfzeile, nicht als leerer Bildschirm.
             Section {
-                HStack { Spacer(); ProgressView(); Spacer() }
-            }
-        } else if let message = results.errorMessage {
-            Section {
-                ContentUnavailableView {
-                    Label("Suche fehlgeschlagen", systemImage: "exclamationmark.triangle")
-                } description: {
-                    Text(message)
-                } actions: {
-                    Button("Erneut versuchen") { Task { await search() } }
-                }
-            }
-        } else if let found = results.value {
-            Section {
-                if found.isEmpty {
-                    Text("Keine Veranstaltung gefunden.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(found) { course in
-                        NavigationLink(value: course) {
-                            CourseRow(course: course,
-                                      typeName: auth.courseTypeName(course.typeID))
-                        }
+                ForEach(found) { course in
+                    PushLink(value: course) {
+                        CourseRow(course: course,
+                                  typeName: auth.courseTypeName(course.typeID))
                     }
                 }
             } header: {
-                Text(found.isEmpty ? "Kein Treffer" : "\(found.count) Treffer")
-            } footer: {
-                if !found.isEmpty {
-                    Text("Zum Eintragen eine Veranstaltung öffnen — die Anmeldung läuft über die Stud.IP-Weboberfläche.")
+                HStack {
+                    Text("\(found.count) Treffer")
+                    if awaitingResults {
+                        Spacer()
+                        ProgressView().controlSize(.mini)
+                    }
                 }
+            } footer: {
+                Text("Zum Eintragen eine Veranstaltung öffnen — die Anmeldung läuft über die Stud.IP-Weboberfläche.")
+            }
+        } else if awaitingResults {
+            // Ruhiger Zwischenstand vom ersten Zeichen an, statt kurz „nichts
+            // gefunden" oder „fehlgeschlagen" aufblitzen zu lassen.
+            Section {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Suche läuft…")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 2)
+            }
+        } else if didSearch, results.errorMessage != nil {
+            Section {
+                ContentUnavailableView {
+                    Label("Suche gerade nicht möglich", systemImage: "wifi.exclamationmark")
+                } description: {
+                    Text("Stud.IP hat nicht rechtzeitig geantwortet. Das liegt meist an der Verbindung — noch einmal versuchen geht oft sofort.")
+                } actions: {
+                    Button("Erneut suchen") { schedule(delay: 0) }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+        } else if results.value != nil {
+            Section {
+                Text("Keine Veranstaltung gefunden.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Kein Treffer")
             }
         } else {
             Section {
                 ContentUnavailableView("Veranstaltung suchen",
                                        systemImage: "magnifyingglass",
-                                       description: Text("Mindestens drei Zeichen eingeben — gesucht wird von selbst."))
+                                       description: Text("Tippen genügt — ab drei Zeichen wird von selbst gesucht."))
             }
         }
     }
@@ -139,7 +178,9 @@ struct CourseSearchView: View {
     /// noch nicht abgeschickte Anfrage.
     private func schedule(delay milliseconds: Int) {
         pending?.cancel()
+        failedAttempts = 0
         guard !isTermTooShort else {
+            awaitingResults = false
             // Zurück auf den Ausgangszustand, sobald der Begriff zu kurz wird
             // — ein alter Trefferstand zu einem gelöschten Suchwort verwirrt.
             if term.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -149,6 +190,8 @@ struct CourseSearchView: View {
             }
             return
         }
+        // Sofort ansagen, dass gesucht wird — noch vor Ablauf der Wartezeit.
+        awaitingResults = true
         pending = Task {
             if milliseconds > 0 {
                 try? await Task.sleep(for: .milliseconds(milliseconds))
@@ -159,7 +202,7 @@ struct CourseSearchView: View {
     }
 
     private func search() async {
-        guard !isTermTooShort else { return }
+        guard !isTermTooShort else { awaitingResults = false; return }
         didSearch = true
         let client = auth.client
         let query = term
@@ -168,5 +211,18 @@ struct CourseSearchView: View {
         await results.load {
             try await client.searchCourses(query, field: selectedField, semesterID: semester)
         }
+
+        // Ein einzelner Fehlversuch wird still wiederholt, statt sofort als
+        // „fehlgeschlagen" zu erscheinen — das nimmt der Suche das Zappelige.
+        if results.errorMessage != nil, term == query {
+            failedAttempts += 1
+            if failedAttempts < 2, !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(700))
+                guard !Task.isCancelled, term == query else { awaitingResults = false; return }
+                await search()
+                return
+            }
+        }
+        awaitingResults = false
     }
 }

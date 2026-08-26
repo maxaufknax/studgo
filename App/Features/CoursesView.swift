@@ -50,7 +50,7 @@ struct CoursesView: View {
                 if !filtered.isEmpty {
                     Section {
                         ForEach(filtered) { course in
-                            NavigationLink(value: course) {
+                            PushLink(value: course) {
                                 CourseRow(course: course,
                                           typeName: auth.courseTypeName(course.typeID))
                             }

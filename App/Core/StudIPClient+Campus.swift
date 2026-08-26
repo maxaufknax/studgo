@@ -113,6 +113,31 @@ extension StudIPClient {
         return found
     }
 
+    /// Einen einzelnen Faden vollständig holen — samt Verfasser und **dem
+    /// Anfangsbeitrag**.
+    ///
+    /// **Warum überhaupt:** Die Listenrouten (`/v1/blubber-threads` usw.) geben
+    /// den Faden mit Namen, Zeitstempeln und Zusammenhang zurück, den
+    /// eigentlichen Anfangsbeitrag (`content-html`) aber nicht immer mit — je
+    /// nach Rechtelage und Fassung fehlt er. Beim Öffnen stand dann weder der
+    /// Aufschlag noch (bei Fäden ohne Antworten) irgendein Beitrag: „Noch keine
+    /// Beiträge", obwohl der Faden sehr wohl einen Text trägt. Die Einzelroute
+    /// liefert ihn verlässlich.
+    ///
+    /// `GET /v1/blubber-threads/{id}` ist ein *Show*-Endpunkt und verträgt
+    /// **kein** `page[...]` — deshalb ohne `limit`.
+    func blubberThread(id: String) async throws -> BlubberThread? {
+        let document: JSONAPIDocument
+        do {
+            document = try await get("/v1/blubber-threads/\(id)", include: ["author"])
+        } catch let error as APIError {
+            guard case .http(400, _) = error else { throw error }
+            document = try await get("/v1/blubber-threads/\(id)")
+        }
+        guard let resource = document.first else { return nil }
+        return BlubberThread(resource, author: document.related("author", of: resource))
+    }
+
     /// Ein Ausschnitt aus einem Blubber-Verlauf, älteste zuerst gesetzt.
     struct BlubberPage {
         let comments: [BlubberComment]
@@ -136,23 +161,39 @@ extension StudIPClient {
     func blubberComments(threadID: String,
                          limit: Int = 60,
                          offset: Int = 0) async throws -> BlubberPage {
+        let path = "/v1/blubber-threads/\(threadID)/comments"
+
         // Einen mehr anfragen, als gezeigt wird: daran ist zu erkennen, ob
         // sich das Nachladen älterer Beiträge überhaupt lohnt.
-        let document = try await documentAllowingMissingIncludes(
-            path: "/v1/blubber-threads/\(threadID)/comments",
-            limit: limit + 1,
-            offset: offset,
-            include: ["author"],
-            fallback: [],
-            sort: "-mkdate")
+        func fetch(sorted: Bool) async throws -> [BlubberComment] {
+            let document = try await documentAllowingMissingIncludes(
+                path: path,
+                limit: limit + 1,
+                offset: offset,
+                include: ["author"],
+                fallback: [],
+                sort: sorted ? "-mkdate" : nil)
+            return document.resources
+                .compactMap { BlubberComment($0, author: document.related("author", of: $0)) }
+        }
 
-        let newestFirst = document.resources
-            .compactMap { BlubberComment($0, author: document.related("author", of: $0)) }
-        let hasOlder = newestFirst.count > limit
-        // `reversed()` einer Array liefert eine `ReversedCollection`, keine
-        // Array — deshalb das `Array(...)` außen herum.
-        return BlubberPage(comments: Array(newestFirst.prefix(limit).reversed()),
-                           hasOlder: hasOlder)
+        do {
+            // Der Normalfall: jüngste Seite zuerst (`sort=-mkdate`), für die
+            // Anzeige in Lesereihenfolge gedreht. `reversed()` liefert eine
+            // `ReversedCollection`, keine Array — daher das `Array(...)`.
+            let newestFirst = try await fetch(sorted: true)
+            return BlubberPage(comments: Array(newestFirst.prefix(limit).reversed()),
+                               hasOlder: newestFirst.count > limit)
+        } catch let error as APIError {
+            // Fassungen, die `sort` an dieser Route doch nicht zulassen,
+            // antworten mit 400. Dann ohne Sortierung — das gibt ältestezuerst,
+            // also gleich in Lesereihenfolge. Rückwärts blättern lässt sich so
+            // nicht (kein `hasOlder`), aber der Verlauf steht wenigstens da,
+            // statt dass „Noch keine Beiträge" erscheint, wo es welche gibt.
+            guard case .http(400, _) = error else { throw error }
+            let oldestFirst = try await fetch(sorted: false)
+            return BlubberPage(comments: Array(oldestFirst.prefix(limit)), hasOlder: false)
+        }
     }
 
     /// Einen Beitrag in einen bestehenden Faden schreiben.
@@ -184,25 +225,73 @@ extension StudIPClient {
 
     /// Was in den belegten Veranstaltungen zuletzt passiert ist.
     ///
-    /// Die Route nimmt `filter[start]`/`filter[end]` als Unix-Sekunden. Ohne
-    /// Zeitraum liefert Stud.IP den jüngsten Ausschnitt.
+    /// **Warum das so umständlich ist — der `500`, den TestFlight zeigte:** Der
+    /// Aktivitätenstrom sammelt aus vielen Anbietern (Dateien, Forum, Wiki,
+    /// Ankündigungen …). Zieht `include=object` die serverseitige
+    /// Serialisierung eines Ziels nach sich, das nicht mehr existiert — eine
+    /// Datei in einem gelöschten Ordner, ein Beitrag in einer entfernten
+    /// Veranstaltung —, wirft Stud.IP einen `InternalServerError`. **Ein**
+    /// solcher Eintrag nimmt den **ganzen** Strom mit; im Campus-Reiter stand
+    /// dann „Serverfehler 500" statt einer Liste. Es ist dieselbe Klasse Fehler
+    /// wie bei den Blubber-Fäden (siehe `personalBlubberThreads`), nur dass die
+    /// Route hier keine offensichtliche Rückfallebene hat.
+    ///
+    /// Deshalb in Stufen: erst mit allen Beziehungen, dann mit weniger, dann
+    /// ganz ohne — und wenn auch das scheitert, mit engem Zeitfenster, damit die
+    /// alten, verwaisten Einträge gar nicht erst mitgeladen werden. `400`
+    /// (unerlaubtes `include`) und `500` (Serialisierung scheitert) lösen beide
+    /// den nächsten Versuch aus.
     func activityStream(for userID: String,
                         since: Date? = nil,
                         limit: Int = 60) async throws -> [ActivityItem] {
+        let path = "/v1/users/\(userID)/activitystream"
+        // `object` zeigt auf das, worum es geht — die Datei, den Forenbeitrag,
+        // die Ankündigung. Ohne die Beziehung bleibt der Anzeigename leer, aber
+        // Typ und Kennung stehen weiterhin im `relationships`-Block, sodass sich
+        // ein Eintrag auch dann noch öffnen lässt.
+        let includeSteps: [[String]] = [["actor", "context", "object"],
+                                         ["actor", "context"],
+                                         []]
+
+        func attempt(extra: [URLQueryItem]) async throws -> JSONAPIDocument {
+            var lastError: Error?
+            for includes in includeSteps {
+                do {
+                    return try await get(path, limit: limit, include: includes, extra: extra)
+                } catch let error as APIError {
+                    switch error {
+                    case .http(400, _), .http(500, _):
+                        lastError = error
+                        continue
+                    default:
+                        throw error
+                    }
+                }
+            }
+            throw lastError ?? APIError.http(500, nil)
+        }
+
         var extra: [URLQueryItem] = []
         if let since {
             extra.append(URLQueryItem(name: "filter[start]",
                                       value: String(Int(since.timeIntervalSince1970))))
         }
-        // `object` zeigt auf das, worum es geht — die Datei, den Forenbeitrag,
-        // die Ankündigung. Ohne diese Beziehung bliebe ein Eintrag im Verlauf
-        // eine Meldung, die sich nicht öffnen lässt.
-        let document = try await documentAllowingMissingIncludes(
-            path: "/v1/users/\(userID)/activitystream",
-            limit: limit,
-            include: ["actor", "context", "object"],
-            fallback: ["actor", "context"],
-            extra: extra)
+
+        let document: JSONAPIDocument
+        do {
+            document = try await attempt(extra: extra)
+        } catch {
+            // Letzter Ausweg: den Zeitraum auf die letzten drei Monate
+            // eingrenzen. Ein verwaister Alteintrag fällt so heraus, ohne dass
+            // der Strom ganz leer bleibt. Nur, wenn der Aufrufer nicht ohnehin
+            // schon ein Fenster gesetzt hat.
+            guard since == nil else { throw error }
+            let recent = Date().addingTimeInterval(-90 * 24 * 3600)
+            document = try await attempt(extra: [
+                URLQueryItem(name: "filter[start]", value: String(Int(recent.timeIntervalSince1970))),
+            ])
+        }
+
         return document.resources
             .compactMap {
                 ActivityItem($0,

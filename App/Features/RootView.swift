@@ -27,6 +27,9 @@ struct RootView: View {
 struct MainTabView: View {
     let user: StudIPUser
     @Environment(AuthStore.self) private var auth
+    @Environment(NotificationRouter.self) private var router
+
+    @State private var selection: AppTab = .today
 
     /// Fünf Reiter, benannt nach dem, was dahinter liegt, nicht nach dem
     /// Stud.IP-Fachbegriff: „Postfach" statt „Nachrichten", weil dort auch
@@ -34,25 +37,42 @@ struct MainTabView: View {
     /// „Mehr" nichts darüber verrät, was man dort findet. Profil und
     /// Einstellungen sitzen als Knopf oben auf „Heute" — ein eigener Reiter
     /// dafür wäre der am seltensten benutzte von fünf.
+    ///
+    /// Die `selection`-Bindung trägt zweierlei: die angetippte Benachrichtigung
+    /// (über den `NotificationRouter`) landet im richtigen Reiter, und das
+    /// App-Symbol zeigt die ungelesenen Nachrichten.
     var body: some View {
-        TabView {
+        TabView(selection: $selection) {
             TodayView(user: user)
                 .tabItem { Label("Heute", systemImage: "sun.max.fill") }
+                .tag(AppTab.today)
 
             ScheduleView(user: user)
                 .tabItem { Label("Plan", systemImage: "calendar") }
+                .tag(AppTab.schedule)
 
             CoursesView(user: user)
                 .tabItem { Label("Kurse", systemImage: "books.vertical.fill") }
+                .tag(AppTab.courses)
 
             PostfachView(user: user)
                 .tabItem { Label("Postfach", systemImage: "tray.full.fill") }
                 .badge(auth.unreadCount)
+                .tag(AppTab.postfach)
 
             CampusView(user: user)
                 .tabItem { Label("Campus", systemImage: "person.2.fill") }
+                .tag(AppTab.campus)
         }
         .task { await auth.loadSemTypes() }
+        // Eine angetippte Mitteilung schaltet den Reiter um, dann Merker leeren.
+        .onChange(of: router.target) { _, target in
+            guard let target else { return }
+            selection = target
+            router.target = nil
+        }
+        // Das App-Symbol trägt die Zahl der ungelesenen Nachrichten mit.
+        .task(id: auth.unreadCount) { await Notifications.setBadge(auth.unreadCount) }
     }
 }
 
