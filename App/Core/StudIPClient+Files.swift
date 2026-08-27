@@ -60,6 +60,12 @@ extension StudIPClient {
                 named name: String? = nil,
                 termsID: String? = nil) async throws -> Bool {
         let filename = name ?? fileURL.lastPathComponent
+        if isDemo {
+            let size = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int) ?? nil
+            DemoStore.shared.addFile(folderID: folder.id, name: filename, size: size ?? 0)
+            return true
+        }
+
         let boundary = "StudGo-\(UUID().uuidString)"
         let bodyFile = try Self.multipartBody(fileURL: fileURL,
                                               filename: filename,
