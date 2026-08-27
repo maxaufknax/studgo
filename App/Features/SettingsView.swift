@@ -61,6 +61,37 @@ struct SettingsView: View {
         .buttonStyle(.plain)
     }
 
+    /// Der Hinweis, der im Demo-Modus über allem steht.
+    ///
+    /// Er beantwortet die zwei Fragen, die sich sonst niemand von selbst
+    /// beantworten kann: Woher kommen diese Daten, und wie komme ich hier
+    /// wieder heraus.
+    private var demoSection: some View {
+        Section {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "play.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.tint)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Demo-Modus").font(.headline)
+                    Text("Alle Inhalte sind Beispieldaten und liegen nur auf diesem Gerät. Es besteht keine Verbindung zu Stud.IP.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 4)
+
+            Button {
+                showsSignOutConfirmation = true
+            } label: {
+                RowLabel(symbol: "person.crop.circle.badge.checkmark",
+                         title: "Mit Stud.IP anmelden",
+                         subtitle: "Verlässt die Demo")
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     var body: some View {
         // Ein **eigener** Navigator: Das Profil ist ein Blatt über dem Reiter
         // und führt seinen Stapel getrennt. Ohne ihn landeten Sprünge von
@@ -68,6 +99,8 @@ struct SettingsView: View {
         // nichts, bis man das Blatt schliesst.
         NavigationStack(path: $navigator.path) {
             List {
+                if auth.isDemo { demoSection }
+
                 Section {
                     HStack(spacing: 14) {
                         InitialsBadge(initials: user.initials, size: 52)
@@ -123,11 +156,14 @@ struct SettingsView: View {
                     PushLink(value: Route.semesters) {
                         RowLabel(symbol: "calendar.badge.clock", title: "Semester")
                     }
-                    Link(destination: StudIPClient.myCoursesURL) {
+                    Button {
+                        webTarget = WebTarget(url: StudIPClient.myCoursesURL)
+                    } label: {
                         RowLabel(symbol: "rectangle.stack.badge.person.crop",
                                  title: "Veranstaltungen verwalten",
                                  subtitle: "Ein- und austragen in Stud.IP")
                     }
+                    .buttonStyle(.plain)
                 }
 
                 Section {
@@ -196,11 +232,13 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Button("Abmelden", role: .destructive) {
+                    Button(auth.isDemo ? "Demo verlassen" : "Abmelden", role: .destructive) {
                         showsSignOutConfirmation = true
                     }
                 } footer: {
-                    Text("Beim Abmelden werden die Zugangstoken aus der Keychain und alle zwischengespeicherten Daten gelöscht.")
+                    Text(auth.isDemo
+                         ? "Führt zurück zur Anmeldung. Die Beispieldaten der Demo werden dabei verworfen."
+                         : "Beim Abmelden werden die Zugangstoken aus der Keychain und alle zwischengespeicherten Daten gelöscht.")
                 }
             }
             .listStyle(.insetGrouped)
@@ -215,10 +253,10 @@ struct SettingsView: View {
             .sheet(item: $webTarget) { target in
                 WebSheet(url: target.url).ignoresSafeArea()
             }
-            .confirmationDialog("Wirklich abmelden?",
+            .confirmationDialog(auth.isDemo ? "Demo verlassen?" : "Wirklich abmelden?",
                                 isPresented: $showsSignOutConfirmation,
                                 titleVisibility: .visible) {
-                Button("Abmelden", role: .destructive) {
+                Button(auth.isDemo ? "Demo verlassen" : "Abmelden", role: .destructive) {
                     Task {
                         await Notifications.clearAll()
                         Notifications.cancelBackgroundRefresh()
@@ -227,9 +265,13 @@ struct SettingsView: View {
                 }
                 Button("Abbrechen", role: .cancel) {}
             } message: {
-                Text(preferences.sharesWebSession
-                     ? "Tokens und Zwischenspeicher werden gelöscht. Die Anmeldung im Browser bleibt bestehen — sie liegt bei Safari, nicht bei StudGo."
-                     : "Tokens und Zwischenspeicher werden gelöscht.")
+                if auth.isDemo {
+                    Text("Die Beispieldaten werden verworfen und du landest wieder auf der Anmeldung.")
+                } else {
+                    Text(preferences.sharesWebSession
+                         ? "Tokens und Zwischenspeicher werden gelöscht. Die Anmeldung im Browser bleibt bestehen — sie liegt bei Safari, nicht bei StudGo."
+                         : "Tokens und Zwischenspeicher werden gelöscht.")
+                }
             }
         }
         .environment(navigator)

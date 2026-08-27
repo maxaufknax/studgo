@@ -60,6 +60,8 @@ struct TodayView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     greeting
 
+                    if auth.isDemo { demoBanner }
+
                     if isInitialLoad {
                         ProgressView()
                             .frame(maxWidth: .infinity)
@@ -152,6 +154,25 @@ struct TodayView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 4)
+    }
+
+    /// Der Streifen, der im Demo-Modus auf dem Startbildschirm steht.
+    ///
+    /// Ein Demo-Modus, dem man nicht ansieht, dass er einer ist, führt in die
+    /// Irre: Wer hier Termine sieht, soll wissen, dass es nicht seine sind.
+    private var demoBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "play.circle.fill")
+                .foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Demo-Modus").font(.footnote.weight(.semibold))
+                Text("Beispieldaten — keine Verbindung zu Stud.IP")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .card()
     }
 
     private var freeCard: some View {

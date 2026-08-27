@@ -54,6 +54,9 @@ let package = Package(
             ],
             sources: [
                 "Core/AppConfig.swift",
+                "Core/DemoData.swift",
+                "Core/DemoServer.swift",
+                "Core/DemoStore.swift",
                 "Core/EventMerge.swift",
                 "Core/Formatting.swift",
                 "Core/HTMLReader.swift",
