@@ -418,6 +418,10 @@ enum DemoServer {
         else { throw notFound(segments.joined(separator: "/")) }
 
         if segments.count == 3, segments[2] == "comments" {
+            // Wer den Verlauf holt, hat den Faden geöffnet — danach ist er
+            // gelesen und das Kennzeichen verschwindet. Ohne das bliebe die
+            // Ziffer am Postfach in der Demo für immer stehen.
+            store.markThreadRead(id)
             let sorted = query.first { $0.name == "sort" }?.value == "-mkdate"
             var list = store.comments(threadID: id)
             if sorted { list.reverse() }
