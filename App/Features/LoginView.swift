@@ -87,9 +87,57 @@ struct LoginView: View {
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.75))
                     .multilineTextAlignment(.center)
+
+                demoSection
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 40)
         }
+    }
+
+    /// **Der Weg in die App ohne Kennung der Leibniz Universität.**
+    ///
+    /// Die Anmeldung führt über Shibboleth; wer dort kein Konto hat — die
+    /// Prüfung im App Store, Studieninteressierte, jeder vor der
+    /// Einschreibung — käme sonst über diesen Bildschirm nicht hinaus. Der
+    /// Knopf steht deshalb sichtbar hier und nicht in einer Einstellung:
+    /// Was man erst suchen muss, ist kein Zugang.
+    ///
+    /// Was dahinter passiert, steht in `DemoData`.
+    private var demoSection: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                line
+                Text("oder")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.7))
+                line
+            }
+            .padding(.top, 6)
+
+            Button {
+                Task { await auth.signInDemo() }
+            } label: {
+                Label("Demo ohne Anmeldung ansehen", systemImage: "play.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 26)
+            }
+            .buttonStyle(.bordered)
+            .tint(.white)
+            .controlSize(.large)
+            .disabled(auth.isWorking)
+
+            Text("Zeigt die vollständige App mit Beispieldaten — Stundenplan, Kurse, Postfach und Campus. Es werden keine Daten übertragen.")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    private var line: some View {
+        Rectangle()
+            .fill(.white.opacity(0.25))
+            .frame(height: 1)
     }
 }

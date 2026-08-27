@@ -20,6 +20,17 @@ struct StudIPClient {
     /// nein: dort erwartet man, dass wirklich der Server gefragt wird.
     var revalidates = false
 
+    /// Läuft die App im **Demo-Modus**? Dann beantwortet `DemoServer` jede
+    /// Route, und weder Token noch Netz sind beteiligt.
+    ///
+    /// Der Schalter sitzt hier und nicht in den Ansichten: So durchlaufen die
+    /// Demo-Antworten dieselbe Kette wie echte — `JSONAPIDocument`, die
+    /// Modelle, `ICSParser` —, und die Oberfläche merkt vom Unterschied
+    /// nichts. Zwischengespeichert wird im Demo-Modus nicht: Der
+    /// `ResponseCache` liegt auf der Platte und soll von erfundenen Daten
+    /// nichts wissen.
+    var isDemo = false
+
     var fresh: StudIPClient {
         var copy = self
         copy.revalidates = true
@@ -319,6 +330,8 @@ struct StudIPClient {
     /// Lädt eine Datei in einen temporären Ordner und gibt den lokalen Pfad
     /// zurück — von dort aus übernehmen QuickLook und das Teilen-Menü.
     func download(_ file: FileRef) async throws -> URL {
+        if isDemo { return try Self.storeForPreview(DemoServer.fileContent(id: file.id), as: file.name) }
+
         var request = URLRequest(url: URL(string: AppConfig.apiRoot.absoluteString
                                           + "/v1/file-refs/\(file.id)/content")!)
         request.setValue("Bearer \(try await tokenProvider())", forHTTPHeaderField: "Authorization")
@@ -334,13 +347,26 @@ struct StudIPClient {
 
         // Der Download landet unter einem Zufallsnamen — für die Vorschau und
         // das Teilen zählt aber der echte Dateiname samt Endung.
+        let destination = try Self.downloadLocation(for: file.name)
+        try FileManager.default.moveItem(at: temporaryURL, to: destination)
+        return destination
+    }
+
+    /// Der Platz im temporären Ordner, unter dem eine geladene Datei landet.
+    private static func downloadLocation(for name: String) throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("StudGo-Downloads", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-
-        let destination = directory.appendingPathComponent(file.name.sanitizedFileName)
+        let destination = directory.appendingPathComponent(name.sanitizedFileName)
         try? FileManager.default.removeItem(at: destination)
-        try FileManager.default.moveItem(at: temporaryURL, to: destination)
+        return destination
+    }
+
+    /// Legt fertige Daten so ab, als wären sie geladen worden — der Weg des
+    /// Demo-Modus zur selben Vorschau.
+    static func storeForPreview(_ data: Data, as name: String) throws -> URL {
+        let destination = try downloadLocation(for: name)
+        try data.write(to: destination)
         return destination
     }
 
@@ -382,6 +408,12 @@ struct StudIPClient {
         let address = url(path: path, query: query)
         let key = address.absoluteString
 
+        if isDemo {
+            let data = try DemoServer.respond(to: address)
+            guard !data.isEmpty else { return JSONAPIDocument.empty }
+            return try JSONAPIDocument(data: data)
+        }
+
         // Der Zwischenspeicher wird **vor** dem Token gefragt: sonst liefe ein
         // abgelaufener Access-Token ohne Netz in einen Fehler, obwohl die
         // Antwort längst auf der Platte liegt.
@@ -422,6 +454,8 @@ struct StudIPClient {
     /// JSON-Objekt" — deshalb ein eigener Zugang, der aber denselben
     /// Zwischenspeicher und dieselbe Fehlerbehandlung benutzt.
     func text(_ path: String, extra: [URLQueryItem] = []) async throws -> String {
+        if isDemo { return DemoServer.calendarFeed() }
+
         let address = url(path: path, query: extra)
         let key = address.absoluteString
 
@@ -493,6 +527,13 @@ struct StudIPClient {
 
     @discardableResult
     func send(_ method: String, _ path: String, body: [String: Any]) async throws -> JSONAPIDocument {
+        if isDemo {
+            let data = try DemoServer.respond(to: url(path: path, query: []),
+                                              method: method, body: body)
+            guard !data.isEmpty else { return JSONAPIDocument.empty }
+            return try JSONAPIDocument(data: data)
+        }
+
         var request = URLRequest(url: url(path: path, query: []))
         request.httpMethod = method
         request.setValue("Bearer \(try await tokenProvider())", forHTTPHeaderField: "Authorization")

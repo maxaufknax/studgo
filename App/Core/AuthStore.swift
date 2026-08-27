@@ -18,6 +18,20 @@ final class AuthStore {
     private(set) var errorMessage: String?
     private(set) var isWorking = false
 
+    /// **Demo-Modus** — die App läuft an erfundenen Daten statt an Stud.IP.
+    ///
+    /// Er ist der einzige Weg, StudGo ohne Kennung der Leibniz Universität
+    /// überhaupt zu sehen: Die Anmeldung läuft über Shibboleth, und ein
+    /// dauerhaft gültiges Prüfkonto beim Rechenzentrum gibt es nicht. Wer
+    /// die Demo betritt, bekommt denselben Funktionsumfang; nur die Antworten
+    /// kommen aus `DemoServer` statt aus dem Netz. Siehe `DemoData`.
+    private(set) var isDemo = false
+
+    /// Merkt den Demo-Modus über einen Neustart hinweg — sonst stünde beim
+    /// nächsten Öffnen wieder die Anmeldung da, ohne dass jemand sich
+    /// abgemeldet hätte.
+    private static let demoKey = "studgo.demo.active"
+
     /// Zahl der ungelesenen Nachrichten für das Kennzeichen am Tab. Wird von
     /// den Ansichten gemeldet, die das Postfach ohnehin laden — ein eigener
     /// Abruf nur für die Ziffer wäre eine Anfrage zu viel.
@@ -40,7 +54,7 @@ final class AuthStore {
     /// Liest bevorzugt aus dem Zwischenspeicher — für den ersten Aufbau
     /// einer Ansicht.
     var client: StudIPClient {
-        StudIPClient(
+        var client = StudIPClient(
             tokenProvider: { [weak self] in
                 guard let self else { throw AuthError.notAuthenticated }
                 return try await self.validAccessToken()
@@ -52,6 +66,8 @@ final class AuthStore {
                 self?.sessionExpired()
             }
         )
+        client.isDemo = isDemo
+        return client
     }
 
     /// Fragt in jedem Fall den Server — für „nach unten ziehen" und nach
@@ -90,6 +106,10 @@ final class AuthStore {
 
     /// Beim App-Start: gespeichertes Token laden und den Nutzer holen.
     func restore() async {
+        if UserDefaults.standard.bool(forKey: Self.demoKey) {
+            await enterDemo()
+            return
+        }
         guard let stored = KeychainStore.load() else {
             state = .signedOut
             return
@@ -133,6 +153,42 @@ final class AuthStore {
         discardSession()
     }
 
+    // MARK: - Demo
+
+    /// Die Demo betreten — ohne Anmeldung, ohne Netz.
+    func signInDemo() async {
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+        // Ein voriges Konto darf in der Demo nicht durchscheinen, und
+        // umgekehrt dürfen die erfundenen Antworten später nicht als echte
+        // gelten: Der Zwischenspeicher wird an beiden Übergängen geleert.
+        KeychainStore.clear()
+        tokens = nil
+        UserDefaults.standard.set(true, forKey: Self.demoKey)
+        await enterDemo()
+    }
+
+    private func enterDemo() async {
+        ResponseCache.clear()
+        DemoStore.shared.reset()
+        isDemo = true
+        semTypes = [:]
+        studygroupKinds = .unknown
+        unreadCount = 0
+        do {
+            state = .signedIn(try await client.currentUser())
+        } catch {
+            // Kann eigentlich nicht scheitern — die Antwort kommt aus der
+            // App selbst. Bliebe es doch einmal hängen, ist die Anmeldung
+            // der richtige Ort, nicht ein leerer Bildschirm.
+            isDemo = false
+            UserDefaults.standard.set(false, forKey: Self.demoKey)
+            errorMessage = error.localizedDescription
+            state = .signedOut
+        }
+    }
+
     /// Nach `.unavailable` erneut versuchen, ohne sich neu anzumelden.
     func retryProfile() async {
         guard case .unavailable = state else { return }
@@ -161,6 +217,11 @@ final class AuthStore {
     private func discardSession() {
         KeychainStore.clear()
         ResponseCache.clear()
+        if isDemo {
+            DemoStore.shared.reset()
+            isDemo = false
+            UserDefaults.standard.set(false, forKey: Self.demoKey)
+        }
         tokens = nil
         refreshTask = nil
         semTypes = [:]
@@ -183,6 +244,9 @@ final class AuthStore {
     // MARK: - Token-Lebenszyklus
 
     private func validAccessToken() async throws -> String {
+        // Im Demo-Modus fragt niemand einen Server — der Wert wird nie
+        // verschickt, nur der Aufruf muss durchgehen.
+        if isDemo { return "demo" }
         guard let current = tokens else { throw AuthError.notAuthenticated }
         guard current.isExpired else { return current.accessToken }
 

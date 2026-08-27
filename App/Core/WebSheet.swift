@@ -13,7 +13,62 @@ import SwiftUI
 /// bekommt weder die Sitzung noch die Eingaben zu sehen. Umgekehrt teilt er
 /// sich die Cookies mit Safari — wer dort angemeldet ist, ist es hier auch,
 /// muss sich sonst aber einmal anmelden.
-struct WebSheet: UIViewControllerRepresentable {
+///
+/// **Im Demo-Modus** führt keiner dieser Wege irgendwohin: Hinter jeder
+/// Adresse steht die Anmeldung der Leibniz Universität, und wer die Demo
+/// benutzt, hat dort per Definition kein Konto. Ihn auf einen
+/// Anmeldebildschirm zu schicken, den er nicht bedienen kann, wäre eine
+/// Sackgasse — StudGo sagt stattdessen, wohin der Knopf im Betrieb führt.
+/// Deshalb ist `WebSheet` eine gewöhnliche Ansicht mit einer Weiche und der
+/// Safari-Aufsatz nur ihr einer Zweig.
+struct WebSheet: View {
+    let url: URL
+
+    @Environment(AuthStore.self) private var auth
+
+    var body: some View {
+        if auth.isDemo {
+            DemoWebNotice(url: url)
+        } else {
+            SafariView(url: url)
+        }
+    }
+}
+
+/// Was im Demo-Modus an der Stelle einer Stud.IP-Seite steht.
+private struct DemoWebNotice: View {
+    let url: URL
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ContentUnavailableView {
+                Label("Weiter geht es in Stud.IP", systemImage: "globe.badge.chevron.backward")
+            } description: {
+                VStack(spacing: 12) {
+                    Text("Im angemeldeten Betrieb öffnet dieser Knopf eine Seite der Leibniz Universität Hannover — dort wird ein- und ausgetragen, das Profilbild geändert und die Prüfungsverwaltung erreicht.")
+
+                    Text(url.absoluteString)
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+
+                    Text("Die Seite verlangt eine Kennung der LUH und bleibt in der Demo deshalb außen vor.")
+                }
+                .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 8)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+private struct SafariView: UIViewControllerRepresentable {
     let url: URL
 
     func makeUIViewController(context: Context) -> SFSafariViewController {
