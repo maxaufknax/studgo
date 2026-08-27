@@ -21,6 +21,19 @@ Quelloffenes Studierendenprojekt, keine offizielle App der Universität.
 Anmeldung über **OAuth2 Authorization Code Flow mit PKCE** in einer
 `ASWebAuthenticationSession` — das Passwort sieht die App nie.
 
+### Ohne Konto: der Demo-Modus
+
+Die Anmeldung führt über Shibboleth; ohne Kennung der Leibniz Universität
+kommt man dort nicht durch. Auf dem Anmeldebildschirm führt deshalb
+**„Demo ohne Anmeldung ansehen"** in eine vollständige Fassung der App mit
+erfundenen Beispieldaten — ohne Konto, ohne Netzverbindung.
+
+Technisch ist das kein zweiter Bildschirmsatz: `AuthStore.isDemo` schaltet in
+`StudIPClient` allein den Transport ab, `DemoServer` liefert stattdessen
+JSON:API-Antworten und einen ICS-Strom mit denselben Feldnamen wie Stud.IP.
+Parser, Modelle und Ansichten laufen unverändert — weshalb `DemoServerTests`
+den ganzen Weg von der Antwort bis ins Modell auf Linux prüfen kann.
+
 Jede Veranstaltung bekommt eine aus ihrer ID abgeleitete Farbe, die in
 Stundenplan, Terminliste und Kursliste dieselbe ist.
 
@@ -43,6 +56,8 @@ App/Resources   Assets, Datenschutzmanifest
 docs/           API-Befunde, Codemagic-Anleitung, Schriftverkehr mit der ZQS
 tools/          Swift-Toolchain im Container, Lint, Codemagic-CLI, Secrets
 Tests/          Tests der Logikschicht (swift-testing)
+PRIVACY.md      Datenschutzerklärung (Adresse im App Store)
+SUPPORT.md      Hilfeseite (Adresse im App Store)
 ```
 
 Entwickelt wird unter Linux, gebaut auf Codemagic. SwiftUI gibt es hier nicht,
@@ -51,7 +66,7 @@ lokal übersetzen und testen — die Swift-Toolchain läuft dafür im Container.
 
 ```bash
 ./tools/swift-lint.sh     # ~8 s — Syntax aller Quellen, auch der Ansichten
-./tools/swift.sh test     # ~10 s — 64 Tests gegen App/Core und App/Models
+./tools/swift.sh test     # ~10 s — 91 Tests gegen App/Core und App/Models
 ```
 
 Beides zusammen fängt ab, was sonst erst nach Minuten bei Codemagic auffiele.

@@ -18,7 +18,7 @@ Vor jedem Commit, in dieser Reihenfolge:
 
 ```bash
 ./tools/swift-lint.sh     # ~8 s — alle 57 Dateien, volle Grammatik
-./tools/swift.sh test     # ~10 s — 64 Tests gegen die Logikschicht
+./tools/swift.sh test     # ~10 s — 91 Tests gegen die Logikschicht
 ```
 
 Beides zusammen fängt den Großteil dessen ab, was sonst erst nach Minuten bei
@@ -83,7 +83,7 @@ entweder eine Weiche setzen oder die Datei aus dem Paket nehmen.
 
 ## Tests
 
-`Tests/StudGoKitTests/` — swift-testing (`@Test`, `#expect`), 64 Stück.
+`Tests/StudGoKitTests/` — swift-testing (`@Test`, `#expect`), 91 Stück.
 Schwerpunkt liegt auf dem, was still falsch sein kann: ICS-Zeitzonen,
 JSON:API-Eigenheiten von Stud.IP, HTML-Entitäten, PKCE, das Ausrollen des
 Wochenplans zu datierten Terminen.
@@ -126,6 +126,33 @@ Mit hinterlegtem Schlüssel läuft die Schleife ohne Weboberfläche:
 git push && ./tools/codemagic.sh build     # stößt an, wartet, zeigt Fehler
 ./tools/codemagic.sh errors                # Compilerfehler des letzten Laufs
 ```
+
+## Demo-Modus
+
+Seit 1.5.0 gibt es einen zweiten Betriebszustand: `AuthStore.isDemo`. Er
+schaltet in `StudIPClient` **nur den Transport** ab — `get`, `text`, `send`,
+`download` und `upload` fragen dann `DemoServer` statt das Netz. Alles danach
+ist derselbe Code.
+
+| Datei | Rolle |
+| --- | --- |
+| `App/Core/DemoData.swift` | das erfundene Konto — Personen, Kurse, Stundenplan, Nachrichten … |
+| `App/Core/DemoServer.swift` | baut daraus JSON:API-Antworten und den ICS-Strom |
+| `App/Core/DemoStore.swift` | was in der Demo geschrieben wird (nur im Arbeitsspeicher) |
+
+Zwei Dinge daran sind wichtiger, als sie aussehen:
+
+1. **Es ist der einzige Prüfstand, der hier läuft.** `DemoServerTests` geht
+   den Weg Antwort → `JSONAPIDocument` → Modell für jede Route durch, auf
+   Linux, in Sekunden. Wer eine neue Route in `StudIPClient` aufnimmt, nimmt
+   sie am besten gleich in `DemoServer` mit auf — dann ist sie geprüft.
+2. **Die Termine entstehen relativ zu heute**, und das Demo-Semester ist so
+   gelegt, dass der heutige Tag in seiner Vorlesungszeit liegt. Ohne das
+   zeigte die Demo in der vorlesungsfreien Zeit ein zu Recht blasses, leeres
+   Raster — richtig, aber als erster Eindruck unbrauchbar.
+
+Die Suite ist `.serialized`: Die schreibenden Prüfungen teilen sich
+`DemoStore.shared`.
 
 ## Offene Punkte
 
