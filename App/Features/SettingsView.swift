@@ -38,12 +38,12 @@ struct SettingsView: View {
                     hint: "Kennwort, Mailweiterleitung, Dienste")
             linkRow("IT-Dienste (LUIS)", "server.rack", WebLinks.itServices)
             linkRow("Standortfinder", "map", WebLinks.campusMap,
-                    hint: "Gebäude und Hörsäle der LUH")
+                    hint: "Gebäude und Hörsäle auf dem Campus")
             linkRow("Mensa & Speiseplan", "fork.knife", WebLinks.canteen)
         } header: {
             Text("Schnellzugriff")
         } footer: {
-            Text("Öffnet sich im eingebauten Browser. Prüfungsanmeldung und Noten laufen an der LUH über QIS und nicht über Stud.IP — dafür gibt es keine Schnittstelle.")
+            Text("Öffnet sich im eingebauten Browser. Prüfungsanmeldung und Noten laufen über QIS und nicht über Stud.IP — dafür gibt es keine Schnittstelle.")
         }
     }
 
@@ -175,7 +175,7 @@ struct SettingsView: View {
                 } footer: {
                     // Der Handel steht ausführlich in `Preferences`.
                     Text(preferences.sharesWebSession
-                         ? "Die Anmeldung läuft in der Safari-Sitzung. Weil Stud.IP an der LUH über Shibboleth anmeldet, bist du damit auch auf allen Seiten angemeldet, die StudGo öffnet — Eintragen, Profilbild, QIS. Wirkt ab der nächsten Anmeldung."
+                         ? "Die Anmeldung läuft in der Safari-Sitzung. Weil Stud.IP über Shibboleth anmeldet, bist du damit auch auf allen Seiten angemeldet, die StudGo öffnet — Eintragen, Profilbild, QIS. Wirkt ab der nächsten Anmeldung."
                          : "Die Anmeldung läuft in einer eigenen Sitzung: Es bleibt kein Cookie in Safari zurück, dafür verlangt jede geöffnete Stud.IP-Seite eine eigene Anmeldung. Wirkt ab der nächsten Anmeldung.")
                 }
 
@@ -346,7 +346,7 @@ struct AboutView: View {
                     AppLogoView(size: 62, cornerRadius: 14)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("StudGo").font(.title3.bold())
-                        Text("Ein quelloffenes Studierendenprojekt für Stud.IP an der Leibniz Universität Hannover. Keine offizielle App der Universität.")
+                        Text("Ein quelloffenes Studierendenprojekt, das Stud.IP auf dem Telefon bedienbar macht. Keine offizielle App einer Hochschule.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -416,7 +416,7 @@ struct MailSetupView: View {
     var body: some View {
         List {
             Section {
-                Text("Uni-Mail und Uni-Kalender laufen am besten in den Apps des Geräts: Einstellungen → Apps → Mail → Accounts → Account hinzufügen → Andere. Benutzername und Passwort sind die der zentralen LUH-Kennung.")
+                Text("Uni-Mail und Uni-Kalender laufen am besten in den Apps des Geräts: Einstellungen → Apps → Mail → Accounts → Account hinzufügen → Andere. Benutzername und Passwort sind die der zentralen Uni-Kennung.")
                     .font(.callout)
             }
 

@@ -38,11 +38,21 @@ struct LoginView: View {
             AppLogoView(size: 132, cornerRadius: 30)
                 .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
 
-            Text("Stud.IP der Leibniz Universität Hannover —\naufs Wesentliche reduziert.")
+            Text("Dein Stud.IP —\naufs Wesentliche reduziert.")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
                 .padding(.top, 18)
+                .padding(.horizontal, 32)
+
+            // Steht hier und nicht in den Einstellungen: Wer die App zum
+            // ersten Mal öffnet — Studierende wie die App-Prüfung — soll die
+            // Unabhängigkeit lesen, bevor er sich anmeldet, nicht danach.
+            Text("Privates, quelloffenes Studierendenprojekt. Keine offizielle App einer Hochschule.")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.6))
+                .multilineTextAlignment(.center)
+                .padding(.top, 10)
                 .padding(.horizontal, 32)
 
             Spacer(minLength: 32)

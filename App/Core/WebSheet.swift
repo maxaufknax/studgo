@@ -47,14 +47,14 @@ private struct DemoWebNotice: View {
                 Label("Weiter geht es in Stud.IP", systemImage: "globe.badge.chevron.backward")
             } description: {
                 VStack(spacing: 12) {
-                    Text("Im angemeldeten Betrieb öffnet dieser Knopf eine Seite der Leibniz Universität Hannover — dort wird ein- und ausgetragen, das Profilbild geändert und die Prüfungsverwaltung erreicht.")
+                    Text("Im angemeldeten Betrieb öffnet dieser Knopf eine Seite deiner Hochschule — dort wird ein- und ausgetragen, das Profilbild geändert und die Prüfungsverwaltung erreicht.")
 
                     Text(url.absoluteString)
                         .font(.footnote.monospaced())
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
 
-                    Text("Die Seite verlangt eine Kennung der LUH und bleibt in der Demo deshalb außen vor.")
+                    Text("Die Seite verlangt eine Uni-Kennung und bleibt in der Demo deshalb außen vor.")
                 }
                 .multilineTextAlignment(.center)
             }

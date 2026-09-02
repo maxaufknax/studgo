@@ -1,8 +1,8 @@
 # StudGo
 
-Native iOS-App für **Stud.IP an der Leibniz Universität Hannover**.
-Kein eigenes Backend: Die App spricht direkt mit `studip.uni-hannover.de`,
-Zugangstoken liegen ausschließlich in der Keychain des Geräts.
+Native iOS-App für **Stud.IP**, eingerichtet auf die Installation unter
+`studip.uni-hannover.de`. Kein eigenes Backend: Die App spricht direkt mit
+diesem Server, Zugangstoken liegen ausschließlich in der Keychain des Geräts.
 
 Quelloffenes Studierendenprojekt, keine offizielle App der Universität.
 
@@ -23,8 +23,8 @@ Anmeldung über **OAuth2 Authorization Code Flow mit PKCE** in einer
 
 ### Ohne Konto: der Demo-Modus
 
-Die Anmeldung führt über Shibboleth; ohne Kennung der Leibniz Universität
-kommt man dort nicht durch. Auf dem Anmeldebildschirm führt deshalb
+Die Anmeldung führt über Shibboleth; ohne Uni-Kennung kommt man dort nicht
+durch. Auf dem Anmeldebildschirm führt deshalb
 **„Demo ohne Anmeldung ansehen"** in eine vollständige Fassung der App mit
 erfundenen Beispieldaten — ohne Konto, ohne Netzverbindung.
 
@@ -102,7 +102,7 @@ Alle verifizierten Endpunkte, Attributnamen und Fehlerformate stehen in
 
 ## Offener Punkt: Client-Typ
 
-Der OAuth-Client der LUH ist als *confidential client* registriert — der
+Der OAuth-Client ist als *confidential client* registriert — der
 Token-Endpunkt verlangt zwingend das `client_secret`. Für eine App ohne Backend
 gehört der Client auf *public* (PKCE-only) umgestellt; eine entsprechende
 Anfrage liegt beim E-Learning-Service der ZQS.
