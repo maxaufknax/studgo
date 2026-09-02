@@ -154,6 +154,25 @@ Zwei Dinge daran sind wichtiger, als sie aussehen:
 Die Suite ist `.serialized`: Die schreibenden Prüfungen teilen sich
 `DemoStore.shared`.
 
+## Die Universität kommt in sichtbaren Texten nicht vor
+
+Apple hat 1.5.0 am 2026-09-02 nach **4.1(b)** zurückgewiesen: Die Metadaten
+nannten die Leibniz Universität Hannover, ohne dass eine Berechtigung dafür
+belegt war. Seit 1.5.1 gilt deshalb:
+
+- **Kein** „Leibniz Universität Hannover", kein „LUH" in Zeichenketten, die
+  jemand in der App liest — Ansichtstexte, Hinweise, Namen von Farbwelten.
+  In Kommentaren und Dokumentation ist es unverändert richtig und bleibt.
+- Erlaubt und gewollt bleibt die **Serveradresse** `studip.uni-hannover.de`
+  dort, wo sie technisch nötig ist (Anmeldehinweis, Datenschutzabschnitt):
+  Ohne sie wüsste niemand, mit welcher Installation die App spricht.
+- Statt der Universität steht in Texten „deine Hochschule", „Uni-Kennung",
+  „auf dem Campus".
+
+Wer eine Nennung wieder aufnimmt, holt vorher die schriftliche Bestätigung der
+ZQS ein (Entwurf: `docs/mail-an-philipp-genehmigung.md`) — sonst kommt derselbe
+Reject zurück. Der Vorgang steht in `docs/app-review-antwort.md`.
+
 ## Offene Punkte
 
 - `App/Core/PKCE.swift` verwirft den Rückgabewert von `SecRandomCopyBytes`.

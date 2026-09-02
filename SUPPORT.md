@@ -1,6 +1,6 @@
 # StudGo — Hilfe und Kontakt
 
-**StudGo** bringt das Stud.IP der Leibniz Universität Hannover aufs iPhone:
+**StudGo** bringt dein Stud.IP aufs Telefon:
 Stundenplan, Veranstaltungen, Termine, Postfach, Dateien und Campus.
 
 ## Kontakt
@@ -16,7 +16,7 @@ Antwort in der Regel innerhalb weniger Tage.
 
 ## Häufige Fragen
 
-### Ich habe keine Kennung der Leibniz Universität. Kann ich die App trotzdem ansehen?
+### Ich habe keine Uni-Kennung. Kann ich die App trotzdem ansehen?
 
 Ja. Auf dem Anmeldebildschirm führt **„Demo ohne Anmeldung ansehen"** in
 eine vollständige Fassung der App mit Beispieldaten — ohne Konto, ohne
@@ -47,7 +47,7 @@ den Knopf dorthin gibt es unter „Kurse".
 
 ### Wo sind Prüfungsanmeldung und Noten?
 
-An der LUH laufen Prüfungen über **QIS** (HISinOne), nicht über Stud.IP —
+Prüfungen laufen über **QIS** (HISinOne), nicht über Stud.IP —
 dafür gibt es keine Schnittstelle. Unter *Profil → Schnellzugriff* führt ein
 Knopf direkt dorthin.
 
@@ -63,7 +63,7 @@ im Hintergrund gelegentlich nach neuen Nachrichten. Einstellbar unter
 Beiträge in Blubber, Foren und Wikis stammen aus dem Stud.IP der Universität;
 alle Beteiligten sind dort mit ihrem echten Namen angemeldet. Meldungen
 laufen über die Universität — schreib der Veranstaltungsleitung über das
-Postfach oder wende dich an den Support der LUH. Wenn dir in der App etwas
+Postfach oder wende dich an den Support deiner Hochschule. Wenn dir in der App etwas
 begegnet, das dort nicht stehen sollte, schreib mir gern zusätzlich an die
 Adresse oben; ich leite es weiter.
 
