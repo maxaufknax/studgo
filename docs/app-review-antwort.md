@@ -38,12 +38,16 @@ ist die andere Hälfte derselben Richtlinie.
 
 1. ✅ Metadaten (Untertitel, Beschreibung, Werbetext, Keywords, Prüfhinweise)
 2. ✅ App-Text und Farbwelt entmarkt
-3. ⏳ Build 25 bei Codemagic (Tag `v1.5.1`)
-4. ⏳ Version in ASC auf `1.5.1` setzen, Build anhängen
-5. ⏳ Abgelehnte Submission `38557e5c…` canceln — sie steht auf
-   `UNRESOLVED_ISSUES` und blockiert die Version, sonst kommt beim Einreichen
+3. ✅ Build 25 bei Codemagic (Tag `v1.5.1`, angestoßen über die API — der
+   Tag-Push allein löste **keinen** Build aus)
+4. ✅ Aufnahmen: der alte iPad-Satz (Build-24-Stand, echtes Konto, „Leibniz
+   Blau"/„der LUH" sichtbar) ist aufgelöst; im iPhone-Satz stehen sieben neue
+   Demo-Aufnahmen in der Reihenfolge 1–7
+5. ✅ Version in ASC auf `1.5.1` gesetzt, Build 25 angehängt
+6. ✅ Abgelehnte Submission `38557e5c…` gecancelt — sie stand auf
+   `UNRESOLVED_ISSUES` und blockierte die Version, sonst kommt beim Einreichen
    ein irreführender 409
-6. ⏳ Text unten ins Resolution Center, dann neu einreichen
+7. ⏳ Text unten ins Resolution Center (von Hand, nicht in der API)
 
 ---
 
