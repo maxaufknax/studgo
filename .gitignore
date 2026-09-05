@@ -31,3 +31,6 @@ docs/mail-*.md
 .build/
 .swiftpm/
 .swiftpm-home/
+
+# App-Store-Aufnahmen (Marketing, nicht im Quelltext gebraucht)
+store/
