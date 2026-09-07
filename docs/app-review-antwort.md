@@ -91,7 +91,8 @@ the user who posted it.
 
 All of this is reachable without an account: on the first screen, accept the
 terms, then tap "Demo ohne Anmeldung ansehen" (the bordered button with a play
-icon). The demo contains fictional data and makes no network request.
+icon). The demo runs on fictional data and contacts no university server; a
+report sent from it does reach our report endpoint, which is the point of it.
 
 Best regards,
 Maximilian Paasch
