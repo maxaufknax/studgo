@@ -266,6 +266,7 @@ struct ForumCategoryView: View {
                 }
                 .padding(.vertical, 2)
             }
+            .moderated(entry.moderationTarget)
         }
         .listStyle(.insetGrouped)
         .overlay {
@@ -318,6 +319,7 @@ struct ForumEntryView: View {
                             }
                             FormattedText(raw: reply.content)
                         }
+                        .moderated(reply.moderationTarget)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .card()
                     }

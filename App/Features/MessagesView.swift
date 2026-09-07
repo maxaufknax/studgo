@@ -86,6 +86,11 @@ struct MailboxView: View {
             PushLink(value: message) {
                 MessageRow(message: message, outgoing: isOutgoing)
             }
+            .moderated(ModerationTarget(kind: .message,
+                                        contentID: message.id,
+                                        authorID: isOutgoing ? nil : message.senderID,
+                                        authorName: isOutgoing ? nil : message.senderName,
+                                        text: "\(message.subject)\n\(message.preview)"))
             .swipeActions(edge: .leading) {
                 if !isOutgoing {
                     Button {
@@ -537,6 +542,13 @@ struct BlubberThreadView: View {
                 }
                 .accessibilityLabel("In Stud.IP öffnen")
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                ModerationMenu(target: ModerationTarget(kind: .blubberThread,
+                                                        contentID: thread.id,
+                                                        authorID: nil,
+                                                        authorName: nil,
+                                                        text: shown.preview))
+            }
         }
         .sheet(item: $webTarget) { target in
             WebSheet(url: target.url)
@@ -561,9 +573,17 @@ struct BlubberThreadView: View {
                     opener
 
                     ForEach(comments.value ?? []) { comment in
-                        BlubberCommentBubble(comment: comment,
-                                             isOwn: comment.authorID == auth.currentUserID)
+                        let isOwn = comment.authorID == auth.currentUserID
+                        BlubberCommentBubble(comment: comment, isOwn: isOwn)
                             .id(comment.id)
+                            // Eigene Beiträge bleiben unangetastet: Sich
+                            // selbst zu melden ergibt nichts, und blockieren
+                            // liesse sich dabei nur die eigene Person.
+                            .moderated(ModerationTarget(kind: .blubberComment,
+                                                        contentID: comment.id,
+                                                        authorID: isOwn ? nil : comment.authorID,
+                                                        authorName: isOwn ? nil : comment.authorName,
+                                                        text: comment.text))
                     }
 
                     if isBlank && !comments.isLoading { blankNote }
@@ -943,6 +963,15 @@ struct MessageDetailView: View {
                     Label("Antworten", systemImage: "arrowshape.turn.up.left")
                 }
                 .disabled(message.senderID == nil || outgoing)
+            }
+            if !outgoing {
+                ToolbarItem(placement: .topBarTrailing) {
+                    ModerationMenu(target: ModerationTarget(kind: .message,
+                                                            contentID: message.id,
+                                                            authorID: message.senderID,
+                                                            authorName: message.senderName,
+                                                            text: "\(message.subject)\n\(message.preview)"))
+                }
             }
         }
         .sheet(isPresented: $isReplying) {

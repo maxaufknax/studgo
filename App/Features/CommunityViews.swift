@@ -15,9 +15,11 @@ struct PersonSheet: View {
     var isContact: Bool?
 
     @Environment(AuthStore.self) private var auth
+    @Environment(ModerationStore.self) private var moderation
     @Environment(\.dismiss) private var dismiss
 
     @State private var isComposing = false
+    @State private var moderationSheet: ModerationSheetMode?
     @State private var contactState: Bool?
     @State private var isWorking = false
     @State private var message: String?
@@ -76,6 +78,37 @@ struct PersonSheet: View {
                         Text(message).font(.caption)
                     }
                 }
+
+                // Melden und Blockieren stehen für sich: Wer hierher kommt,
+                // weil ihn jemand belästigt, soll nicht zwischen
+                // Sprechstunden und Kontakten danach suchen.
+                if personID != auth.currentUserID {
+                    Section {
+                        if moderation.isBlocked(personID) {
+                            Button {
+                                moderation.unblock(id: personID)
+                            } label: {
+                                RowLabel(symbol: "hand.raised.slash",
+                                         title: "Blockierung aufheben",
+                                         subtitle: "Beiträge dieser Person wieder anzeigen")
+                            }
+                        } else {
+                            Button(role: .destructive) {
+                                moderationSheet = .block
+                            } label: {
+                                RowLabel(symbol: "hand.raised",
+                                         title: "Person blockieren",
+                                         subtitle: "Beiträge und Nachrichten sofort ausblenden")
+                            }
+                        }
+
+                        Button(role: .destructive) {
+                            moderationSheet = .report
+                        } label: {
+                            RowLabel(symbol: "flag", title: "Person melden")
+                        }
+                    }
+                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Person")
@@ -87,6 +120,14 @@ struct PersonSheet: View {
             }
             .sheet(isPresented: $isComposing) {
                 ComposeMessageView(presetRecipientID: personID)
+            }
+            .sheet(item: $moderationSheet) { mode in
+                ReportSheet(target: ModerationTarget(kind: .person,
+                                                     contentID: personID,
+                                                     authorID: personID,
+                                                     authorName: name,
+                                                     text: subtitle ?? name),
+                            mode: mode)
             }
             .task { await determineContactState() }
         }
