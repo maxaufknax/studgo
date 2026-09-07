@@ -1,103 +1,97 @@
-# Antwort an App Review — Reject vom 2026-09-02 (Submission 38557e5c…)
+# App Review — der Vorgang zu 1.5.x
 
-Apple hat 1.5.0 (Build 24) aus zwei Gründen abgelehnt:
+Zwei Ablehnungen, zwei Runden. Diese Datei hält beide fest und trägt den Text,
+der ins Resolution Center gehört (das ist **nicht** Teil der
+App-Store-Connect-API und muss von Hand eingefügt werden).
 
-- **5.2.5** — „iPhone" stand im Untertitel (`Stud.IP der LUH fürs iPhone`).
-- **4.1(b)** — die Metadaten nannten die Leibniz Universität Hannover
-  prominent; Apple wollte dafür einen dokumentierten Nachweis sehen.
+| Datum | Fassung | Beanstandung | Antwort |
+| --- | --- | --- | --- |
+| 2026-09-02 | 1.5.0 (24) | **5.2.5** „iPhone“ im Untertitel; **4.1(b)** LUH ohne Nachweis | Untertitel geändert, Universität aus App und Angaben entfernt → 1.5.1 |
+| 2026-09-07 | 1.5.1 (25) | **1.2** fremde Inhalte ohne Schutzvorkehrungen | fünf Vorkehrungen eingebaut → 1.5.2 |
 
-**Entschieden am 2026-09-02:** Statt auf eine Bestätigung der Universität zu
-warten, verschwindet die Universität aus App und Store-Angaben. StudGo ist
-damit ein Client für Stud.IP, der zufällig auf eine bestimmte Installation
-zeigt — und braucht keine fremde Marke mehr.
+## Runde 2: Richtlinie 1.2
 
-Das Resolution Center ist **nicht** Teil der App-Store-Connect-API; der
-englische Text unten muss von Hand in ASC eingefügt werden. Die Prüfhinweise
-(`appStoreReviewDetails.notes`), die derselbe Prüfer sieht, stehen bereits per
-API auf demselben Stand.
+Apple verlangt fünf Dinge. Wo sie in StudGo stecken:
 
-## Was geändert wurde
-
-| Wo | Vorher | Jetzt |
+| Verlangt | In der App | Quelltext |
 | --- | --- | --- |
-| Untertitel | `Stud.IP der LUH fürs iPhone` | `Dein Studienalltag mit Stud.IP` |
-| Beschreibung | begann mit der Universität, Disclaimer ganz unten | beginnt mit „privates, quelloffenes Studierendenprojekt … keine offizielle App einer Hochschule"; Universität kommt nicht mehr vor |
-| Werbetext | „… der Leibniz Universität Hannover …" | „… aus deinem Stud.IP …", plus „Unabhängiges Studierendenprojekt" |
-| Keywords | `Hannover,LUH,Uni,…` | `LUH` entfernt |
-| Anmeldebildschirm | „Stud.IP der Leibniz Universität Hannover" | „Dein Stud.IP" + Unabhängigkeitshinweis |
-| Einstellungen, Web-Blätter | „an der LUH", „Kennung der LUH" | „auf dem Campus", „Uni-Kennung" |
-| Farbwelt | „Leibniz Blau — Das Blau der Leibniz Universität" | „StudGo Blau — Das Blau der Wortmarke" |
+| Zustimmung zu Nutzungsbedingungen **vor** der Anmeldung | Anmeldebildschirm, unter den Knöpfen; beide Knöpfe bleiben ohne Zustimmung gesperrt | `TermsGate`, `App/Core/Terms.swift` |
+| Filter gegen anstößige Inhalte | verdeckt Beiträge („Inhalt verdeckt“), Schalter unter *Profil → Melden und Blockieren* | `ContentFilter` |
+| Beiträge melden | langes Tippen auf jeden fremden Beitrag; in Detailansichten das „…“-Menü | `.moderated(_:)`, `ReportSheet` |
+| Personen blockieren, Inhalte sofort weg | Kontextmenü und Personenblatt; Liste unter *Profil → Melden und Blockieren* | `Blocklist`, `ModerationStore.verdict` |
+| Entwickler erfährt davon, reagiert in 24 h | POST an `studgo.maxaufknax.de/report`, Rückfall auf E-Mail | `ReportSubmitter`, `docker/studgo-reports/` |
 
-Stehen bleibt **eine** Nennung, und zwar bewusst: die Serveradresse
-`studip.uni-hannover.de` im Datenschutzabschnitt und im Absatz „Welcher
-Server". Ohne sie wüsste niemand vor dem Laden, mit welcher
-Stud.IP-Installation die App spricht — das wäre irreführend, und irreführend
-ist die andere Hälfte derselben Richtlinie.
+Der Wortfilter vergleicht **ganze Wörter**. Das ist der Punkt, an dem solche
+Filter üblicherweise scheitern: Ein `contains` verdeckte „Analysis“ wegen der
+ersten vier Buchstaben. `ContentFilterTests` hält eine Liste harmloser
+Uni-Wörter dagegen.
 
-## Ablauf bis zur Neueinreichung
+## Was Maximilian noch tun muss
 
-1. ✅ Metadaten (Untertitel, Beschreibung, Werbetext, Keywords, Prüfhinweise)
-2. ✅ App-Text und Farbwelt entmarkt
-3. ✅ Build 25 bei Codemagic (Tag `v1.5.1`, angestoßen über die API — der
-   Tag-Push allein löste **keinen** Build aus)
-4. ✅ Aufnahmen: der alte iPad-Satz (Build-24-Stand, echtes Konto, „Leibniz
-   Blau"/„der LUH" sichtbar) ist aufgelöst; im iPhone-Satz stehen sieben neue
-   Demo-Aufnahmen in der Reihenfolge 1–7
-5. ✅ Version in ASC auf `1.5.1` gesetzt, Build 25 angehängt
-6. ✅ Abgelehnte Submission `38557e5c…` gecancelt — sie stand auf
-   `UNRESOLVED_ISSUES` und blockierte die Version, sonst kommt beim Einreichen
-   ein irreführender 409
-7. ⏳ Text unten ins Resolution Center (von Hand, nicht in der API)
+1. **Codemagic-Token erneuern** (`./tools/codemagic-setup.sh`) — der alte ist
+   abgelaufen, der Tag `v1.5.2` liegt gepusht bereit, Build 26 fehlt noch.
+2. **Bildschirmaufnahme auf einem echten iPhone.** Apple verlangt sie
+   ausdrücklich; sie muss drei Dinge zeigen (Reihenfolge egal, ein Durchlauf
+   genügt, ~60 Sekunden):
+   * **Nutzungsbedingungen vor der Anmeldung** — App frisch starten, zeigen,
+     dass „Mit Stud.IP anmelden“ und „Demo ohne Anmeldung ansehen“ **grau**
+     sind, dann unten auf „Nutzungsbedingungen lesen und annehmen“ tippen,
+     durch den Text scrollen, „Zustimmen und fortfahren“ drücken — und dass
+     die Knöpfe jetzt aktiv sind.
+   * **Melden** — Demo öffnen → *Postfach* → *Chats* → einen Faden öffnen →
+     lange auf einen fremden Beitrag tippen → „Beitrag melden“ → Grund wählen
+     → „Senden“ → die Bestätigung zeigen.
+   * **Blockieren** — im selben Menü „Person blockieren“ (oder *Campus →
+     Verzeichnis → Personen → eine Person → Person blockieren*) und zeigen,
+     dass die Beiträge sofort verschwinden. Danach kurz *Profil → Melden und
+     Blockieren* öffnen: Dort steht die Person, mit „Aufheben“.
+3. **Aufnahme + Text unten** ins Resolution Center (Video als Anhang).
 
----
+## Der Text fürs Resolution Center
 
 Hello,
 
-thank you for the detailed review. Both issues are addressed in build 25.
+thank you for the detailed review. All five precautions required by guideline
+1.2 are implemented in build 26 (version 1.5.2), and the attached screen
+recording, captured on a physical iPhone, shows the three you asked to see.
 
-**Guideline 5.2.5 — Apple trademark in the subtitle**
+**1 — Terms of use before signing in.** The first screen now carries
+"Nutzungsbedingungen lesen und annehmen" below the buttons. Until they are
+accepted, both the sign-in button and the demo button are disabled, so no
+content is reachable before agreement. The terms state explicitly that there
+is no tolerance for objectionable content or abusive users, that offending
+users are excluded from the app, and that reports are acted on within 24
+hours. The same text is now filed as the app's custom license agreement in App
+Store Connect and can be re-read in the app under Profil > Melden und
+Blockieren > Nutzungsbedingungen.
 
-You are right. The subtitle read "Stud.IP der LUH fürs iPhone". The word
-"iPhone" has been removed; the subtitle now reads "Dein Studienalltag mit
-Stud.IP". No Apple trademark or Apple-like design element appears in the app
-name, subtitle, description, promotional text, keywords, icon or screenshots.
+**2 — Filtering objectionable content.** Posts containing abusive language are
+replaced by a curtain ("Inhalt verdeckt — Könnte anstößig sein") with a
+button to reveal them deliberately. It is on by default and can be switched in
+Profil > Melden und Blockieren.
 
-**Guideline 4.1(b) — reference to Leibniz University Hannover**
+**3 — Flagging.** Every post written by someone else can be reported: long
+press it and choose "Beitrag melden", or use the "…" menu at the top right of
+any detail screen. This covers the chat (Blubber), the mailbox, course forums,
+announcements, the activity feed and user profiles. The user picks a reason
+and may add a note.
 
-Rather than claim a relationship, we have removed the university from the app
-and from its metadata:
+**4 — Blocking.** The same menu offers "Person blockieren", as does every user
+profile. A blocked user disappears from every list in the app immediately —
+posts, messages, forum entries and activity. Blocked users are listed under
+Profil > Melden und Blockieren and can be unblocked there.
 
-- Subtitle, description, promotional text and keywords no longer name the
-  university. The description now opens by stating that StudGo is a private,
-  open-source student project and not an official app of any university.
-- Inside the app, every user-facing string that named the university has been
-  rewritten — sign-in screen, settings, in-app web sheets — and a colour theme
-  that carried the university's name is now named after our own wordmark.
-- No logo, wordmark, corporate colour or other brand asset of any university
-  is or ever was used. The icon is our own wordmark, and every screenshot
-  shows our own interface filled with fictional demo data.
+**5 — We are notified and act within 24 hours.** Every report and every block
+is sent to a service we run for exactly this purpose
+(https://studgo.maxaufknax.de/report). It files the report and pushes a
+message to the developer's phone immediately; if the endpoint cannot be
+reached, the app opens a prepared email instead, so no report is lost. We
+review every report within 24 hours, remove objectionable content and eject
+the user who posted it.
 
-One factual statement remains, and we would ask you to allow it: the server
-address studip.uni-hannover.de, in the privacy section of the description and
-in a short paragraph explaining which Stud.IP installation the app connects
-to. Users need to know that before they download the app; leaving it out would
-mislead them. Access to that server runs through an OAuth2 client (client_id
-15) that the university's own IT service created for this app on August 24,
-2026, and sign-in goes through the university's identity provider, so the
-university controls and can withdraw access at any time.
-
-For context: Stud.IP is campus management software by Stud.IP e.V. used by
-around 70 German universities. StudGo is a client for it and describes itself
-as such — in the same sense that a mail app is a client for an IMAP server. No
-affiliation with Stud.IP e.V. or with any university is claimed anywhere.
-
-To see the app without an account, tap "Demo ohne Anmeldung ansehen" on the
-first screen (the bordered button with a play icon below the blue sign-in
-button). It opens the complete app with fictional data and makes no network
-request.
-
-If anything is still missing, please tell us specifically what you need and we
-will provide it.
+All of this is reachable without an account: on the first screen, accept the
+terms, then tap "Demo ohne Anmeldung ansehen" (the bordered button with a play
+icon). The demo contains fictional data and makes no network request.
 
 Best regards,
 Maximilian Paasch

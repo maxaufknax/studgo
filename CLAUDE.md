@@ -173,6 +173,36 @@ Wer eine Nennung wieder aufnimmt, holt vorher die schriftliche Bestätigung der
 ZQS ein (Entwurf: `docs/mail-an-philipp-genehmigung.md`) — sonst kommt derselbe
 Reject zurück. Der Vorgang steht in `docs/app-review-antwort.md`.
 
+## Fremde Inhalte: melden, blockieren, filtern
+
+Apple hat 1.5.1 am 2026-09-07 nach **Richtlinie 1.2** abgelehnt — StudGo zeigt
+Inhalte, die andere Menschen geschrieben haben, und brauchte dafür fünf
+Vorkehrungen. Seit 1.5.2 sind sie da; wer an den Ansichten arbeitet, sollte
+zwei Dinge wissen:
+
+1. **Jede Ansicht, die fremde Beiträge zeigt, hängt `.moderated(_:)` an die
+   Zeile.** Der Anhänger entscheidet über `ModerationStore.verdict` drei
+   Fälle: blockiert (Zeile verschwindet), gefiltert (Vorhang mit „Anzeigen"),
+   sichtbar — und trägt in jedem Fall das Kontextmenü zum Melden. Kommt eine
+   neue Liste mit fremden Inhalten dazu, gehört der Anhänger dran, sonst
+   fehlt dort beides.
+2. **Der Wortfilter vergleicht ganze Wörter, nie Teilzeichenketten.**
+   `ContentFilter` zerlegt den Text und prüft Wort für Wort; ein `contains`
+   verdeckte „Analysis" wegen seiner ersten vier Buchstaben. Wer die Liste
+   erweitert, lässt `ContentFilterTests` mitlaufen — dort steht eine Sammlung
+   harmloser Uni-Wörter, die sichtbar bleiben müssen.
+
+Der Text der Nutzungsbedingungen steht in `App/Core/Terms.swift`, nicht in der
+Ansicht: `TermsTests` besteht darauf, dass die Zusagen (Null Toleranz,
+Ausschluss, Melden, Blockieren, 24 Stunden) darin bleiben. Ändert sich der
+Text inhaltlich, `ModerationStore.termsVersion` hochzählen — dann wird erneut
+zugestimmt.
+
+Meldungen gehen an `studgo.maxaufknax.de/report`; der Dienst liegt im
+Docker-Stack unter `docker/studgo-reports/` und schreibt jede Meldung in eine
+JSON-Akte **und** in den Matrix-Raum. Ist er nicht erreichbar, öffnet die App
+die vorbereitete E-Mail.
+
 ## Offene Punkte
 
 - `App/Core/PKCE.swift` verwirft den Rückgabewert von `SecRandomCopyBytes`.
