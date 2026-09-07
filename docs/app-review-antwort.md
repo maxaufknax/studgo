@@ -31,20 +31,21 @@ Uni-Wörter dagegen.
 1. **Codemagic-Token erneuern** (`./tools/codemagic-setup.sh`) — der alte ist
    abgelaufen, der Tag `v1.5.2` liegt gepusht bereit, Build 26 fehlt noch.
 2. **Bildschirmaufnahme auf einem echten iPhone.** Apple verlangt sie
-   ausdrücklich; sie muss drei Dinge zeigen (Reihenfolge egal, ein Durchlauf
-   genügt, ~60 Sekunden):
-   * **Nutzungsbedingungen vor der Anmeldung** — App frisch starten, zeigen,
-     dass „Mit Stud.IP anmelden“ und „Demo ohne Anmeldung ansehen“ **grau**
-     sind, dann unten auf „Nutzungsbedingungen lesen und annehmen“ tippen,
-     durch den Text scrollen, „Zustimmen und fortfahren“ drücken — und dass
-     die Knöpfe jetzt aktiv sind.
-   * **Melden** — Demo öffnen → *Postfach* → *Chats* → einen Faden öffnen →
-     lange auf einen fremden Beitrag tippen → „Beitrag melden“ → Grund wählen
-     → „Senden“ → die Bestätigung zeigen.
-   * **Blockieren** — im selben Menü „Person blockieren“ (oder *Campus →
-     Verzeichnis → Personen → eine Person → Person blockieren*) und zeigen,
-     dass die Beiträge sofort verschwinden. Danach kurz *Profil → Melden und
-     Blockieren* öffnen: Dort steht die Person, mit „Aufheben“.
+   ausdrücklich („captured on a physical device"), ein Simulator-Mitschnitt
+   zählt nicht. Ein Durchlauf, ~60 Sekunden.
+
+   **Vorher unbedingt: die App vom Gerät löschen** und Build 26 frisch aus
+   TestFlight installieren. Die Zustimmung liegt in den `UserDefaults`; ist
+   sie einmal erteilt, lässt sich der gesperrte Zustand nicht mehr zeigen,
+   und genau der ist Apples erster Punkt.
+
+   | Szene | Was zu tun ist | Worauf es ankommt |
+   | --- | --- | --- |
+   | 1 — Bedingungen | App starten. Kurz auf beide Knöpfe deuten, dann unten „Nutzungsbedingungen lesen und annehmen" tippen, durch den Text scrollen, „Zustimmen und fortfahren" | Dass **beide** Knöpfe vorher grau sind und danach aktiv — das ist „presented **before** registering or logging in" |
+   | 2 — Melden | „Demo ohne Anmeldung ansehen" → *Postfach* → *Chats* → einen Faden öffnen → **lange** auf einen fremden Beitrag tippen → „Beitrag melden" → Grund wählen → „Senden" | Die Bestätigung „Die Meldung ist angekommen" ruhig eine Sekunde stehen lassen |
+   | 3 — Blockieren | Zurück zu *Postfach* → *Nachrichten* → lange auf eine Nachricht einer anderen Person → „Person blockieren" → „Blockieren" | Dass die Zeile **sofort** aus der Liste verschwindet — das ist Apples „remove it from the user's feed instantly" |
+   | 4 — Nachweis | *Campus*-Reiter → Personensymbol oben rechts → *Melden und Blockieren* | Die blockierte Person steht in der Liste, mit „Aufheben" |
+
 3. **Aufnahme + Text unten** ins Resolution Center (Video als Anhang).
 
 ## Der Text fürs Resolution Center
