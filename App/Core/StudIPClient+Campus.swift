@@ -186,14 +186,26 @@ extension StudIPClient {
     }
 
     func forumEntries(in category: ForumCategory, limit: Int = 100) async throws -> [ForumEntry] {
-        try await get("/v1/forum-categories/\(category.id)/entries", limit: limit)
-            .resources.compactMap(ForumEntry.init)
+        Self.forumEntries(from: try await get("/v1/forum-categories/\(category.id)/entries", limit: limit))
     }
 
     /// Die Antworten auf einen Beitrag.
     func forumEntries(under entry: ForumEntry, limit: Int = 200) async throws -> [ForumEntry] {
-        try await get("/v1/forum-entries/\(entry.id)/entries", limit: limit)
-            .resources.compactMap(ForumEntry.init)
+        Self.forumEntries(from: try await get("/v1/forum-entries/\(entry.id)/entries", limit: limit))
+    }
+
+    /// Setzt Beiträge mit ihren Verfassern zusammen.
+    ///
+    /// Der Name steht nur dann dabei, wenn die Antwort die Person unter
+    /// `included` mitgeschickt hat — angefordert wird sie nicht extra: Eine
+    /// zweite Runde je Beitrag wäre für einen Namen zu teuer, und fürs
+    /// Blockieren genügt die Kennung.
+    static func forumEntries(from document: JSONAPIDocument) -> [ForumEntry] {
+        document.resources.compactMap { resource in
+            let author = (resource.relatedID("author") ?? resource.relatedID("user"))
+                .flatMap { document.included["users:\($0)"] }
+            return ForumEntry(resource, author: author)
+        }
     }
 
     /// Auf einen Forenbeitrag antworten.

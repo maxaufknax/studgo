@@ -24,6 +24,11 @@ struct ActivityDetailView: View {
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle(item.kindLabel)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ModerationMenu(target: item.moderationTarget)
+            }
+        }
         .navigationBarTitleDisplayMode(.inline)
     }
 

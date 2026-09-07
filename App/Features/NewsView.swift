@@ -25,6 +25,7 @@ struct NewsView: View {
 
             List(current.value ?? []) { item in
                 PushLink(value: item) { NewsRow(item: item) }
+                    .moderated(item.moderationTarget)
             }
             .listStyle(.insetGrouped)
             .overlay {
