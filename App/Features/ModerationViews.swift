@@ -46,9 +46,15 @@ private struct ModerationModifier: ViewModifier {
         Group {
             switch moderation.verdict(text: target.text, authorID: target.authorID) {
             case .blocked:
-                // Nichts. Wer blockiert ist, ist weg — sofort und ohne
-                // Platzhalter, der noch an die Person erinnert.
-                EmptyView()
+                // Wer blockiert ist, ist weg — sofort und ohne Platzhalter,
+                // der noch an die Person erinnert. **Nicht `EmptyView()`:**
+                // In einer `List` bleibt daraus je nach Fassung eine Zeile
+                // mit Trennstrich stehen. Eine Fläche ohne Höhe, ohne
+                // Einrückung und ohne Trenner verschwindet wirklich.
+                Color.clear
+                    .frame(height: 0)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
             case .filtered where !revealed:
                 HiddenContentNotice { revealed = true }
             default:
