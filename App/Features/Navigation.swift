@@ -93,6 +93,8 @@ enum Route: Hashable {
     case semesters
     case mailSetup
     case about
+    /// Filter, Blockliste und Nutzungsbedingungen an einer Stelle.
+    case moderation
 
     // MARK: Kalender
 
@@ -166,6 +168,7 @@ struct StudGoDestinations: ViewModifier {
         case .semesters:                      SemesterListView()
         case .mailSetup:                      MailSetupView()
         case .about:                          AboutView()
+        case .moderation:                     ModerationSettingsView()
 
         case .ownScheduleEntries:             OwnScheduleEntriesView(user: user)
         }

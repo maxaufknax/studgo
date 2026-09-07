@@ -24,6 +24,24 @@ enum AppConfig {
     /// Warum StudGo Mail nur verlinkt statt einzubauen: docs/SOGO-MAIL.md.
     static let webmailURL = URL(string: "https://kalender.uni-hannover.de/SOGo/")!
 
+    // MARK: - Meldestelle
+
+    /// Wohin Meldungen und Blockierungen gehen.
+    ///
+    /// Ein eigener kleiner Dienst auf dem Server des Entwicklers — die App
+    /// braucht ihn nur dafür. Bleibt er unerreichbar, schaltet
+    /// `ModerationStore` auf die E-Mail-Rückfallebene um; eine Meldung darf
+    /// nicht daran scheitern, dass ein Server gerade neu startet.
+    static let reportEndpoint = URL(string: "https://studgo.maxaufknax.de/report")!
+
+    /// Liegt offen im Quelltext und **soll** das auch: Er hält zufälligen Lärm
+    /// ab, mehr nicht. Wer den Endpunkt ernsthaft fluten will, kommt an
+    /// diesem Wert ohnehin vorbei — dagegen hilft nur der Server.
+    static let reportKey = "studgo-app"
+
+    /// Die Adresse für die Rückfall-E-Mail und für Rückfragen zu Meldungen.
+    static let moderationMail = "maximilian.elias.paasch@gmail.com"
+
     static let callbackScheme = "studgo"
     static let redirectURI = "studgo://oauth/callback"
     static let scope = "api"

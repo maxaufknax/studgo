@@ -6,6 +6,7 @@ struct StudGoApp: App {
     @State private var auth = AuthStore()
     @State private var theme = ThemeStore()
     @State private var preferences = Preferences()
+    @State private var moderation = ModerationStore()
     // Auffangnetz: Jeder Reiter legt in seinem `StudGoStack` einen eigenen
     // `Navigator` an, der den seinen überschreibt. Dieser hier greift nur,
     // falls eine `PushLink`-Zeile je außerhalb eines solchen Stapels landete —
@@ -34,6 +35,7 @@ struct StudGoApp: App {
                 .environment(auth)
                 .environment(theme)
                 .environment(preferences)
+                .environment(moderation)
                 .environment(NotificationRouter.shared)
                 .environment(fallbackNavigator)
                 // Akzentfarbe und Erscheinungsbild wirken auf die gesamte

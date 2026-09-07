@@ -8,6 +8,7 @@ import UIKit
 struct SettingsView: View {
     let user: StudIPUser
     @Environment(AuthStore.self) private var auth
+    @Environment(ModerationStore.self) private var moderation
     @Environment(Preferences.self) private var preferences
     @Environment(\.dismiss) private var dismiss
     @State private var showsSignOutConfirmation = false
@@ -217,6 +218,19 @@ struct SettingsView: View {
                     // Warum StudGo kein eigener Mailclient ist, steht
                     // ausführlich in docs/SOGO-MAIL.md.
                     Text("Die Uni-Mail kennt nur Anmeldung per Passwort — weder IMAP noch SOGo bieten OAuth an. StudGo fragt deshalb grundsätzlich kein Uni-Passwort ab und verweist stattdessen auf SOGo und die Mail-App des Geräts.")
+                }
+
+                // Richtlinie 1.2 verlangt, dass Filter, Meldeweg und
+                // Blockliste auffindbar sind — nicht nur dort, wo gerade
+                // etwas Anstössiges steht.
+                Section {
+                    PushLink(value: Route.moderation) {
+                        RowLabel(symbol: "hand.raised",
+                                 title: "Melden und Blockieren",
+                                 subtitle: moderation.blocklist.isEmpty
+                                    ? "Filter und Nutzungsbedingungen"
+                                    : "\(moderation.blocklist.count) blockiert")
+                    }
                 }
 
                 Section {

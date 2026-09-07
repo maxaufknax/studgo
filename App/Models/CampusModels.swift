@@ -258,12 +258,22 @@ struct ForumEntry: Identifiable, Equatable, Hashable {
     let id: String
     let title: String
     let content: String
+    /// Wer den Beitrag geschrieben hat — soweit Stud.IP es mitschickt.
+    ///
+    /// Gebraucht wird das fürs Blockieren: Ohne Kennung bleibt im Forum nur
+    /// das Melden übrig (siehe `ModerationTarget.canBlock`). Die Beziehung
+    /// heisst je nach Fassung `author` oder `user`; beide werden versucht,
+    /// und fehlt sie, ist das kein Fehler.
+    let authorID: String?
+    let authorName: String?
 
-    init?(_ resource: Resource) {
+    init?(_ resource: Resource, author: Resource? = nil) {
         guard resource.type == "forum-entries" else { return nil }
         id = resource.id
         title = resource.string("title")?.nilIfEmpty ?? "Beitrag"
         content = resource.string("content") ?? ""
+        authorID = author?.id ?? resource.relatedID("author") ?? resource.relatedID("user")
+        authorName = author.flatMap { $0.string("formatted-name") ?? $0.string("username") }
     }
 
     var text: String { StudipMarkup.plain(from: content) }

@@ -58,6 +58,7 @@ struct CampusView: View {
             } else {
                 ForEach(recentActivities) { item in
                     PushLink(value: item) { ActivityRow(item: item) }
+                        .moderated(item.moderationTarget)
                 }
                 PushLink(value: Route.activityStream) {
                     RowLabel(symbol: "clock.arrow.circlepath", title: "Ganzer Verlauf")
@@ -252,6 +253,7 @@ struct ActivityStreamView: View {
                 Section(Format.dayHeader(group.day)) {
                     ForEach(group.items) { item in
                         PushLink(value: item) { ActivityRow(item: item) }
+                            .moderated(item.moderationTarget)
                     }
                 }
             }

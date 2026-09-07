@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LoginView: View {
     @Environment(AuthStore.self) private var auth
+    @Environment(ModerationStore.self) private var moderation
 
     private static let brand = Brand.deep
 
@@ -91,7 +92,7 @@ struct LoginView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.white)
                 .controlSize(.large)
-                .disabled(auth.isWorking)
+                .disabled(auth.isWorking || !moderation.hasAcceptedTerms)
 
                 Text("Die Anmeldung läuft direkt bei studip.uni-hannover.de. StudGo speichert die Zugangstoken nur lokal auf diesem Gerät.")
                     .font(.caption2)
@@ -99,6 +100,13 @@ struct LoginView: View {
                     .multilineTextAlignment(.center)
 
                 demoSection
+
+                // Steht unter den Knöpfen und **sperrt** sie: Ohne Zustimmung
+                // führt weder die Anmeldung noch die Demo weiter. Richtlinie
+                // 1.2 verlangt die Annahme vor dem ersten Zugang, nicht
+                // irgendwann danach.
+                TermsGate()
+                    .padding(.top, 4)
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 40)
@@ -136,7 +144,7 @@ struct LoginView: View {
             .buttonStyle(.bordered)
             .tint(.white)
             .controlSize(.large)
-            .disabled(auth.isWorking)
+            .disabled(auth.isWorking || !moderation.hasAcceptedTerms)
 
             Text("Zeigt die vollständige App mit Beispieldaten — Stundenplan, Kurse, Postfach und Campus. Es werden keine Daten übertragen.")
                 .font(.caption2)
