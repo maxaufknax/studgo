@@ -8,6 +8,7 @@ App-Store-Connect-API und muss von Hand eingefügt werden).
 | --- | --- | --- | --- |
 | 2026-09-02 | 1.5.0 (24) | **5.2.5** „iPhone“ im Untertitel; **4.1(b)** LUH ohne Nachweis | Untertitel geändert, Universität aus App und Angaben entfernt → 1.5.1 |
 | 2026-09-07 | 1.5.1 (25) | **1.2** fremde Inhalte ohne Schutzvorkehrungen | fünf Vorkehrungen eingebaut → 1.5.2 |
+| 2026-09-08 | 1.5.2 (26) | — eingereicht, `WAITING_FOR_REVIEW` | Aufnahme als Anhang, Datenschutzerklärung berichtigt |
 
 ## Runde 2: Richtlinie 1.2
 
@@ -69,20 +70,51 @@ aus TestFlight installieren. Die Zustimmung liegt in den `UserDefaults`; ist
 sie einmal erteilt, lässt sich der gesperrte Zustand nicht mehr zeigen, und
 genau der ist Apples erster Punkt.
 
+## Das Video geht über die API, nicht über das Resolution Center
+
+Das war die Überraschung dieser Runde und der Grund, warum niemand mehr durch
+die Weboberfläche muss: Ein Video **lässt sich per API anhängen**, nur eben an
+einer anderen Stelle, als man sucht.
+
+- **Resolution Center** — die Nachrichtenspur zur Ablehnung. Hat **keine** API,
+  weder für den Text noch für Anhänge. Nur von Hand.
+- **`appStoreReviewAttachments`** — der Anhang zu den *App Review
+  Information*, direkt neben den Notizen für den Prüfer. **Hat eine API**, und
+  genau dorthin gehört ein Demonstrationsvideo.
+
+Der Ablauf ist dreistufig und steckt in `.secrets/`:
+
+1. `POST /v1/appStoreReviewAttachments` mit `fileName` und `fileSize`, verwandt
+   mit dem `appStoreReviewDetail` der Fassung. Apple antwortet mit fertigen
+   `uploadOperations` — bei 51 MiB waren es elf Teile zu je 5 MiB.
+2. Jeden Teil per `PUT` an die mitgelieferte URL, `Content-Type` aus den
+   `requestHeaders`, Bytes per `dd skip=<offset> count=<length>`.
+3. `PATCH` mit `uploaded: true` und `sourceFileChecksum` = **MD5 in
+   Hexadezimal**. Die Antwort auf das PATCH zeigt den Anhang noch ohne
+   Prüfsumme — das täuscht. Erst ein frisches `GET` sagt die Wahrheit:
+   `assetDeliveryState.state` muss `COMPLETE` sein und `errors` leer.
+
+**51 MiB gingen glatt durch**, obwohl im Umlauf oft von 50 MB die Rede ist.
+Die Datei war trotz `.mp4`-Endung ein QuickTime-Container (`ftypqt`); Apple hat
+sie mit `Content-Type: video/mp4` anstandslos genommen.
+
 ## Die Reihenfolge beim Abschicken
 
-Sie ist nicht beliebig — erst antworten, dann einreichen:
+Erst alles an die Fassung hängen, dann einreichen:
 
-1. **Antwort mit Video ins Resolution Center.** Solange die Einreichung auf
-   `UNRESOLVED_ISSUES` steht, ist das Antwortfeld offen. Wird sie vorher
-   zurückgezogen, gibt es keinen verlässlichen Weg mehr, den Anhang
-   nachzureichen.
-2. **Dann `.secrets/submit-1.5.2.sh`.** Es zieht die abgelehnte Einreichung
-   zurück, legt eine neue an, hängt Fassung 1.5.2 mit Build 26 hinein und
-   schickt sie ab.
+1. **Notizen und Videoanhang** an den `appStoreReviewDetail` (siehe oben).
+2. **`.secrets/submit-1.5.2.sh`** — zieht die abgelehnte Einreichung zurück,
+   legt eine neue an, hängt Fassung 1.5.2 mit Build 26 hinein, schickt sie ab.
+   Das Zurückziehen ist unvermeidlich: Eine Einreichung auf
+   `UNRESOLVED_ISSUES` blockiert die Fassung und quittiert jeden neuen Versuch
+   mit einem irreführenden 409 auf die *Version*.
 
-Antworten allein genügt **nicht**: Ohne neue Einreichung prüft Apple weiter
-Build 25, in dem keine der fünf Vorkehrungen steckt.
+Eine Antwort im Resolution Center ist danach **Kür, nicht Pflicht** — der
+vollständige Text steht in den Notizen, das Video hängt an der Einreichung.
+Wer trotzdem schreibt, nimmt den Text unten.
+
+Nur zu antworten genügt dagegen **nicht**: Ohne neue Einreichung prüft Apple
+weiter Build 25, in dem keine der fünf Vorkehrungen steckt.
 
 ## Der Text fürs Resolution Center
 
