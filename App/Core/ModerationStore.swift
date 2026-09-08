@@ -6,8 +6,8 @@ import Observation
 /// der Weg, auf dem eine Meldung beim Entwickler ankommt.
 ///
 /// **Warum das eine Klasse ist und nicht drei:** Die vier Dinge greifen
-/// ineinander. Blockieren *ist* eine Meldung (Richtlinie 1.2 verlangt, dass
-/// der Entwickler davon erfährt), und ob ein Beitrag verdeckt wird, hängt
+/// ineinander. Blockieren läuft über denselben Weg wie eine Meldung (warum,
+/// steht bei `ModerationReport`), und ob ein Beitrag verdeckt wird, hängt
 /// gleichzeitig an der Blockliste **und** am Filter. Getrennt lägen die
 /// Entscheidungen an drei Orten und drifteten auseinander.
 ///
