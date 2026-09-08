@@ -26,27 +26,63 @@ Filter üblicherweise scheitern: Ein `contains` verdeckte „Analysis“ wegen d
 ersten vier Buchstaben. `ContentFilterTests` hält eine Liste harmloser
 Uni-Wörter dagegen.
 
-## Was Maximilian noch tun muss
+## Warum überhaupt ein Video, wo es doch die Demo gibt
 
-1. **Codemagic-Token erneuern** (`./tools/codemagic-setup.sh`) — der alte ist
-   abgelaufen, der Tag `v1.5.2` liegt gepusht bereit, Build 26 fehlt noch.
-2. **Bildschirmaufnahme auf einem echten iPhone.** Apple verlangt sie
-   ausdrücklich („captured on a physical device"), ein Simulator-Mitschnitt
-   zählt nicht. Ein Durchlauf, ~60 Sekunden.
+Weil das Melden und das Blockieren **hinter einem langen Tippen** liegen. Ein
+langer Druck hinterlässt keine Schaltfläche, kein Symbol, keinen Hinweis — wer
+nicht weiss, dass es ihn gibt, findet ihn nicht. Genau das ist einem Prüfer in
+Runde 2 passiert: Die Vorkehrungen waren in Build 25 noch gar nicht drin, aber
+auch mit ihnen bleibt der Weg unsichtbar. Ein Mitschnitt ist der kürzeste
+Beweis, dass er existiert.
 
-   **Vorher unbedingt: die App vom Gerät löschen** und Build 26 frisch aus
-   TestFlight installieren. Die Zustimmung liegt in den `UserDefaults`; ist
-   sie einmal erteilt, lässt sich der gesperrte Zustand nicht mehr zeigen,
-   und genau der ist Apples erster Punkt.
+Bei **PocketADM** kam die Frage nie auf: Dort schreibt niemand etwas, was ein
+anderer zu sehen bekommt. Richtlinie 1.2 gilt nur für Apps mit fremden
+Inhalten und greift dort schlicht nicht.
 
-   | Szene | Was zu tun ist | Worauf es ankommt |
-   | --- | --- | --- |
-   | 1 — Bedingungen | App starten. Kurz auf beide Knöpfe deuten, dann unten „Nutzungsbedingungen lesen und annehmen" tippen, durch den Text scrollen, „Zustimmen und fortfahren" | Dass **beide** Knöpfe vorher grau sind und danach aktiv — das ist „presented **before** registering or logging in" |
-   | 2 — Melden | „Demo ohne Anmeldung ansehen" → *Postfach* → *Chats* → einen Faden öffnen → **lange** auf einen fremden Beitrag tippen → „Beitrag melden" → Grund wählen → „Senden" | Die Bestätigung „Die Meldung ist angekommen" ruhig eine Sekunde stehen lassen |
-   | 3 — Blockieren | Zurück zu *Postfach* → *Nachrichten* → lange auf eine Nachricht einer anderen Person → „Person blockieren" → „Blockieren" | Dass die Zeile **sofort** aus der Liste verschwindet — das ist Apples „remove it from the user's feed instantly" |
-   | 4 — Nachweis | *Campus*-Reiter → Personensymbol oben rechts → *Melden und Blockieren* | Die blockierte Person steht in der Liste, mit „Aufheben" |
+Wer das dauerhaft entschärfen will, hängt neben den langen Druck noch einen
+sichtbaren Weg — das „…“-Menü gibt es in den Detailansichten bereits, in den
+Listen nicht. Für diese Runde ist das nicht nötig; für die nächste Fassung ist
+es die naheliegende Verbesserung.
 
-3. **Aufnahme + Text unten** ins Resolution Center (Video als Anhang).
+## Zur Aufnahme
+
+**Es gibt keine Längenbegrenzung.** Die vielzitierten 15–30 Sekunden gelten für
+*App-Vorschauen* im Store, nicht für Anhänge im Resolution Center; Apple
+dokumentiert dort weder eine Dauer noch ein Format. **90 Sekunden sind
+richtig, und schneller abspielen wäre ein Fehler**: Was der Prüfer sehen muss —
+dass beide Knöpfe grau sind, dass ein *langer* Druck das Menü öffnet, dass die
+Zeile nach dem Blockieren verschwindet — ist genau das, was im Zeitraffer
+verloren geht. Lieber ruhig und lesbar.
+
+Was zählt, ist Apples eine ausdrückliche Bedingung: **auf einem echten
+Gerät aufgenommen** („captured on a physical device“), kein Simulator.
+
+| Szene | Was zu tun ist | Worauf es ankommt |
+| --- | --- | --- |
+| 1 — Bedingungen | App starten. Kurz auf beide Knöpfe deuten, dann unten „Nutzungsbedingungen lesen und annehmen" tippen, durch den Text scrollen, „Zustimmen und fortfahren" | Dass **beide** Knöpfe vorher grau sind und danach aktiv — das ist „presented **before** registering or logging in" |
+| 2 — Melden | „Demo ohne Anmeldung ansehen" → *Postfach* → *Chats* → einen Faden öffnen → **lange** auf einen fremden Beitrag tippen → „Beitrag melden" → Grund wählen → „Senden" | Die Bestätigung „Die Meldung ist angekommen" ruhig eine Sekunde stehen lassen |
+| 3 — Blockieren | Zurück zu *Postfach* → *Nachrichten* → lange auf eine Nachricht einer anderen Person → „Person blockieren" → „Blockieren" | Dass die Zeile **sofort** aus der Liste verschwindet — das ist Apples „remove it from the user's feed instantly" |
+| 4 — Nachweis | *Campus*-Reiter → Personensymbol oben rechts → *Melden und Blockieren* | Die blockierte Person steht in der Liste, mit „Aufheben" |
+
+**Vor der Aufnahme unbedingt: die App vom Gerät löschen** und Build 26 frisch
+aus TestFlight installieren. Die Zustimmung liegt in den `UserDefaults`; ist
+sie einmal erteilt, lässt sich der gesperrte Zustand nicht mehr zeigen, und
+genau der ist Apples erster Punkt.
+
+## Die Reihenfolge beim Abschicken
+
+Sie ist nicht beliebig — erst antworten, dann einreichen:
+
+1. **Antwort mit Video ins Resolution Center.** Solange die Einreichung auf
+   `UNRESOLVED_ISSUES` steht, ist das Antwortfeld offen. Wird sie vorher
+   zurückgezogen, gibt es keinen verlässlichen Weg mehr, den Anhang
+   nachzureichen.
+2. **Dann `.secrets/submit-1.5.2.sh`.** Es zieht die abgelehnte Einreichung
+   zurück, legt eine neue an, hängt Fassung 1.5.2 mit Build 26 hinein und
+   schickt sie ab.
+
+Antworten allein genügt **nicht**: Ohne neue Einreichung prüft Apple weiter
+Build 25, in dem keine der fünf Vorkehrungen steckt.
 
 ## Der Text fürs Resolution Center
 
@@ -75,7 +111,8 @@ Profil > Melden und Blockieren.
 press it and choose "Beitrag melden", or use the "…" menu at the top right of
 any detail screen. This covers the chat (Blubber), the mailbox, course forums,
 announcements, the activity feed and user profiles. The user picks a reason
-and may add a note.
+and may add a note. The recording shows the long press, because that gesture
+is the part a reviewer cannot discover by looking.
 
 **4 — Blocking.** The same menu offers "Person blockieren", as does every user
 profile. A blocked user disappears from every list in the app immediately —
@@ -84,11 +121,12 @@ Profil > Melden und Blockieren and can be unblocked there.
 
 **5 — We are notified and act within 24 hours.** Every report and every block
 is sent to a service we run for exactly this purpose
-(https://studgo.maxaufknax.de/report). It files the report and pushes a
-message to the developer's phone immediately; if the endpoint cannot be
+(https://studgo.maxaufknax.de/report) and filed there; a report additionally
+raises an immediate alert on the developer's phone. If the endpoint cannot be
 reached, the app opens a prepared email instead, so no report is lost. We
-review every report within 24 hours, remove objectionable content and eject
-the user who posted it.
+review every report within 24 hours, act on the content and eject the user who
+posted it. Our privacy policy documents exactly what that endpoint receives;
+the reporting user is not identified and no IP address is stored.
 
 All of this is reachable without an account: on the first screen, accept the
 terms, then tap "Demo ohne Anmeldung ansehen" (the bordered button with a play

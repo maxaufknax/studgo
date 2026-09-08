@@ -199,9 +199,25 @@ Text inhaltlich, `ModerationStore.termsVersion` hochzählen — dann wird erneut
 zugestimmt.
 
 Meldungen gehen an `studgo.maxaufknax.de/report`; der Dienst liegt im
-Docker-Stack unter `docker/studgo-reports/` und schreibt jede Meldung in eine
-JSON-Akte **und** in den Matrix-Raum. Ist er nicht erreichbar, öffnet die App
-die vorbereitete E-Mail.
+Docker-Stack unter `docker/studgo-reports/`. Ist er nicht erreichbar, öffnet
+die App die vorbereitete E-Mail.
+
+Drei Dinge daran sind leicht falsch im Kopf:
+
+- **Blockierungen klingeln nicht.** Meldung *und* Blockierung landen in der
+  JSON-Akte, aber nur eine **Meldung** geht in den Matrix-Raum. Richtlinie 1.2
+  verlangt das Blockieren als Fähigkeit der App, nicht als Nachricht an den
+  Entwickler; jede Blockierung zu melden machte den Raum taub für die Fälle,
+  auf die es ankommt. `NOTIFY_BLOCKS=1` schaltet sie wieder scharf.
+- **Die Meldestelle legt keine IP-Adresse ab.** Die Ratenbremse zählt sie nur
+  flüchtig im Arbeitsspeicher mit. Das ist keine Feinheit, sondern eine Zusage
+  in `PRIVACY.md`.
+- **`PRIVACY.md` ist Teil des Reviews**, nicht bloss Beiwerk: Die Datei ist
+  die Datenschutz-URL in App Store Connect. Wer am Melde-Weg etwas ändert —
+  neue Felder, neuer Empfänger, neue Speicherdauer — ändert sie mit, sonst
+  widerspricht die App ihrer eigenen Erklärung. Genau das war sie zwischen
+  1.5.2 und dem 2026-09-08: Sie versprach „es gibt keinen Server des
+  Anbieters", während die App bereits meldete.
 
 ## Offene Punkte
 

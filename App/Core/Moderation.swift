@@ -75,10 +75,17 @@ enum ReportTargetKind: String, Codable, Sendable {
 
 /// Eine Meldung oder Blockierung, so wie sie beim Entwickler ankommt.
 ///
-/// **Warum eine Blockierung dasselbe Format hat:** Die App-Store-Richtlinie
-/// 1.2 verlangt, dass eine Blockierung den Entwickler ebenfalls über den
-/// Inhalt in Kenntnis setzt. Beides ist also derselbe Vorgang mit
-/// unterschiedlichem `kind` — ein Weg, ein Format, eine Ablage.
+/// **Warum eine Blockierung dasselbe Format hat:** nicht, weil Apple es
+/// verlangte. Richtlinie 1.2 fordert das Blockieren als Fähigkeit der App
+/// („The ability to block abusive users from the service") und die Frist von
+/// 24 Stunden für *gemeldete* Inhalte; von einer Benachrichtigung über
+/// Blockierungen steht dort nichts. Sie mitzuschicken ist eine Entscheidung
+/// dieses Projekts: Wer blockiert, ohne zu melden, hinterlässt sonst keine
+/// Spur, und in der Summe zeigen die Blockierungen, wo es klemmt.
+///
+/// Damit daraus kein Lärm wird, trennt die Meldestelle die beiden: Beides
+/// wird abgelegt, aber nur eine **Meldung** löst dort einen Alarm aus
+/// (`docker/studgo-reports/`, `NOTIFY_BLOCKS`).
 struct ModerationReport: Codable, Sendable, Equatable {
     enum Kind: String, Codable, Sendable {
         case report
