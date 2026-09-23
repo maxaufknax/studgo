@@ -34,14 +34,14 @@ struct ContentUnavailableView: View {
     private let actions: AnyView?
 
     init(_ title: String, systemImage: String, description: Text? = nil) {
-        label = AnyView(Label(title, systemImage: systemImage))
-        self.description = AnyView(description ?? EmptyView())
+        self.label = AnyView(Label(title, systemImage: systemImage))
+        self.description = AnyView(description ?? Text(""))
         actions = nil
     }
 
     init(@ViewBuilder label: () -> some View,
          @ViewBuilder description: () -> some View) {
-        label = AnyView(label())
+        self.label = AnyView(label())
         self.description = AnyView(description())
         actions = nil
     }
@@ -49,7 +49,7 @@ struct ContentUnavailableView: View {
     init(@ViewBuilder label: () -> some View,
          @ViewBuilder description: () -> some View,
          @ViewBuilder actions: () -> some View) {
-        label = AnyView(label())
+        self.label = AnyView(label())
         self.description = AnyView(description())
         self.actions = AnyView(actions())
     }
