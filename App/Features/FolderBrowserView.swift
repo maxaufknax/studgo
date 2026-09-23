@@ -110,8 +110,10 @@ struct FolderContentView: View {
                                      detail: child.isEmpty ? "leer" : nil)
                         }
                         // Beim Auswählen sind nur Dateien gemeint — ein Ordner
-                        // ließe sich nicht mit sichern.
-                        .selectionDisabled()
+                        // ließe sich nicht mit sichern. (`selectionDisabled`
+                        // gibt es erst ab iOS 17; ohne Berührung bleibt der
+                        // Ordner im Auswahlmodus unangetippt.)
+                        .allowsHitTesting(!isSelecting)
                     }
                 }
             }

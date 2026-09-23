@@ -21,7 +21,6 @@ struct CourseSearchView: View {
     /// Öffnet und fokussiert das Suchfeld, sobald die Ansicht erscheint. Ohne
     /// das lag die Leiste eingeklappt über der Liste und wurde erst nach dem
     /// Herunterziehen sichtbar — es sah aus, als gäbe es kein Suchfeld.
-    @State private var searchPresented = false
     /// Zählt die aufeinanderfolgenden Fehlversuche, damit ein einzelner
     /// Netzhänger nicht gleich als „Suche fehlgeschlagen" erscheint.
     @State private var failedAttempts = 0
@@ -48,10 +47,10 @@ struct CourseSearchView: View {
             resultSection
         }
         .listStyle(.insetGrouped)
-        // Immer sichtbar statt eingeklappt, und beim Erscheinen gleich
-        // fokussiert: Die Suche ist der Zweck dieser Seite.
+        // Immer sichtbar statt eingeklappt: Die Suche ist der Zweck dieser
+        // Seite. Automatisches Fokussieren beim Erscheinen gibt es erst ab
+        // iOS 17 (`isPresented:`) — die Seite nimmt den einen Tipp in Kauf.
         .searchable(text: $term,
-                    isPresented: $searchPresented,
                     placement: .navigationBarDrawer(displayMode: .always),
                     prompt: "Titel, Lehrende oder Nummer")
         .onSubmit(of: .search) { schedule(delay: 0) }
@@ -65,11 +64,6 @@ struct CourseSearchView: View {
         // anmeldet. Zwei Anmeldungen desselben Typs im selben Stapel
         // beschwert SwiftUI zur Laufzeit.
         .task { if semesters.value == nil { await loadSemesters() } }
-        .task {
-            // Nach dem Aufbau — nicht in `onAppear`, das liefe noch in die
-            // Schiebe-Animation hinein und der Fokus verpuffte.
-            searchPresented = true
-        }
     }
 
     // MARK: - Filter
