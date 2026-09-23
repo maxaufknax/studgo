@@ -20,7 +20,7 @@ let package = Package(
     // Auf Linux wirkungslos, auf Codemagic entscheidend: ohne Angabe
     // baut SwiftPM gegen eine sehr alte macOS-Fassung, und Aufrufe wie
     // `URL.host()` (ab macOS 13) sind dort nicht verfügbar.
-    platforms: [.macOS(.v14), .iOS(.v17)],
+    platforms: [.macOS(.v14), .iOS(.v16)],
     dependencies: [
         // Ersetzt CryptoKit ausserhalb von Apple-Systemen.
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
@@ -59,6 +59,7 @@ let package = Package(
                 "Core/DemoStore.swift",
                 "Core/EventMerge.swift",
                 "Core/Formatting.swift",
+                "Core/HiddenEvents.swift",
                 "Core/HTMLReader.swift",
                 "Core/ICSParser.swift",
                 "Core/JSONAPI.swift",

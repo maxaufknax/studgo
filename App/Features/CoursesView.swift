@@ -2,7 +2,7 @@ import SwiftUI
 
 struct CoursesView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
     /// Ohne Filter liefert Stud.IP alle je belegten Veranstaltungen. Nach ein
     /// paar Semestern ist das eine Liste, in der niemand mehr etwas findet —
@@ -13,8 +13,8 @@ struct CoursesView: View {
         case one(String)
     }
 
-    @State private var courses = Loadable<[Course]>()
-    @State private var semesters = Loadable<[Semester]>()
+    @StateObject private var courses = Loadable<[Course]>()
+    @StateObject private var semesters = Loadable<[Semester]>()
     @State private var choice: SemesterChoice = .undecided
     @State private var search = ""
     @State private var webTarget: WebTarget?
@@ -103,7 +103,7 @@ struct CoursesView: View {
             .navigationTitle("Kurse")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Picker("Semester", selection: $choice) {
                             Text("Alle Semester").tag(SemesterChoice.all)

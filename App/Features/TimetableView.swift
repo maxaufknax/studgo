@@ -13,6 +13,7 @@ import SwiftUI
 /// fest verdrahtet — im Querformat lief das Raster deshalb unten aus dem Bild.
 struct TimetableView: View {
     let entries: [ScheduleEntry]
+    @EnvironmentObject private var hiddenEvents: HiddenEventsStore
     /// Welche Wochentage nebeneinander stehen (1 = Montag … 7 = Sonntag).
     /// `nil` heißt: Montag bis Freitag plus alles, worauf ein Termin fällt.
     ///
@@ -20,6 +21,13 @@ struct TimetableView: View {
     /// steht von „Grundlagen der Rechnerarchitektur" nichts Lesbares. Deshalb
     /// bestimmt der Kalender die Spaltenzahl (3 / Mo–Fr / ganze Woche).
     var visibleDays: [Int]?
+    /// Die Blöcke, die wirklich im Raster stehen. Ausgeblendete fallen
+    /// weg — oder stehen markiert dabei, wenn sie ausdrücklich angezeigt
+    /// werden sollen.
+    private var shown: [ScheduleEntry] {
+        hiddenEvents.showsHiddenEvents ? entries : entries.filter { !hiddenEvents.isHidden($0) }
+    }
+
     /// Blasser setzen, was gerade **nicht stattfindet**.
     ///
     /// In der vorlesungsfreien Zeit steht der Plan des Semesters weiterhin im
@@ -67,15 +75,15 @@ struct TimetableView: View {
         if let visibleDays, !visibleDays.isEmpty { return visibleDays }
         // Montag bis Freitag stehen immer, damit ein leerer Freitag als
         // freier Tag sichtbar wird statt einfach zu fehlen.
-        return Set(1...5).union(Set(entries.map(\.normalizedWeekday))).sorted()
+        return Set(1...5).union(Set(shown.map(\.normalizedWeekday))).sorted()
     }
 
     /// Angezeigter Zeitraum, auf volle Stunden gerundet und auf mindestens
     /// sechs Stunden gestreckt — sonst stünde ein einzelnes Seminar als
     /// haushoher Block allein im Bild.
     private var span: (start: Int, end: Int) {
-        let starts = entries.map(\.startMinutes)
-        let ends = entries.map(\.endMinutes)
+        let starts = shown.map(\.startMinutes)
+        let ends = shown.map(\.endMinutes)
         guard let earliest = starts.min(), let latest = ends.max() else {
             return (8 * 60, 18 * 60)
         }
@@ -240,6 +248,7 @@ struct TimetableView: View {
         let width = lane - blockGap
         let height = max(20, CGFloat(entry.endMinutes - entry.startMinutes) * layout.scale - blockGap)
         let isDormant = dimsCourses && entry.isCourse
+        let isHidden = hiddenEvents.isHidden(entry)
 
         return Button {
             onSelect(entry)
@@ -272,9 +281,26 @@ struct TimetableView: View {
             // Nur die Deckkraft, keine graue Ersatzfarbe: Der Block soll als
             // *derselbe* Kurs erkennbar bleiben — die Farbe ist in Kursliste,
             // Terminliste und Raster dieselbe und trägt hier die Zuordnung.
-            .opacity(isDormant ? 0.45 : 1)
+            .opacity(isDormant || isHidden ? 0.45 : 1)
         }
         .buttonStyle(.plain)
+        // Lang drücken ist im Raster der einzige Ort für die Aktion — ein
+        // Menüknopf im Block frisst den Platz, den der Titel braucht.
+        .contextMenu {
+            if isHidden {
+                Button {
+                    hiddenEvents.unhide(entry)
+                } label: {
+                    Label("Wieder einblenden", systemImage: "eye")
+                }
+            } else {
+                Button {
+                    hiddenEvents.hide(entry)
+                } label: {
+                    Label("Im Kalender ausblenden", systemImage: "eye.slash")
+                }
+            }
+        }
         .offset(x: blockGap + CGFloat(placement.column) * lane,
                 y: layout.y(of: entry.startMinutes))
         .accessibilityLabel("\(entry.title), \(Weekday.full(entry.normalizedWeekday)) \(entry.timeRange)")
@@ -294,7 +320,7 @@ struct TimetableView: View {
     /// Termine, die sich zeitlich überlappen, teilen sich die Spaltenbreite.
     /// Ohne das läge eine Übung unsichtbar unter der Vorlesung.
     private func placements(for day: Int) -> [Placement] {
-        let sorted = entries
+        let sorted = shown
             .filter { $0.normalizedWeekday == day }
             .sorted { $0.startMinutes < $1.startMinutes }
         guard !sorted.isEmpty else { return [] }

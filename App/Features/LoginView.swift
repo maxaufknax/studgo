@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct LoginView: View {
-    @Environment(AuthStore.self) private var auth
-    @Environment(ModerationStore.self) private var moderation
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var moderation: ModerationStore
 
     private static let brand = Brand.deep
 
@@ -25,7 +25,6 @@ struct LoginView: View {
                     content
                         .frame(minHeight: proxy.size.height)
                 }
-                .scrollBounceBehavior(.basedOnSize)
             }
         }
     }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
     var body: some View {
         switch auth.state {
@@ -26,8 +26,11 @@ struct RootView: View {
 
 struct MainTabView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
-    @Environment(NotificationRouter.self) private var router
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var router: NotificationRouter
+    /// Bei einem Themenwechsel bauen sich die Reiter mit neuen Farben auf —
+    /// `Tint.color(_:)` verzeichnet selbst nichts, siehe `Palette`.
+    @ObservedObject private var palette = Palette.shared
 
     @State private var selection: AppTab = .today
 
@@ -66,7 +69,7 @@ struct MainTabView: View {
         }
         .task { await auth.loadSemTypes() }
         // Eine angetippte Mitteilung schaltet den Reiter um, dann Merker leeren.
-        .onChange(of: router.target) { _, target in
+        .onChange(of: router.target) { target in
             guard let target else { return }
             selection = target
             router.target = nil
@@ -81,7 +84,7 @@ struct MainTabView: View {
 /// Ordnung, nur die Leitung nicht.
 struct UnreachableView: View {
     let message: String
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
     @State private var isRetrying = false
 
     var body: some View {

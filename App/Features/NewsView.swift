@@ -3,7 +3,7 @@ import SwiftUI
 /// Ankündigungen aus den eigenen Veranstaltungen und vom Stud.IP-Startpunkt.
 struct NewsView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
     enum Scope: String, CaseIterable, Identifiable {
         case personal = "Meine"
@@ -12,8 +12,8 @@ struct NewsView: View {
     }
 
     @State private var scope: Scope = .personal
-    @State private var personal = Loadable<[NewsItem]>()
-    @State private var global = Loadable<[NewsItem]>()
+    @StateObject private var personal = Loadable<[NewsItem]>()
+    @StateObject private var global = Loadable<[NewsItem]>()
 
     private var current: Loadable<[NewsItem]> { scope == .personal ? personal : global }
 

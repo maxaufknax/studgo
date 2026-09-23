@@ -7,13 +7,11 @@ import SwiftUI
 /// nimmt — Dinge, die sonst nur dann sichtbar wären, wenn gerade etwas
 /// schiefgeht.
 struct ModerationSettingsView: View {
-    @Environment(ModerationStore.self) private var moderation
+    @EnvironmentObject private var moderation: ModerationStore
     @Environment(\.openURL) private var openURL
     @State private var showsTerms = false
 
     var body: some View {
-        @Bindable var moderation = moderation
-
         List {
             Section {
                 Toggle("Anstößige Inhalte verdecken", isOn: $moderation.hidesObjectionable)

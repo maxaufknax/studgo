@@ -7,15 +7,16 @@ import UIKit
 /// Reiter „Mehr" hätte den Platz gekostet, den jetzt „Campus" bekommt.
 struct SettingsView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
-    @Environment(ModerationStore.self) private var moderation
-    @Environment(Preferences.self) private var preferences
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var moderation: ModerationStore
+    @EnvironmentObject private var preferences: Preferences
+    @EnvironmentObject private var hiddenEvents: HiddenEventsStore
     @Environment(\.dismiss) private var dismiss
     @State private var showsSignOutConfirmation = false
     @State private var didClearCache = false
     @State private var webTarget: WebTarget?
     /// Der Pfad dieses Blatts — siehe Kommentar an `NavigationStack` unten.
-    @State private var navigator = Navigator()
+    @StateObject private var navigator = Navigator()
 
     private var notificationSummary: String {
         var parts: [String] = []
@@ -146,6 +147,17 @@ struct SettingsView: View {
                                  title: "Benachrichtigungen",
                                  subtitle: notificationSummary)
                     }
+                }
+
+                Section {
+                    Toggle(isOn: $hiddenEvents.showsHiddenEvents) {
+                        RowLabel(symbol: "eye.slash",
+                                 title: "Ausgeblendete Termine zeigen")
+                    }
+                } header: {
+                    Text("Kalender")
+                } footer: {
+                    Text("Langes Drücken auf einen Termin blendet ihn aus — nützlich bei Übungen, die an mehreren Wochentagen liegen, von denen nur einer der eigene ist. Ausgeblendete Termine verschwinden aus Kalender, Stundenplan und Heute-Ansicht; mit diesem Schalter erscheinen sie wieder, etwa um sie dauerhaft zurückzuholen.")
                 }
 
                 quickLinks
@@ -288,13 +300,13 @@ struct SettingsView: View {
                 }
             }
         }
-        .environment(navigator)
+        .environmentObject(navigator)
     }
 }
 
 struct SemesterListView: View {
-    @Environment(AuthStore.self) private var auth
-    @State private var semesters = Loadable<[Semester]>()
+    @EnvironmentObject private var auth: AuthStore
+    @StateObject private var semesters = Loadable<[Semester]>()
 
     private var sorted: [Semester] {
         (semesters.value ?? []).sorted { ($0.start ?? .distantPast) > ($1.start ?? .distantPast) }
@@ -484,15 +496,13 @@ struct MailSetupView: View {
 /// „sofortige Benachrichtigung" verspricht und dann zwei Stunden braucht, ist
 /// schlimmer als eine, die von vornherein sagt, woran man ist.
 struct NotificationSettingsView: View {
-    @Environment(Preferences.self) private var preferences
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var preferences: Preferences
+    @EnvironmentObject private var auth: AuthStore
 
     @State private var isAuthorized: Bool?
     @State private var pendingCount = 0
 
     var body: some View {
-        @Bindable var preferences = preferences
-
         List {
             if isAuthorized == false {
                 Section {
@@ -563,13 +573,13 @@ struct NotificationSettingsView: View {
             WebSheet(url: target.url).ignoresSafeArea()
         }
         .task { await refreshStatus() }
-        .onChange(of: preferences.eventReminders) { _, isOn in
+        .onChange(of: preferences.eventReminders) { isOn in
             Task { await apply(remindersEnabled: isOn) }
         }
-        .onChange(of: preferences.leadMinutes) {
+        .onChange(of: preferences.leadMinutes) { _ in
             Task { await apply(remindersEnabled: preferences.eventReminders) }
         }
-        .onChange(of: preferences.mailboxAlerts) { _, isOn in
+        .onChange(of: preferences.mailboxAlerts) { isOn in
             Task { await apply(mailboxEnabled: isOn) }
         }
     }

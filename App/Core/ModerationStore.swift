@@ -1,5 +1,7 @@
 import Foundation
-import Observation
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
 
 /// Was StudGo an Schutz gegen anstößige Inhalte bereithält, an einer Stelle:
 /// die zugestimmten Nutzungsbedingungen, der Wortfilter, die Blockliste und
@@ -15,8 +17,11 @@ import Observation
 /// Geheimnisse. Die Blockliste bleibt bewusst **lokal** — Stud.IP kennt keine
 /// Blockierung, und ein Serverzustand, den nur StudGo pflegt, wäre eine
 /// zweite Wahrheit über Menschen, die dort weiter mitlesen dürfen.
+///
+/// `ObservableObject` nur dort, wo es SwiftUI auch gibt: Diese Datei läuft
+/// unter Linux mit durch den Testsatz — `Combine` existiert dort nicht. Die
+/// Ansichten hängen am `objectWillChange`, jede Änderung geht über `notify()`.
 @MainActor
-@Observable
 final class ModerationStore {
     /// Fassung der Nutzungsbedingungen. **Hochzählen, sobald sich der Text
     /// inhaltlich ändert** — dann wird die Zustimmung erneut eingeholt.
@@ -52,6 +57,7 @@ final class ModerationStore {
     /// Wer das nicht will, schaltet es in den Einstellungen ab — umgekehrt
     /// hätte niemand den Schutz, der ihn nicht kennt.
     var hidesObjectionable: Bool {
+        willSet { notify() }
         didSet { defaults.set(hidesObjectionable, forKey: Key.filter) }
     }
 
@@ -73,8 +79,17 @@ final class ModerationStore {
     var hasAcceptedTerms: Bool { acceptedTermsVersion >= Self.termsVersion }
 
     func acceptTerms() {
+        notify()
         acceptedTermsVersion = Self.termsVersion
         defaults.set(acceptedTermsVersion, forKey: Key.terms)
+    }
+
+    /// Sagt SwiftUI, dass sich etwas geändert hat. Unter Linux (Testsatz)
+    /// ein No-op — dort gibt es weder SwiftUI noch `objectWillChange`.
+    private func notify() {
+        #if canImport(SwiftUI)
+        objectWillChange.send()
+        #endif
     }
 
     // MARK: - Blockieren
@@ -93,6 +108,7 @@ final class ModerationStore {
                targetID: String? = nil,
                excerpt: String = "",
                note: String? = nil) async -> Outcome {
+        notify()
         blocklist.block(id: id, name: name)
         persistBlocklist()
         return await deliver(ModerationReport(
@@ -108,6 +124,7 @@ final class ModerationStore {
     }
 
     func unblock(id: String) {
+        notify()
         blocklist.unblock(id: id)
         persistBlocklist()
     }
@@ -194,3 +211,7 @@ final class ModerationStore {
         return "\(short) (\(build))"
     }
 }
+
+#if canImport(SwiftUI)
+extension ModerationStore: ObservableObject {}
+#endif

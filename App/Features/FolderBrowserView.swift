@@ -5,9 +5,9 @@ import UniformTypeIdentifiers
 /// nachgeladen — Stud.IP liefert Struktur und Inhalt getrennt.
 struct FolderBrowserView: View {
     let course: Course
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var folders = Loadable<[Folder]>()
+    @StateObject private var folders = Loadable<[Folder]>()
 
     var body: some View {
         List(folders.value ?? []) { folder in
@@ -47,10 +47,10 @@ struct FolderBrowserView: View {
 /// schlimmer als gar keiner.
 struct FolderContentView: View {
     let folder: Folder
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var subfolders = Loadable<[Folder]>()
-    @State private var files = Loadable<[FileRef]>()
+    @StateObject private var subfolders = Loadable<[Folder]>()
+    @StateObject private var files = Loadable<[FileRef]>()
 
     @State private var selection = Set<String>()
     @State private var isSelecting = false
@@ -181,7 +181,7 @@ struct FolderContentView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: .navigationBarTrailing) {
             if isSelecting {
                 Button("Fertig") {
                     isSelecting = false
@@ -362,7 +362,7 @@ struct FileRow: View {
     var onRename: (() -> Void)?
     var onDelete: (() -> Void)?
 
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
     @State private var localURL: URL?
     @State private var isDownloading = false
@@ -447,7 +447,7 @@ struct FileRow: View {
                         .navigationTitle(file.name)
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
+                            ToolbarItem(placement: .navigationBarTrailing) {
                                 Button {
                                     showsShareSheet = true
                                 } label: {

@@ -1,13 +1,11 @@
-import Observation
 import SwiftUI
 
 /// Ladezustand für die Listenansichten — eine Stelle für Spinner,
 /// Fehlermeldung und Leerzustand statt einer Kopie je Ansicht.
-@Observable
-final class Loadable<Value> {
-    var value: Value?
-    var errorMessage: String?
-    var isLoading = false
+final class Loadable<Value>: ObservableObject {
+    @Published var value: Value?
+    @Published var errorMessage: String?
+    @Published var isLoading = false
 
     var hasValue: Bool { value != nil }
 
@@ -23,6 +21,61 @@ final class Loadable<Value> {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+}
+
+/// Leerzustand mit Erklärung — Apples eigene `ContentUnavailableView` gibt es
+/// erst ab iOS 17, StudGo läuft ab iOS 16. Dieser Ersatz bedient dieselben
+/// Aufrufformen, sodass die Aufrufstellen unverändert bleiben und überall
+/// dasselbe Bild steht, egal welche iOS-Fassung läuft.
+struct ContentUnavailableView: View {
+    private let label: AnyView
+    private let description: AnyView
+    private let actions: AnyView?
+
+    init(_ title: String, systemImage: String, description: Text? = nil) {
+        label = AnyView(Label(title, systemImage: systemImage))
+        self.description = AnyView(description ?? EmptyView())
+        actions = nil
+    }
+
+    init(@ViewBuilder label: () -> some View,
+         @ViewBuilder description: () -> some View) {
+        label = AnyView(label())
+        self.description = AnyView(description())
+        actions = nil
+    }
+
+    init(@ViewBuilder label: () -> some View,
+         @ViewBuilder description: () -> some View,
+         @ViewBuilder actions: () -> some View) {
+        label = AnyView(label())
+        self.description = AnyView(description())
+        self.actions = AnyView(actions())
+    }
+
+    /// Wie das gleichnamige Vorbild von Apple: die Suche, die nichts fand.
+    static func search(text: String) -> ContentUnavailableView {
+        ContentUnavailableView("Keine Ergebnisse",
+                               systemImage: "magnifyingglass",
+                               description: Text("Für „\(text)“ gab es keine Treffer."))
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            label
+                .font(.headline)
+            description
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            if let actions {
+                actions
+                    .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(28)
     }
 }
 

@@ -11,6 +11,7 @@ struct EventDetailView: View {
     /// Name der Veranstaltung, sofern die aufrufende Ansicht ihn schon kennt.
     var courseTitle: String?
 
+    @EnvironmentObject private var hiddenEvents: HiddenEventsStore
     @State private var webTarget: WebTarget?
 
     private var headline: String {
@@ -35,6 +36,7 @@ struct EventDetailView: View {
                 if let location = event.location { roomLink(location) }
                 if let courseID = event.courseID { courseLink(courseID) }
                 if event.isDerived { derivedHint }
+                if hiddenEvents.isHidden(event) { hiddenHint }
             }
             .padding(.horizontal)
             .padding(.bottom, 28)
@@ -42,9 +44,37 @@ struct EventDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Termin")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if hiddenEvents.isHidden(event) {
+                    Button {
+                        hiddenEvents.unhide(event)
+                    } label: {
+                        Label("Wieder einblenden", systemImage: "eye")
+                    }
+                } else {
+                    Button {
+                        hiddenEvents.hide(event)
+                    } label: {
+                        Label("Im Kalender ausblenden", systemImage: "eye.slash")
+                    }
+                }
+            }
+        }
         .sheet(item: $webTarget) { target in
             WebSheet(url: target.url).ignoresSafeArea()
         }
+    }
+
+    /// Sagt, warum dieser Termin nirgends mehr auftaucht — sonst suchte man
+    /// ihn im Kalender und fände ihn nicht.
+    private var hiddenHint: some View {
+        Label("Dieser Termin ist im Kalender ausgeblendet. Über langes Drücken auf eine Terminzeile oder die Schaltfläche oben lässt er sich wieder einblenden.",
+              systemImage: "eye.slash")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
     }
 
     /// Der Weg zum Hörsaal.
@@ -185,6 +215,7 @@ extension CourseEvent: Hashable {
 /// einzelne Sitzung.
 struct ScheduleEntryDetailView: View {
     let entry: ScheduleEntry
+    @EnvironmentObject private var hiddenEvents: HiddenEventsStore
     @State private var webTarget: WebTarget?
 
     var body: some View {
@@ -277,6 +308,23 @@ struct ScheduleEntryDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Stundenplan")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if hiddenEvents.isHidden(entry) {
+                    Button {
+                        hiddenEvents.unhide(entry)
+                    } label: {
+                        Label("Wieder einblenden", systemImage: "eye")
+                    }
+                } else {
+                    Button {
+                        hiddenEvents.hide(entry)
+                    } label: {
+                        Label("Im Kalender ausblenden", systemImage: "eye.slash")
+                    }
+                }
+            }
+        }
         .sheet(item: $webTarget) { target in
             WebSheet(url: target.url)
         }

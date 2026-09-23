@@ -11,9 +11,9 @@ import SwiftUI
 /// im Bild stehen. Wer den Campus-Reiter öffnete, wartete darauf mit.
 struct CampusView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var activities = Loadable<[ActivityItem]>()
+    @StateObject private var activities = Loadable<[ActivityItem]>()
 
     private var recentActivities: [ActivityItem] {
         Array((activities.value ?? []).prefix(6))
@@ -223,9 +223,9 @@ struct ActivityRow: View {
 
 struct ActivityStreamView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var activities = Loadable<[ActivityItem]>()
+    @StateObject private var activities = Loadable<[ActivityItem]>()
     @State private var kind: String?
 
     /// Die tatsächlich vorkommenden Arten — eine feste Liste zu zeigen hieße,
@@ -270,7 +270,7 @@ struct ActivityStreamView: View {
         .navigationTitle("Verlauf")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     Picker("Art", selection: $kind) {
                         Text("Alles").tag(String?.none)
@@ -310,9 +310,9 @@ struct ActivityStreamView: View {
 
 struct ContactsView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var contacts = Loadable<[Contact]>()
+    @StateObject private var contacts = Loadable<[Contact]>()
     @State private var search = ""
     @State private var selected: Contact?
 
@@ -368,7 +368,7 @@ struct ContactsView: View {
         .navigationTitle("Kontakte")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 PushButton(value: Route.personSearch) {
                     Image(systemName: "plus")
                 }
@@ -400,9 +400,9 @@ struct ContactsView: View {
 
 struct InstitutesView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var institutes = Loadable<[Institute]>()
+    @StateObject private var institutes = Loadable<[Institute]>()
 
     var body: some View {
         List(institutes.value ?? []) { institute in

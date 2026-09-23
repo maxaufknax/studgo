@@ -1,4 +1,5 @@
 import BackgroundTasks
+import Combine
 import Foundation
 import UserNotifications
 
@@ -16,13 +17,12 @@ enum AppTab: Hashable {
 /// Umfeld hinterlegter Merker: Der Delegate schreibt das Ziel hinein, der
 /// `MainTabView` liest es und schaltet den Reiter um.
 @MainActor
-@Observable
-final class NotificationRouter {
+final class NotificationRouter: ObservableObject {
     static let shared = NotificationRouter()
 
     /// Gesetzt, sobald eine Mitteilung angetippt wurde; vom `MainTabView`
     /// wieder auf `nil` gestellt, sobald der Sprung erledigt ist.
-    var target: AppTab?
+    @Published var target: AppTab?
 
     /// Leitet anhand der `threadIdentifier` der Mitteilung auf den richtigen
     /// Reiter — die Kennungen setzt `Notifications.post` bzw. der Terminwecker.

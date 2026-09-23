@@ -1,10 +1,9 @@
+import Combine
 import Foundation
-import Observation
 
 /// Hält den Anmeldezustand der App und erneuert Tokens bei Bedarf.
 @MainActor
-@Observable
-final class AuthStore {
+final class AuthStore: ObservableObject {
     enum State: Equatable {
         case loading
         case signedOut
@@ -14,9 +13,9 @@ final class AuthStore {
         case unavailable(String)
     }
 
-    private(set) var state: State = .loading
-    private(set) var errorMessage: String?
-    private(set) var isWorking = false
+    @Published private(set) var state: State = .loading
+    @Published private(set) var errorMessage: String?
+    @Published private(set) var isWorking = false
 
     /// **Demo-Modus** — die App läuft an erfundenen Daten statt an Stud.IP.
     ///
@@ -25,7 +24,7 @@ final class AuthStore {
     /// dauerhaft gültiges Prüfkonto beim Rechenzentrum gibt es nicht. Wer
     /// die Demo betritt, bekommt denselben Funktionsumfang; nur die Antworten
     /// kommen aus `DemoServer` statt aus dem Netz. Siehe `DemoData`.
-    private(set) var isDemo = false
+    @Published private(set) var isDemo = false
 
     /// Merkt den Demo-Modus über einen Neustart hinweg — sonst stünde beim
     /// nächsten Öffnen wieder die Anmeldung da, ohne dass jemand sich
@@ -35,16 +34,16 @@ final class AuthStore {
     /// Zahl der ungelesenen Nachrichten für das Kennzeichen am Tab. Wird von
     /// den Ansichten gemeldet, die das Postfach ohnehin laden — ein eigener
     /// Abruf nur für die Ziffer wäre eine Anfrage zu viel.
-    private(set) var unreadCount = 0
+    @Published private(set) var unreadCount = 0
 
     /// Klartext zu `course-type`. Einmal geholt, dann für die ganze Laufzeit
     /// gültig — die Veranstaltungsarten ändern sich nicht im Semester.
-    private(set) var semTypes: [String: String] = [:]
+    @Published private(set) var semTypes: [String: String] = [:]
 
     /// Welche Veranstaltungsarten in dieser Installation Studiengruppen sind.
     /// Steht in keinem Schema und wird deshalb abgeleitet — siehe
     /// `StudygroupKinds`.
-    private(set) var studygroupKinds: StudygroupKinds = .unknown
+    @Published private(set) var studygroupKinds: StudygroupKinds = .unknown
 
     private let oauth = OAuthService()
     private var tokens: TokenSet?
@@ -82,7 +81,7 @@ final class AuthStore {
     /// zentral angemeldet (`studGoDestinations`), damit im selben Stapel nicht
     /// zwei Anmeldungen desselben Typs liegen. Sie kennt die Liste, aus der
     /// sie geöffnet wurde, deshalb nicht mehr.
-    private(set) var mailboxRevision = 0
+    @Published private(set) var mailboxRevision = 0
 
     func noteUnread(_ count: Int) {
         unreadCount = count

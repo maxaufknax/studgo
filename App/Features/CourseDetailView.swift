@@ -9,11 +9,11 @@ import SwiftUI
 /// darunter Kacheln mit Anzahl — leere Bereiche sind sofort als leer erkennbar.
 struct CourseDetailView: View {
     let course: Course
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var events = Loadable<[CourseEvent]>()
-    @State private var news = Loadable<[NewsItem]>()
-    @State private var participants = Loadable<[Participant]>()
+    @StateObject private var events = Loadable<[CourseEvent]>()
+    @StateObject private var news = Loadable<[NewsItem]>()
+    @StateObject private var participants = Loadable<[Participant]>()
     @State private var webTarget: WebTarget?
 
     private var lecturers: [Participant] {
@@ -66,7 +66,7 @@ struct CourseDetailView: View {
         .navigationTitle(course.shortTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     Button {
                         webTarget = WebTarget(url: StudIPClient.courseURL(courseID: course.id))

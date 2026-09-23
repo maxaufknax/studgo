@@ -3,14 +3,15 @@ import SwiftUI
 /// Einstiegsbildschirm: was jetzt ansteht, was heute noch kommt, was neu ist.
 struct TodayView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
-    @Environment(Preferences.self) private var preferences
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var preferences: Preferences
+    @EnvironmentObject private var hiddenEvents: HiddenEventsStore
 
-    @State private var events = Loadable<[CourseEvent]>()
-    @State private var plan = Loadable<[ScheduleEntry]>()
-    @State private var semesters = Loadable<[Semester]>()
-    @State private var messages = Loadable<[Message]>()
-    @State private var news = Loadable<[NewsItem]>()
+    @StateObject private var events = Loadable<[CourseEvent]>()
+    @StateObject private var plan = Loadable<[ScheduleEntry]>()
+    @StateObject private var semesters = Loadable<[Semester]>()
+    @StateObject private var messages = Loadable<[Message]>()
+    @StateObject private var news = Loadable<[NewsItem]>()
     @State private var courses: [Course] = []
     @State private var isShowingSettings = false
 
@@ -19,10 +20,15 @@ struct TodayView: View {
     private var context: SemesterContext { SemesterContext(semesters.value ?? []) }
 
     private var allEvents: [CourseEvent] {
-        EventMerge.combine(dated: events.value ?? [],
-                           plans: [EventMerge.PlanWindow(entries: plan.value ?? [],
-                                                         semester: context.current())],
-                           days: 21)
+        let merged = EventMerge.combine(dated: events.value ?? [],
+                                        plans: [EventMerge.PlanWindow(entries: plan.value ?? [],
+                                                                      semester: context.current())],
+                                        days: 21)
+        // Was im Kalender ausgeblendet ist, steht hier nicht an — auch nicht
+        // als „als Nächstes“. Mit der Schalterstellung im Kalender bleiben
+        // solche Termine sichtbar und markiert.
+        return hiddenEvents.showsHiddenEvents ? merged
+            : merged.filter { !hiddenEvents.isHidden($0) }
     }
 
     private var current: CourseEvent? {
@@ -78,9 +84,7 @@ struct TodayView: View {
                         if !todaysRemaining.isEmpty {
                             SectionCard(title: "Heute noch", symbol: "clock") {
                                 rows(todaysRemaining) { event in
-                                    PushButton(value: event) {
-                                        linkRow { EventRow(event: event) }
-                                    }
+                                    eventRow(event)
                                 }
                             }
                         }
@@ -88,9 +92,7 @@ struct TodayView: View {
                         if !laterEvents.isEmpty {
                             SectionCard(title: "Demnächst", symbol: "calendar") {
                                 rows(laterEvents) { event in
-                                    PushButton(value: event) {
-                                        linkRow { EventRow(event: event, showDay: true) }
-                                    }
+                                    eventRow(event, showDay: true)
                                 }
                             }
                         }
@@ -125,7 +127,7 @@ struct TodayView: View {
             .navigationTitle("Heute")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         isShowingSettings = true
                     } label: {
@@ -229,6 +231,31 @@ struct TodayView: View {
                     Divider().padding(.vertical, 6)
                 }
                 row(items[index])
+            }
+        }
+    }
+
+    /// Eine Terminzeile — antippbar, und über langes Drücken im Kalender
+    /// ausblendbar. Der Umweg über die eigene Methode spart die Wiederholung
+    /// der Kontextaktion für „Heute noch“ und „Demnächst“.
+    private func eventRow(_ event: CourseEvent, showDay: Bool = false) -> some View {
+        PushButton(value: event) {
+            linkRow { EventRow(event: event, showDay: showDay) }
+                .opacity(hiddenEvents.isHidden(event) ? 0.45 : 1)
+        }
+        .contextMenu {
+            if hiddenEvents.isHidden(event) {
+                Button {
+                    hiddenEvents.unhide(event)
+                } label: {
+                    Label("Wieder einblenden", systemImage: "eye")
+                }
+            } else {
+                Button {
+                    hiddenEvents.hide(event)
+                } label: {
+                    Label("Im Kalender ausblenden", systemImage: "eye.slash")
+                }
             }
         }
     }

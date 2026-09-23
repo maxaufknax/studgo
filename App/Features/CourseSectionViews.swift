@@ -15,9 +15,9 @@ import SwiftUI
 
 struct CourseDatesView: View {
     let course: Course
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var events = Loadable<[CourseEvent]>()
+    @StateObject private var events = Loadable<[CourseEvent]>()
 
     private var upcoming: [CourseEvent] {
         (events.value ?? []).filter { !$0.isOver }
@@ -75,9 +75,9 @@ struct CourseDatesView: View {
 
 struct CourseParticipantsView: View {
     let course: Course
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var participants = Loadable<[Participant]>()
+    @StateObject private var participants = Loadable<[Participant]>()
     @State private var search = ""
     @State private var selected: Participant?
 
@@ -173,9 +173,9 @@ struct ParticipantRow: View {
 
 struct CourseNewsView: View {
     let course: Course
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var news = Loadable<[NewsItem]>()
+    @StateObject private var news = Loadable<[NewsItem]>()
 
     var body: some View {
         List(news.value ?? []) { item in
@@ -213,9 +213,9 @@ struct CourseNewsView: View {
 /// `/forum-entries/{id}/entries` ab.
 struct CourseForumView: View {
     let course: Course
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var categories = Loadable<[ForumCategory]>()
+    @StateObject private var categories = Loadable<[ForumCategory]>()
 
     var body: some View {
         List(categories.value ?? []) { category in
@@ -246,9 +246,9 @@ struct CourseForumView: View {
 
 struct ForumCategoryView: View {
     let category: ForumCategory
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var entries = Loadable<[ForumEntry]>()
+    @StateObject private var entries = Loadable<[ForumEntry]>()
 
     var body: some View {
         List(entries.value ?? []) { entry in
@@ -292,9 +292,9 @@ struct ForumCategoryView: View {
 /// Ein Thema samt Antworten, mit Eingabefeld am Fuß.
 struct ForumEntryView: View {
     let entry: ForumEntry
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var replies = Loadable<[ForumEntry]>()
+    @StateObject private var replies = Loadable<[ForumEntry]>()
     @State private var draft = ""
     @State private var isSending = false
     @State private var sendError: String?
@@ -403,9 +403,9 @@ struct ForumEntryView: View {
 
 struct CourseWikiView: View {
     let course: Course
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var pages = Loadable<[WikiPage]>()
+    @StateObject private var pages = Loadable<[WikiPage]>()
 
     var body: some View {
         List(pages.value ?? []) { page in
@@ -484,9 +484,9 @@ struct WikiPageView: View {
 
 struct CourseBlubberView: View {
     let course: Course
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var threads = Loadable<[BlubberThread]>()
+    @StateObject private var threads = Loadable<[BlubberThread]>()
     @State private var isWriting = false
 
     private var isStudygroup: Bool { auth.studygroupKinds.contains(course.typeID) }
@@ -511,7 +511,7 @@ struct CourseBlubberView: View {
         .navigationTitle("Blubber")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     isWriting = true
                 } label: {

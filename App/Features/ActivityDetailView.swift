@@ -25,7 +25,7 @@ struct ActivityDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(item.kindLabel)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 ModerationMenu(target: item.moderationTarget)
             }
         }

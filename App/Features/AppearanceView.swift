@@ -6,14 +6,15 @@ import SwiftUI
 /// die ersten fünf Kursfarben nebeneinander. Ein Name wie „Beere" sagt sonst
 /// wenig darüber, wie der Stundenplan hinterher aussieht.
 struct AppearanceView: View {
-    @Environment(ThemeStore.self) private var store
+    @EnvironmentObject private var store: ThemeStore
+    /// Der Spiegel des aktiven Themas — auf ihn reagiert die Vorschau
+    /// sofort, siehe `Palette`.
+    @ObservedObject private var palette = Palette.shared
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: 12)]
 
     var body: some View {
-        @Bindable var store = store
-
-        return List {
+        List {
             Section {
                 Picker("Erscheinungsbild", selection: $store.appearance) {
                     ForEach(AppAppearance.allCases) { option in

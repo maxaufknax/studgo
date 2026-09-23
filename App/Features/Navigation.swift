@@ -15,9 +15,8 @@ import SwiftUI
 /// Legt der Push den Wert dagegen in *diesen* Pfad, hängt die Detailseite an
 /// nichts, was die Liste darunter tut. Die Zeile darf verschwinden — der Pfad
 /// bleibt, und mit ihm die geöffnete Seite.
-@Observable
-final class Navigator {
-    var path = NavigationPath()
+final class Navigator: ObservableObject {
+    @Published var path = NavigationPath()
 
     func push<Value: Hashable>(_ value: Value) {
         path.append(value)
@@ -185,19 +184,19 @@ extension View {
 /// Ein Navigationsstapel mit eigenem `Navigator` und allen Zielen.
 ///
 /// Der `Navigator` liegt im Umfeld, sodass jede Zeile über `PushLink` oder
-/// direkt `@Environment(Navigator.self)` in *diesen* Stapel schieben kann.
+/// direkt `@EnvironmentObject` in *diesen* Stapel schieben kann.
 struct StudGoStack<Content: View>: View {
     let user: StudIPUser
     @ViewBuilder var content: Content
 
-    @State private var navigator = Navigator()
+    @StateObject private var navigator = Navigator()
 
     var body: some View {
         NavigationStack(path: $navigator.path) {
             content
                 .studGoDestinations(user: user)
         }
-        .environment(navigator)
+        .environmentObject(navigator)
     }
 }
 
@@ -212,7 +211,7 @@ struct PushLink<Value: Hashable, Label: View>: View {
     let value: Value
     @ViewBuilder var label: Label
 
-    @Environment(Navigator.self) private var navigator
+    @EnvironmentObject private var navigator: Navigator
 
     var body: some View {
         Button {
@@ -240,7 +239,7 @@ struct PushButton<Value: Hashable, Label: View>: View {
     let value: Value
     @ViewBuilder var label: Label
 
-    @Environment(Navigator.self) private var navigator
+    @EnvironmentObject private var navigator: Navigator
 
     var body: some View {
         Button {

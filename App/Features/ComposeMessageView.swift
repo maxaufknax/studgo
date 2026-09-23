@@ -8,7 +8,7 @@ struct ComposeMessageView: View {
     var presetRecipientID: String?
     var onSent: (() async -> Void)?
 
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var recipients: [StudIPUser] = []
@@ -140,7 +140,7 @@ struct ComposeMessageView: View {
 struct RecipientPickerView: View {
     let onSelect: (StudIPUser) -> Void
 
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var term = ""

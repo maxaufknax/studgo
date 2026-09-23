@@ -1,4 +1,3 @@
-import Observation
 import SwiftUI
 import UIKit
 
@@ -207,27 +206,26 @@ enum AppAppearance: String, CaseIterable, Identifiable, Sendable {
 /// Zeile der App gerufen und käme sonst ohne Environment nicht an das aktive
 /// Thema heran.
 @MainActor
-@Observable
-final class ThemeStore {
+final class ThemeStore: ObservableObject {
     private enum Key {
         static let theme = "studgo.theme"
         static let appearance = "studgo.appearance"
         static let compact = "studgo.compactRows"
     }
 
-    var theme: AppTheme {
+    @Published var theme: AppTheme {
         didSet {
             UserDefaults.standard.set(theme.rawValue, forKey: Key.theme)
             Palette.shared.current = theme
         }
     }
 
-    var appearance: AppAppearance {
+    @Published var appearance: AppAppearance {
         didSet { UserDefaults.standard.set(appearance.rawValue, forKey: Key.appearance) }
     }
 
     /// Dichtere Listen für alle, die lieber mehr auf den Bildschirm bekommen.
-    var isCompact: Bool {
+    @Published var isCompact: Bool {
         didSet { UserDefaults.standard.set(isCompact, forKey: Key.compact) }
     }
 
@@ -257,16 +255,16 @@ final class ThemeStore {
 /// statische Eigenschaft merkte SwiftUI nichts von der Änderung. Wer in der
 /// Farbwahl ein anderes Thema antippte, sah die Vorschau darunter unverändert
 /// — sie las zwar `Tint.color(…)`, hing aber an keinem beobachteten Wert und
-/// wurde deshalb nicht neu gezeichnet. Erst nach einmal Zurück und wieder
-/// Hinein baute SwiftUI die Ansicht neu auf und die Farben stimmten. Als
-/// `@Observable` wird jeder Lesezugriff aus einem `body` heraus verzeichnet,
-/// und die Umstellung schlägt sofort in der ganzen App durch.
-@Observable
-final class Palette {
+/// wurde deshalb nicht neu gezeichnet. Unter iOS 16 gibt es das
+/// `@Observable`-Makro (das jeden Lesezugriff von selbst verzeichnet) nicht;
+/// deshalb beobachten `AppearanceView` und `MainTabView` das gemeinsame
+/// Exemplar ausdrücklich — und mit ihnen werden die Zeilen darunter frisch
+/// aufgebaut, sobald der `ThemeStore` hier einschreibt.
+final class Palette: ObservableObject {
     static let shared = Palette()
 
     /// Nur vom `ThemeStore` beschrieben, und der lebt auf dem MainActor.
-    var current: AppTheme = .signature
+    @Published var current: AppTheme = .signature
 
     private init() {}
 }

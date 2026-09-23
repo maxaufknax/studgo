@@ -16,7 +16,8 @@ import SwiftUI
 /// * **Liste** — die nächsten Wochen am Stück, nach Tagen gruppiert.
 struct ScheduleView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var hiddenEvents: HiddenEventsStore
 
     enum Mode: String, CaseIterable, Identifiable {
         case day = "Tag"
@@ -46,17 +47,17 @@ struct ScheduleView: View {
     @State private var anchor = Calendar.current.startOfDay(for: Date())
     @State private var span: GridSpan = .workWeek
 
-    @State private var entries = Loadable<[ScheduleEntry]>()
+    @StateObject private var entries = Loadable<[ScheduleEntry]>()
     /// Der Plan des **kommenden** Semesters. Wird mitgeladen, sobald ein
     /// solches Semester bekannt ist — nicht erst in der vorlesungsfreien
     /// Zeit, weil der Umschalter im Raster ihn sonst nur manchmal anböte.
-    @State private var preview = Loadable<[ScheduleEntry]>()
+    @StateObject private var preview = Loadable<[ScheduleEntry]>()
     /// Welchen Plan das Raster zeigt. `nil` heißt „automatisch" — die
     /// Vorauswahl aus `SchedulePlan.resolve`. Eine Wahl von Hand bleibt
     /// stehen, auch über das Neuladen hinweg.
     @State private var chosenPlan: SchedulePlanScope?
-    @State private var agenda = Loadable<[CourseEvent]>()
-    @State private var semesters = Loadable<[Semester]>()
+    @StateObject private var agenda = Loadable<[CourseEvent]>()
+    @StateObject private var semesters = Loadable<[Semester]>()
     @State private var courses: [Course] = []
     @State private var exportURL: URL?
     @State private var isExporting = false
@@ -69,7 +70,7 @@ struct ScheduleView: View {
     /// nicht sinnvoll unter. Er wird zugleich ins Umfeld gelegt, damit die von
     /// hier erreichbaren `PushLink`-Zeilen (etwa der Dateibereich einer
     /// Veranstaltung) in *diesen* Stapel schieben.
-    @State private var navigator = Navigator()
+    @StateObject private var navigator = Navigator()
 
     // MARK: - Abgeleiteter Zustand
 
@@ -123,10 +124,15 @@ struct ScheduleView: View {
     }
 
     private func events(from start: Date, days: Int) -> [CourseEvent] {
-        EventMerge.combine(dated: agenda.value ?? [],
-                           plans: planWindows,
-                           from: start,
-                           days: days)
+        let merged = EventMerge.combine(dated: agenda.value ?? [],
+                                        plans: planWindows,
+                                        from: start,
+                                        days: days)
+        // Ausgeblendete verschwinden aus Tag, Liste und Datumsleiste — oder
+        // bleiben sichtbar und markiert, wenn sie ausdrücklich angezeigt
+        // werden sollen.
+        return hiddenEvents.showsHiddenEvents ? merged
+            : merged.filter { !hiddenEvents.isHidden($0) }
     }
 
     var body: some View {
@@ -161,7 +167,7 @@ struct ScheduleView: View {
             .refreshable { await load(fresh: true) }
             .task { if entries.value == nil { await load(fresh: false) } }
         }
-        .environment(navigator)
+        .environmentObject(navigator)
     }
 
     // MARK: - Werkzeugleiste
@@ -169,7 +175,7 @@ struct ScheduleView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         if mode == .grid {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: .navigationBarLeading) {
                 Menu {
                     Picker("Spalten", selection: $span) {
                         ForEach(GridSpan.allCases) { option in
@@ -194,7 +200,7 @@ struct ScheduleView: View {
                 }
             }
         }
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: .navigationBarTrailing) {
             Menu {
                 Button {
                     withAnimation { anchor = Calendar.current.startOfDay(for: Date()) }
@@ -212,6 +218,9 @@ struct ScheduleView: View {
                     }
                 }
                 Divider()
+                Toggle(isOn: $hiddenEvents.showsHiddenEvents) {
+                    Label("Ausgeblendete Termine zeigen", systemImage: "eye.slash")
+                }
                 Button {
                     navigator.push(Route.ownScheduleEntries)
                 } label: {
@@ -483,7 +492,25 @@ struct ScheduleView: View {
             ForEach(byDay, id: \.day) { group in
                 Section(Format.dayHeader(group.day)) {
                     ForEach(group.events) { event in
-                        PushLink(value: event) { EventRow(event: event) }
+                        PushLink(value: event) {
+                            EventRow(event: event)
+                                .opacity(hiddenEvents.isHidden(event) ? 0.45 : 1)
+                        }
+                        .contextMenu {
+                            if hiddenEvents.isHidden(event) {
+                                Button {
+                                    hiddenEvents.unhide(event)
+                                } label: {
+                                    Label("Wieder einblenden", systemImage: "eye")
+                                }
+                            } else {
+                                Button {
+                                    hiddenEvents.hide(event)
+                                } label: {
+                                    Label("Im Kalender ausblenden", systemImage: "eye.slash")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -629,7 +656,7 @@ struct DayStrip: View {
                 .padding(.vertical, 10)
             }
             .onAppear { proxy.scrollTo(selection.timeIntervalSince1970, anchor: .center) }
-            .onChange(of: selection) {
+            .onChange(of: selection) { _ in
                 withAnimation { proxy.scrollTo(selection.timeIntervalSince1970, anchor: .center) }
             }
         }
@@ -680,6 +707,7 @@ struct DayAgenda: View {
     /// genau dann ein eigener Block eintragen, und das ist der häufigste
     /// Grund, warum jemand einen leeren Tag ansieht.
     var addEntry: (() -> Void)?
+    @EnvironmentObject private var hiddenEvents: HiddenEventsStore
 
     private var total: TimeInterval {
         events.filter { !$0.isCancelled }.reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
@@ -703,7 +731,25 @@ struct DayAgenda: View {
                     VStack(alignment: .leading, spacing: 10) {
                         summary
                         ForEach(events) { event in
-                            PushButton(value: event) { DayAgendaRow(event: event) }
+                            PushButton(value: event) {
+                                DayAgendaRow(event: event)
+                                    .opacity(hiddenEvents.isHidden(event) ? 0.45 : 1)
+                            }
+                            .contextMenu {
+                                if hiddenEvents.isHidden(event) {
+                                    Button {
+                                        hiddenEvents.unhide(event)
+                                    } label: {
+                                        Label("Wieder einblenden", systemImage: "eye")
+                                    }
+                                } else {
+                                    Button {
+                                        hiddenEvents.hide(event)
+                                    } label: {
+                                        Label("Im Kalender ausblenden", systemImage: "eye.slash")
+                                    }
+                                }
+                            }
                         }
                     }
                     .padding(.horizontal)
@@ -841,8 +887,8 @@ struct CalendarEmptyState: View {
 /// die Verknüpfung, nicht den ganzen Datensatz.
 struct CourseLoaderView: View {
     let courseID: String
-    @Environment(AuthStore.self) private var auth
-    @State private var course = Loadable<Course>()
+    @EnvironmentObject private var auth: AuthStore
+    @StateObject private var course = Loadable<Course>()
 
     var body: some View {
         Group {

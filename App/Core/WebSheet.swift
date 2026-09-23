@@ -24,7 +24,7 @@ import SwiftUI
 struct WebSheet: View {
     let url: URL
 
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
     var body: some View {
         if auth.isDemo {

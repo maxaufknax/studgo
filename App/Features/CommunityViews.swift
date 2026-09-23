@@ -14,8 +14,8 @@ struct PersonSheet: View {
     /// nachgeschlagen.
     var isContact: Bool?
 
-    @Environment(AuthStore.self) private var auth
-    @Environment(ModerationStore.self) private var moderation
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var moderation: ModerationStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var isComposing = false
@@ -172,10 +172,10 @@ struct PersonSheet: View {
 /// darunter antwortet der Server gar nicht erst, deshalb wartet die Ansicht
 /// ab, statt in einen Fehler zu laufen.
 struct PersonSearchView: View {
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
     @State private var term = ""
-    @State private var results = Loadable<[StudIPUser]>()
+    @StateObject private var results = Loadable<[StudIPUser]>()
     @State private var selected: StudIPUser?
 
     private var isTooShort: Bool {
@@ -263,12 +263,12 @@ struct PersonSearchView: View {
 /// Veranstaltungsliste herausgefiltert), darunter die Vorschläge — und eine
 /// Suche über das ganze Verzeichnis, eingegrenzt auf die Studiengruppen-Klasse.
 struct StudygroupsView: View {
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var mine = Loadable<[Course]>()
-    @State private var proposals = Loadable<[Course]>()
+    @StateObject private var mine = Loadable<[Course]>()
+    @StateObject private var proposals = Loadable<[Course]>()
     @State private var search = ""
-    @State private var found = Loadable<[Course]>()
+    @StateObject private var found = Loadable<[Course]>()
     @State private var pending: Task<Void, Never>?
 
     private var isSearching: Bool {
@@ -304,7 +304,7 @@ struct StudygroupsView: View {
         // und die Detailseite fiel wieder zu.
         .searchable(text: $search, prompt: "Studiengruppe suchen")
         .onSubmit(of: .search) { schedule(delay: 0) }
-        .onChange(of: search) { schedule(delay: 500) }
+        .onChange(of: search) { _ in schedule(delay: 500) }
         .navigationTitle("Studiengruppen")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await reload(fresh: true) }
@@ -444,9 +444,9 @@ struct ConsultationsView: View {
     let personID: String
     let personName: String
 
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var blocks = Loadable<[ConsultationBlock]>()
+    @StateObject private var blocks = Loadable<[ConsultationBlock]>()
     @State private var slotsByBlock: [String: [ConsultationSlot]] = [:]
     @State private var expanded: String?
     @State private var booking: ConsultationSlot?
@@ -575,7 +575,7 @@ struct ConsultationBookingSheet: View {
     let personName: String
     var onBooked: (() async -> Void)?
 
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var reason = ""
@@ -667,7 +667,7 @@ struct NewBlubberThreadView: View {
     var courses: [Course] = []
     var onPosted: (() async -> Void)?
 
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var content = ""

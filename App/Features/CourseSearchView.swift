@@ -8,13 +8,13 @@ import SwiftUI
 /// `400 Search term too short`; die Ansicht wartet deshalb ab, statt in einen
 /// Fehler zu laufen.
 struct CourseSearchView: View {
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
     @State private var term = ""
     @State private var field: StudIPClient.CourseSearchField = .all
     @State private var semesterChoice: String?
-    @State private var results = Loadable<[Course]>()
-    @State private var semesters = Loadable<[Semester]>()
+    @StateObject private var results = Loadable<[Course]>()
+    @StateObject private var semesters = Loadable<[Semester]>()
     @State private var didSearch = false
     /// Läuft, während getippt wird — eine Anfrage je Tastendruck wäre zu viel.
     @State private var pending: Task<Void, Never>?
@@ -57,7 +57,7 @@ struct CourseSearchView: View {
         .onSubmit(of: .search) { schedule(delay: 0) }
         // Von selbst suchen, sobald genug getippt ist. Vorher musste man die
         // Eingabetaste treffen — wer das nicht tat, hielt die Suche für kaputt.
-        .onChange(of: term) { schedule(delay: 400) }
+        .onChange(of: term) { _ in schedule(delay: 400) }
         .navigationTitle("Suchen")
         .navigationBarTitleDisplayMode(.inline)
         // Kein eigenes `navigationDestination(for: Course.self)`: Diese
@@ -96,8 +96,8 @@ struct CourseSearchView: View {
         }
         // Bei geänderten Filtern gleich neu suchen — aber nur, wenn schon
         // einmal gesucht wurde, sonst feuert die Ansicht beim Aufbau los.
-        .onChange(of: field) { if didSearch { schedule(delay: 0) } }
-        .onChange(of: semesterChoice) { if didSearch { schedule(delay: 0) } }
+        .onChange(of: field) { _ in if didSearch { schedule(delay: 0) } }
+        .onChange(of: semesterChoice) { _ in if didSearch { schedule(delay: 0) } }
     }
 
     // MARK: - Treffer

@@ -8,7 +8,7 @@ import SwiftUI
 /// zwei Menüpunkte an verschiedenen Enden der App.
 struct PostfachView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
     enum Section: String, CaseIterable, Identifiable {
         case messages = "Nachrichten"
@@ -43,7 +43,7 @@ struct PostfachView: View {
 /// erschiene doppelt.
 struct MailboxView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
     enum Box: String, CaseIterable, Identifiable {
         case inbox = "Posteingang"
@@ -61,8 +61,8 @@ struct MailboxView: View {
     }
 
     @State private var box: Box = .inbox
-    @State private var inbox = Loadable<[Message]>()
-    @State private var outbox = Loadable<[Message]>()
+    @StateObject private var inbox = Loadable<[Message]>()
+    @StateObject private var outbox = Loadable<[Message]>()
     @State private var search = ""
     @State private var isComposing = false
 
@@ -118,7 +118,7 @@ struct MailboxView: View {
         // desselben Typs im selben Stapel — hier und in „Heute" — öffneten
         // sonst die jeweils falsche Seite.
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: .navigationBarLeading) {
                 Menu {
                     Picker("Postfach", selection: $box) {
                         ForEach(Box.allCases) { option in
@@ -130,7 +130,7 @@ struct MailboxView: View {
                         .font(.footnote)
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     isComposing = true
                 } label: {
@@ -147,7 +147,7 @@ struct MailboxView: View {
         // Die Detailseite meldet über den Store, dass sie etwas verändert hat
         // — gelesen markiert, geantwortet. Ohne das bliebe der blaue Punkt an
         // einer längst geöffneten Nachricht stehen.
-        .onChange(of: auth.mailboxRevision) { Task { await reload(fresh: true) } }
+        .onChange(of: auth.mailboxRevision) { _ in Task { await reload(fresh: true) } }
     }
 
     private var emptyText: String {
@@ -195,7 +195,7 @@ struct MailboxView: View {
 /// den öffentlichen Strom aus dem Postfach heraushält.
 struct BlubberInboxView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
     /// Welche Fäden gezeigt werden.
     enum Scope: String, CaseIterable, Identifiable {
@@ -238,8 +238,8 @@ struct BlubberInboxView: View {
     }
 
     @State private var scope: Scope = .mine
-    @State private var personal = Loadable<[BlubberThread]>()
-    @State private var openStream = Loadable<[BlubberThread]>()
+    @StateObject private var personal = Loadable<[BlubberThread]>()
+    @StateObject private var openStream = Loadable<[BlubberThread]>()
     /// Der globale Strom wird eigens geholt: Er soll auch dann in der Liste
     /// stehen, wenn die Sammelroute an einem verwaisten Faden scheitert.
     @State private var global: BlubberThread?
@@ -339,7 +339,7 @@ struct BlubberInboxView: View {
         // Kein eigenes `navigationDestination(for: BlubberThread.self)` —
         // das meldet `studGoDestinations()` an der Stapelwurzel an.
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: .navigationBarLeading) {
                 Menu {
                     Picker("Bereich", selection: $scope) {
                         ForEach(Scope.allCases) { option in
@@ -351,7 +351,7 @@ struct BlubberInboxView: View {
                         .font(.footnote)
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     isWriting = true
                 } label: {
@@ -488,9 +488,9 @@ struct BlubberThreadRow: View {
 /// zusammen mit dem Knopf, der denselben Faden in Stud.IP öffnet.
 struct BlubberThreadView: View {
     let thread: BlubberThread
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var comments = Loadable<[BlubberComment]>()
+    @StateObject private var comments = Loadable<[BlubberComment]>()
     @State private var draft = ""
     @State private var isSending = false
     @State private var sendError: String?
@@ -534,7 +534,7 @@ struct BlubberThreadView: View {
         .navigationTitle(shown.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     webTarget = WebTarget(url: WebLinks.blubber(thread: thread.id))
                 } label: {
@@ -542,7 +542,7 @@ struct BlubberThreadView: View {
                 }
                 .accessibilityLabel("In Stud.IP öffnen")
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 ModerationMenu(target: ModerationTarget(kind: .blubberThread,
                                                         contentID: thread.id,
                                                         authorID: nil,
@@ -606,7 +606,7 @@ struct BlubberThreadView: View {
             .refreshable { await reload(fresh: true) }
             // Beim Öffnen und nach jedem neuen Beitrag ans Ende springen —
             // dort steht, worauf man geantwortet haben will.
-            .onChange(of: (comments.value ?? []).last?.id) {
+            .onChange(of: (comments.value ?? []).last?.id) { _ in
                 guard !isLoadingOlder, let last = comments.value?.last else { return }
                 withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
             }
@@ -902,7 +902,7 @@ struct MessageRow: View {
 struct MessageDetailView: View {
     let message: Message
 
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
     @State private var isReplying = false
     @State private var didMarkRead = false
 
@@ -956,7 +956,7 @@ struct MessageDetailView: View {
         .navigationTitle("Nachricht")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     isReplying = true
                 } label: {
@@ -965,7 +965,7 @@ struct MessageDetailView: View {
                 .disabled(message.senderID == nil || outgoing)
             }
             if !outgoing {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     ModerationMenu(target: ModerationTarget(kind: .message,
                                                             contentID: message.id,
                                                             authorID: message.senderID,

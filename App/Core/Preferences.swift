@@ -1,4 +1,3 @@
-import Observation
 import SwiftUI
 
 /// Einstellungen, die kein Aussehen betreffen — Benachrichtigungen und der
@@ -7,9 +6,11 @@ import SwiftUI
 /// Getrennt von `ThemeStore`, weil das eine die Optik regelt und das andere
 /// das Verhalten. Beide liegen in `UserDefaults`: Es sind Vorlieben, keine
 /// Geheimnisse.
+///
+/// `ObservableObject` statt des `@Observable`-Makros, weil die App auch auf
+/// iOS 16 läuft — das `Observation`-Framework gibt es erst ab iOS 17.
 @MainActor
-@Observable
-final class Preferences {
+final class Preferences: ObservableObject {
     private enum Key {
         static let webSession = "studgo.web.sharesSession"
         static let eventReminders = "studgo.notify.events"
@@ -37,30 +38,30 @@ final class Preferences {
     /// Vorgabe ist `true` — der Weg, auf dem die Rückfallebenen ohne Reibung
     /// funktionieren. Wer das nicht will, stellt es um; die Einstellung sagt
     /// beides klar.
-    var sharesWebSession: Bool {
+    @Published var sharesWebSession: Bool {
         didSet { defaults.set(sharesWebSession, forKey: Key.webSession) }
     }
 
     // MARK: - Benachrichtigungen
 
     /// Erinnerung vor Vorlesungen und Terminen.
-    var eventReminders: Bool {
+    @Published var eventReminders: Bool {
         didSet { defaults.set(eventReminders, forKey: Key.eventReminders) }
     }
 
     /// Wie viele Minuten vorher. 0 heißt: pünktlich zum Beginn.
-    var leadMinutes: Int {
+    @Published var leadMinutes: Int {
         didSet { defaults.set(leadMinutes, forKey: Key.leadMinutes) }
     }
 
     /// Hinweis auf neue Nachrichten und Beiträge, wenn die App im Hintergrund
     /// nachsehen darf.
-    var mailboxAlerts: Bool {
+    @Published var mailboxAlerts: Bool {
         didSet { defaults.set(mailboxAlerts, forKey: Key.mailbox) }
     }
 
     /// Am Wochenende still bleiben. Für Kursfäden, die samstags weiterlaufen.
-    var quietWeekend: Bool {
+    @Published var quietWeekend: Bool {
         didSet { defaults.set(quietWeekend, forKey: Key.quietWeekend) }
     }
 

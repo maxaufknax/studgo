@@ -3,15 +3,16 @@ import UserNotifications
 
 @main
 struct StudGoApp: App {
-    @State private var auth = AuthStore()
-    @State private var theme = ThemeStore()
-    @State private var preferences = Preferences()
-    @State private var moderation = ModerationStore()
+    @StateObject private var auth = AuthStore()
+    @StateObject private var theme = ThemeStore()
+    @StateObject private var preferences = Preferences()
+    @StateObject private var moderation = ModerationStore()
+    @StateObject private var hiddenEvents = HiddenEventsStore()
     // Auffangnetz: Jeder Reiter legt in seinem `StudGoStack` einen eigenen
     // `Navigator` an, der den seinen überschreibt. Dieser hier greift nur,
     // falls eine `PushLink`-Zeile je außerhalb eines solchen Stapels landete —
     // dann tut sie nichts, statt mangels Navigator abzustürzen.
-    @State private var fallbackNavigator = Navigator()
+    @StateObject private var fallbackNavigator = Navigator()
     // Fängt zugestellte und angetippte Mitteilungen ab. Ohne einen Delegate
     // zeigt iOS im Vordergrund **nichts** an — genau der Fall „scheint nicht zu
     // funktionieren", weil die App beim Testen ja offen ist.
@@ -32,12 +33,13 @@ struct StudGoApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environment(auth)
-                .environment(theme)
-                .environment(preferences)
-                .environment(moderation)
-                .environment(NotificationRouter.shared)
-                .environment(fallbackNavigator)
+                .environmentObject(auth)
+                .environmentObject(theme)
+                .environmentObject(preferences)
+                .environmentObject(moderation)
+                .environmentObject(hiddenEvents)
+                .environmentObject(NotificationRouter.shared)
+                .environmentObject(fallbackNavigator)
                 // Akzentfarbe und Erscheinungsbild wirken auf die gesamte
                 // Oberfläche — deshalb ganz oben und nicht je Ansicht.
                 .tint(theme.theme.accent)

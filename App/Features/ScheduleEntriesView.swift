@@ -27,9 +27,9 @@ import SwiftUI
 /// oder gelöscht wurde, steht danach auch hier.
 struct OwnScheduleEntriesView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var entries = Loadable<[ScheduleEntry]>()
+    @StateObject private var entries = Loadable<[ScheduleEntry]>()
     @State private var webTarget: WebTarget?
     /// Wurde ein Blatt geöffnet? Dann beim Schließen erneuern.
     @State private var needsRefresh = false
@@ -103,7 +103,7 @@ struct OwnScheduleEntriesView: View {
         .navigationTitle("Eigene Termine")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     open(WebLinks.newScheduleEntry())
                 } label: {

@@ -9,7 +9,7 @@ struct TermsView: View {
     /// nachgelesen wird.
     var showsAcceptance = false
 
-    @Environment(ModerationStore.self) private var moderation
+    @EnvironmentObject private var moderation: ModerationStore
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -70,7 +70,7 @@ struct TermsView: View {
 /// Satz im Kleingedruckten ist keine Annahme — ein Häkchen, ohne das es nicht
 /// weitergeht, schon.
 struct TermsGate: View {
-    @Environment(ModerationStore.self) private var moderation
+    @EnvironmentObject private var moderation: ModerationStore
     @State private var showsTerms = false
 
     var body: some View {
