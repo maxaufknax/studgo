@@ -10,12 +10,12 @@ import SwiftUI
 /// eigene Verlauf. Alles wird auf dem Gerät gerechnet, nichts verlässt es.
 struct StatisticsView: View {
     let user: StudIPUser
-    @Environment(AuthStore.self) private var auth
+    @EnvironmentObject private var auth: AuthStore
 
-    @State private var plan = Loadable<[ScheduleEntry]>()
-    @State private var courses = Loadable<[Course]>()
-    @State private var semesters = Loadable<[Semester]>()
-    @State private var activities = Loadable<[ActivityItem]>()
+    @StateObject private var plan = Loadable<[ScheduleEntry]>()
+    @StateObject private var courses = Loadable<[Course]>()
+    @StateObject private var semesters = Loadable<[Semester]>()
+    @StateObject private var activities = Loadable<[ActivityItem]>()
 
     private var stats: SemesterStats {
         SemesterStats(plan: plan.value ?? [],

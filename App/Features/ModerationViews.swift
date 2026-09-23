@@ -38,7 +38,7 @@ extension View {
 
 private struct ModerationModifier: ViewModifier {
     let target: ModerationTarget
-    @Environment(ModerationStore.self) private var moderation
+    @EnvironmentObject private var moderation: ModerationStore
     @State private var revealed = false
     @State private var sheet: ModerationSheet?
 
@@ -132,7 +132,7 @@ struct ReportSheet: View {
         self.mode = mode
     }
 
-    @Environment(ModerationStore.self) private var moderation
+    @EnvironmentObject private var moderation: ModerationStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
