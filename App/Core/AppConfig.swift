@@ -33,7 +33,7 @@ enum AppConfig {
     /// braucht ihn nur dafür. Bleibt er unerreichbar, schaltet
     /// `ModerationStore` auf die E-Mail-Rückfallebene um; eine Meldung darf
     /// nicht daran scheitern, dass ein Server gerade neu startet.
-    static let reportEndpoint = URL(string: "https://studgo.maxaufknax.de/report")!
+    static let reportEndpoint = URL(string: "https://studgo.de/report")!
 
     /// Liegt offen im Quelltext und **soll** das auch: Er hält zufälligen Lärm
     /// ab, mehr nicht. Wer den Endpunkt ernsthaft fluten will, kommt an

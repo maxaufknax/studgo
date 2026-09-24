@@ -7,7 +7,7 @@
 > keychain on your device, cached content stays in the app's sandbox. There is
 > no analytics, no tracking, no advertising and no third-party SDK.
 > **One exception:** if *you* report a post or block a person, that single
-> report is sent to `studgo.maxaufknax.de/report`, a service run by the
+> report is sent to `studgo.de/report`, a service run by the
 > developer, so that abuse can be dealt with — see *Melden und Blockieren*
 > below. That endpoint is the only server besides Stud.IP the app ever
 > contacts, it is contacted only when you report or block, and it does not
@@ -39,7 +39,7 @@ keine Kopie an anderer Stelle ab, und der Entwickler hat keinen Zugriff auf
 dein Konto.
 
 Einen einzigen eigenen Server gibt es dennoch: die **Meldestelle** unter
-`studgo.maxaufknax.de`. Sie kommt nur zum Zuge, wenn du selbst einen Beitrag
+`studgo.de`. Sie kommt nur zum Zuge, wenn du selbst einen Beitrag
 meldest oder eine Person blockierst. Was dann übertragen wird, steht unten
 unter *Melden und Blockieren*.
 
@@ -64,7 +64,7 @@ Stud.IP anmeldest.
 Die App zeigt Beiträge, die andere Menschen geschrieben haben. Damit du dich
 dagegen wehren kannst — und damit der Entwickler von Missbrauch überhaupt
 erfährt — geht eine Meldung an die Meldestelle
-`https://studgo.maxaufknax.de/report`.
+`https://studgo.de/report`.
 
 **Das passiert nur, wenn du es auslöst**: durch „Beitrag melden" oder durch
 „Person blockieren". Ohne diese Handlung wird dorthin nichts übertragen.
