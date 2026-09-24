@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /report
+Disallow: /reports
+Disallow: /healthz

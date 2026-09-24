@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StudGo — dein Stud.IP in der Tasche</title>
+<meta name="description" content="StudGo ist die native iOS-App für dein Stud.IP: Stundenplan, Kurse, Dateien, Nachrichten und Ankündigungen. Kostenlos, quelloffen, ohne Tracker.">
+<meta property="og:title" content="StudGo — dein Stud.IP in der Tasche">
+<meta property="og:description" content="Stundenplan, Kurse, Dateien, Nachrichten und Ankündigungen — schnell, privat und kostenlos.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://studgo.maxaufknax.de/">
+<meta property="og:image" content="https://studgo.maxaufknax.de/assets/icon-512.png">
+<link rel="canonical" href="https://studgo.maxaufknax.de/">
+<link rel="icon" href="assets/icon-180.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<meta name="theme-color" content="#f5f7fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1218" media="(prefers-color-scheme: dark)">
+<style>
+:root {
+  --accent: #1171a8;
+  --accent-bright: #38b6ff;
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #eef2f6;
+  --text: #0b1c26;
+  --muted: #4f606b;
+  --line: #d9e1e8;
+  --shadow: 0 10px 30px rgba(11, 28, 38, .10);
+  --radius: 18px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #38b6ff;
+    --accent-bright: #38b6ff;
+    --bg: #0b1218;
+    --surface: #131c24;
+    --surface-2: #1a252f;
+    --text: #e8eef3;
+    --muted: #93a4b0;
+    --line: #24313d;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .45);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; margin: 0 0 12px; }
+p { margin: 0 0 12px; }
+.muted { color: var(--muted); }
+.center { text-align: center; }
+
+/* ---------- Kopfzeile ---------- */
+header {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.nav { display: flex; align-items: center; gap: 16px; padding: 14px 0; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.2rem; color: var(--text); }
+.brand img { width: 32px; height: 32px; border-radius: 8px; }
+.nav .links { display: flex; gap: 18px; margin-left: auto; }
+.nav .links a { color: var(--muted); font-size: .95rem; }
+.nav .links a:hover { color: var(--text); text-decoration: none; }
+.nav .store-mini { margin-left: 8px; }
+@media (max-width: 720px) { .nav .links { display: none; } }
+
+/* ---------- Knöpfe ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 12px 22px; border-radius: 12px;
+  font-weight: 600; font-size: 1rem; line-height: 1.2;
+  border: 1px solid transparent; cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.btn:hover { text-decoration: none; transform: translateY(-1px); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { box-shadow: 0 8px 20px rgba(17, 113, 168, .35); }
+@media (prefers-color-scheme: dark) {
+  .btn-primary { color: #06121a; }
+  .btn-primary:hover { box-shadow: 0 8px 20px rgba(56, 182, 255, .25); }
+}
+.btn-outline { border-color: var(--line); color: var(--text); background: var(--surface); }
+.btn-outline:hover { border-color: var(--accent); }
+.btn svg { flex: none; }
+
+/* ---------- Held ---------- */
+.hero { position: relative; overflow: hidden; padding: 72px 0 96px; }
+.hero::before, .hero::after {
+  content: ""; position: absolute; border-radius: 50%;
+  filter: blur(90px); opacity: .22; pointer-events: none;
+}
+.hero::before { width: 480px; height: 480px; background: var(--accent-bright); top: -160px; left: -120px; }
+.hero::after { width: 420px; height: 420px; background: var(--accent-bright); bottom: -200px; right: -100px; opacity: .12; }
+.hero .wrap { position: relative; display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
+.hero h1 { font-size: clamp(2.1rem, 5vw, 3.4rem); font-weight: 800; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero .sub { font-size: 1.15rem; color: var(--muted); max-width: 34rem; margin-bottom: 28px; }
+.hero .cta { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 26px; }
+.hero .fineprint { font-size: .85rem; color: var(--muted); }
+.shots { position: relative; height: 560px; }
+.shots figure { margin: 0; position: absolute; width: 258px; border-radius: 26px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--surface-2); }
+.shots img { display: block; width: 100%; height: auto; }
+.shots .s1 { left: 0; top: 40px; transform: rotate(-5deg); z-index: 1; }
+.shots .s2 { left: 50%; top: 0; transform: translateX(-50%) rotate(1deg); z-index: 3; }
+.shots .s3 { right: 0; top: 40px; transform: rotate(5deg); z-index: 2; }
+@media (max-width: 860px) {
+  .hero { padding-top: 44px; }
+  .hero .wrap { grid-template-columns: 1fr; }
+  .shots { height: 0; padding-bottom: 0; display: none; }
+}
+
+/* ---------- Chip-Leiste ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 0 0 56px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--text); border-radius: 999px; padding: 8px 16px;
+  font-size: .92rem; font-weight: 500;
+}
+.chip svg { color: var(--accent); }
+
+/* ---------- Abschnitte ---------- */
+section { padding: 40px 0 64px; }
+section h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 750; }
+section .lede { color: var(--muted); max-width: 44rem; }
+.sec-head { margin-bottom: 36px; }
+
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+@media (max-width: 980px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px) { .grid { grid-template-columns: 1fr; } }
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 22px;
+}
+.card .ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-bright) 16%, var(--surface));
+  color: var(--accent); margin-bottom: 14px;
+}
+.card h3 { font-size: 1.05rem; margin-bottom: 6px; }
+.card p { font-size: .93rem; color: var(--muted); margin: 0; }
+
+/* ---------- Warum ---------- */
+.why { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 860px) { .why { grid-template-columns: 1fr; } }
+.why .card h3 { font-size: 1.15rem; }
+.why .card p { font-size: .97rem; }
+
+/* ---------- Galerie ---------- */
+.gallery { display: grid; grid-auto-flow: column; grid-auto-columns: 240px; gap: 14px; overflow-x: auto; padding: 6px 24px 22px; scroll-snap-type: x mandatory; }
+.gallery img {
+  width: 240px; border-radius: 18px; border: 1px solid var(--line);
+  box-shadow: var(--shadow); scroll-snap-align: center; display: block;
+}
+
+/* ---------- FAQ ---------- */
+.faq { max-width: 720px; }
+.faq details {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; padding: 16px 20px; margin-bottom: 10px;
+}
+.faq summary { font-weight: 600; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; color: var(--accent); font-size: 1.3rem; line-height: 1; }
+.faq details[open] summary::after { content: "–"; }
+.faq details p { margin: 10px 0 0; color: var(--muted); font-size: .96rem; }
+
+/* ---------- Roadmap ---------- */
+.roadmap { display: flex; flex-wrap: wrap; gap: 12px; }
+.roadmap span {
+  border: 1px dashed var(--accent); color: var(--accent);
+  border-radius: 999px; padding: 8px 18px; font-size: .95rem; font-weight: 500;
+}
+
+/* ---------- Schluss-CTA ---------- */
+.final {
+  background: linear-gradient(140deg, color-mix(in srgb, var(--accent-bright) 14%, var(--surface)), var(--surface));
+  border: 1px solid var(--line); border-radius: 24px;
+  padding: 56px 32px; text-align: center;
+}
+.final h2 { margin-bottom: 10px; }
+.final .cta { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 22px; }
+
+/* ---------- Fußzeile ---------- */
+footer { border-top: 1px solid var(--line); padding: 40px 0 56px; margin-top: 48px; }
+.foot { display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-between; align-items: flex-start; }
+.foot .col { display: flex; flex-direction: column; gap: 6px; font-size: .93rem; }
+.foot .col a { color: var(--muted); }
+.foot .col a:hover { color: var(--text); }
+.foot .head { font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.foot .note { font-size: .85rem; color: var(--muted); max-width: 32rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/"><img src="assets/icon-180.png" alt="StudGo-Symbol">StudGo</a>
+    <nav class="links" aria-label="Hauptnavigation">
+      <a href="#features">Funktionen</a>
+      <a href="#warum">Warum StudGo</a>
+      <a href="#faq">Fragen</a>
+      <a href="#roadmap">Roadmap</a>
+    </nav>
+    <a class="btn btn-primary store-mini" href="https://apps.apple.com/de/app/studgo/id6804845342">Laden</a>
+  </div>
+</header>
+
+<main>
+<div class="hero">
+  <div class="wrap">
+    <div>
+      <h1>Dein Stud.IP.<br><em>In deiner Tasche.</em></h1>
+      <p class="sub">StudGo ist die native iOS-App für dein Stud.IP: Stundenplan, Kurse, Dateien, Nachrichten und Ankündigungen — schnell, privat und kostenlos.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://apps.apple.com/de/app/studgo/id6804845342">
+          <svg width="20" height="20" viewBox="0 0 384 512" fill="currentColor" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-52.7-161.5c24.1-28.7 21.9-54.8 21.2-64.1-21.3 1.2-46 14.6-60 31.2-15.4 17.6-24.4 39.4-22.5 63.7 23 1.8 44-10.3 61.3-30.8z"/></svg>
+          Im App Store laden
+        </a>
+        <a class="btn btn-outline" href="https://github.com/maxaufknax/studgo">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          Quelltext auf GitHub
+        </a>
+      </div>
+      <p class="fineprint">Kostenlos · Ohne Werbung · iOS ab 16</p>
+    </div>
+    <div class="shots" aria-hidden="true">
+      <figure class="s1"><img src="assets/shot-1.webp" alt="" loading="lazy"></figure>
+      <figure class="s2"><img src="assets/shot-2.webp" alt="" ></figure>
+      <figure class="s3"><img src="assets/shot-3.webp" alt="" loading="lazy"></figure>
+    </div>
+  </div>
+</div>
+
+<div class="wrap chips">
+  <span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Kostenlos, ohne Werbung</span>
+  <span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Open Source (MIT)</span>
+  <span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Kein Backend, keine Tracker</span>
+  <span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Tokens nur im Schlüsselbund</span>
+</div>
+
+<section id="features">
+  <div class="wrap sec-head">
+    <h2>Alles, was der Uni-Alltag braucht</h2>
+    <p class="lede">Von der ersten Vorlesung bis zur letzten Abgabe — StudGo deckt die Dinge ab, die man mehrmals pro Woche in der Hand hat.</p>
+  </div>
+  <div class="wrap grid">
+    <div class="card"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+      <h3>Stundenplan &amp; Termine</h3>
+      <p>Wochenraster mit Countdown zum nächsten Termin, Sitzungstermine mit Raum und Thema — auch offline, wenn der Campus-Funk gerade wieder weg ist.</p>
+    </div>
+    <div class="card"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+      <h3>Kurse &amp; Dateien</h3>
+      <p>Vorlesungsverzeichnis mit Volltextsuche, Ordnerbäume mit Vorschau, Download und Teilen — Dateien landen direkt in der Dateien-App.</p>
+    </div>
+    <div class="card"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+      <h3>Nachrichten &amp; Blubber</h3>
+      <p>Das Postfach und der Chat deiner Kurse, übersichtlich in einer App — mit Mitteilung, wenn etwas Neues ankommt.</p>
+    </div>
+    <div class="card"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-7-7 18-2.5-7.5z"/></svg></span>
+      <h3>Ankündigungen</h3>
+      <p>Neuigkeiten aus deinen Kursen und von der Hochschule, sauber formatiert — inklusive Sprechstunden und Kontakten.</p>
+    </div>
+    <div class="card"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+      <h3>Campus</h3>
+      <p>Mensa-Tageskarte, Raumangaben und die wichtigsten Links — alles, was zwischen zwei Vorlesungen fehlt.</p>
+    </div>
+    <div class="card"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></span>
+      <h3>Melden &amp; Blockieren</h3>
+      <p>Beiträge melden, Personen blockieren — blockierte Inhalte verschwinden sofort aus allen Listen. Meldungen werden binnen 24 Stunden bearbeitet.</p>
+    </div>
+    <div class="card"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+      <h3>Demo-Modus</h3>
+      <p>Die ganze App ohne Anmeldung ausprobieren — mit erfundenen Daten, die keinen Uni-Server berühren.</p>
+    </div>
+    <div class="card"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+      <h3>Dunkel &amp; farbig</h3>
+      <p>Dunkle Oberfläche für den späten Abend, sieben Farbwelten und ein Stundenplan, der sich nicht verrechnet.</p>
+    </div>
+  </div>
+</section>
+
+<section id="warum">
+  <div class="wrap sec-head">
+    <h2>Warum StudGo</h2>
+    <p class="lede">StudGo ist ein privates Studentenprojekt — und genau deshalb anders.</p>
+  </div>
+  <div class="wrap why">
+    <div class="card">
+      <h3>Privat von Haus aus</h3>
+      <p>Die Anmeldung läuft per OAuth&nbsp;2.0 mit PKCE über das Hochschulkonto — dein Passwort sieht die App nie. Inhalte bleiben auf deinem Gerät, Tokens liegen ausschließlich im Schlüsselbund. Es gibt keinen Anbieter-Server und keine Nutzungsstatistik.</p>
+    </div>
+    <div class="card">
+      <h3>Offen und kostenlos</h3>
+      <p>Der komplette Quelltext liegt unter MIT-Lizenz auf GitHub. Kein Preisschild, keine In-App-Käufe, keine Werbung — und das bleibt so.</p>
+    </div>
+    <div class="card">
+      <h3>Eine Hochschule, ganz</h3>
+      <p>StudGo verbindet sich direkt mit <a href="https://studip.uni-hannover.de">studip.uni-hannover.de</a> — statt durchschnittlich für hundert Unis gebaut zu sein, ist es genau für dein Stud.IP gemacht.</p>
+    </div>
+  </div>
+</section>
+
+<section id="bilder" aria-label="Screenshots">
+  <div class="wrap sec-head">
+    <h2>Eindrücke aus der App</h2>
+  </div>
+  <div class="gallery">
+    <img src="assets/shot-1.webp" alt="StudGo: Übersicht mit dem nächsten Termin" loading="lazy">
+    <img src="assets/shot-2.webp" alt="StudGo: Stundenplan als Wochenraster" loading="lazy">
+    <img src="assets/shot-3.webp" alt="StudGo: Kursübersicht" loading="lazy">
+    <img src="assets/shot-4.webp" alt="StudGo: Dateien eines Kurses" loading="lazy">
+    <img src="assets/shot-5.webp" alt="StudGo: Nachrichten und Blubber" loading="lazy">
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap sec-head">
+    <h2>Häufige Fragen</h2>
+  </div>
+  <div class="wrap faq">
+    <details>
+      <summary>Mit welchem Stud.IP funktioniert StudGo?</summary>
+      <p>StudGo ist für die Stud.IP-Installation unter <a href="https://studip.uni-hannover.de">studip.uni-hannover.de</a> gebaut und verbindet sich direkt mit ihr. Die Anmeldung läuft über dein Hochschulkonto.</p>
+    </details>
+    <details>
+      <summary>Was kostet StudGo?</summary>
+      <p>Nichts. Die App ist kostenlos, ohne Werbung und ohne In-App-Käufe — und der Quelltext steht unter MIT-Lizenz offen auf <a href="https://github.com/maxaufknax/studgo">GitHub</a>.</p>
+    </details>
+    <details>
+      <summary>Gibt es StudGo für Android?</summary>
+      <p>Derzeit nur iOS (ab iOS&nbsp;16). Eine Android-Version steht nicht auf der Roadmap — die eine Plattform richtig zu machen, reicht für ein Nebenprojekt.</p>
+    </details>
+    <details>
+      <summary>Was passiert mit meinen Daten?</summary>
+      <p>Die App hat kein eigenes Backend und spricht verschlüsselt direkt mit dem Stud.IP-Server. Zugangs-Tokens liegen nur im Schlüsselbund deines Geräts. Alle Einzelheiten stehen in der <a href="https://github.com/maxaufknax/studgo/blob/main/PRIVACY.md">Datenschutzerklärung</a>.</p>
+    </details>
+    <details>
+      <summary>Ich sehe Inhalte, die dort nicht hingehören — was kann ich tun?</summary>
+      <p>Lange auf den Beitrag tippen und „Beitrag melden“ wählen, oder die Person blockieren — blockierte Inhalte verschwinden sofort aus allen Listen. Jede Meldung erreicht den Entwickler unmittelbar und wird innerhalb von 24&nbsp;Stunden bearbeitet.</p>
+    </details>
+    <details>
+      <summary>Ich habe einen Fehler gefunden. Wohin damit?</summary>
+      <p>Am besten als Issue auf <a href="https://github.com/maxaufknax/studgo/issues">GitHub</a> — oder per Mail an <a href="mailto:maximilian.elias.paasch@gmail.com">maximilian.elias.paasch@gmail.com</a>.</p>
+    </details>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap sec-head">
+    <h2>Als Nächstes geplant</h2>
+  </div>
+  <div class="wrap roadmap">
+    <span>Courseware — Lernmaterialien direkt in der App</span>
+    <span>Persönliche Dateiablage</span>
+    <span>Ankündigungen verfassen</span>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="final">
+      <h2>Bereit für das Semester?</h2>
+      <p class="muted">Kostenlos, ohne Anmeldung testbar — und in einer Minute installiert.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://apps.apple.com/de/app/studgo/id6804845342">Im App Store laden</a>
+        <a class="btn btn-outline" href="https://github.com/maxaufknax/studgo">Quelltext ansehen</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div class="col">
+      <span class="head">StudGo</span>
+      <a href="https://apps.apple.com/de/app/studgo/id6804845342">App Store</a>
+      <a href="https://github.com/maxaufknax/studgo">GitHub</a>
+      <a href="https://github.com/maxaufknax/studgo/blob/main/PRIVACY.md">Datenschutzerklärung der App</a>
+    </div>
+    <div class="col">
+      <span class="head">Rechtliches</span>
+      <a href="/impressum.html">Impressum</a>
+      <a href="/datenschutz.html">Datenschutz der Website</a>
+    </div>
+    <div class="col">
+      <span class="head">Kontakt</span>
+      <a href="mailto:maximilian.elias.paasch@gmail.com">maximilian.elias.paasch@gmail.com</a>
+      <a href="https://github.com/maxaufknax/studgo/issues">Fehler melden (GitHub)</a>
+    </div>
+    <div class="col">
+      <p class="note">StudGo ist ein privates, quelloffenes Projekt von Maximilian Paasch. Es ist keine offizielle App deiner Hochschule und keine offizielle App von Stud.IP&nbsp;e.V.</p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
