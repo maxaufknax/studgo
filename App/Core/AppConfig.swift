@@ -21,7 +21,8 @@ enum AppConfig {
 
     /// SOGo-Weboberfläche der LUH. `webmail.uni-hannover.de` leitet dorthin
     /// weiter; die Zieladresse zu nehmen spart die Umleitung.
-    /// Warum StudGo Mail nur verlinkt statt einzubauen: ohne Uni-Passwort gibt es keinen Zugang zur Uni-Mail.
+    /// Warum StudGo Mail nur verlinkt statt einzubauen: Die Uni-Mail kennt
+    /// keine tokenbasierte Anmeldung, ein Passwortfeld gehört nicht in die App.
     static let webmailURL = URL(string: "https://kalender.uni-hannover.de/SOGo/")!
 
     // MARK: - Meldestelle

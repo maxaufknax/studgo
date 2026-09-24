@@ -227,8 +227,6 @@ struct SettingsView: View {
                                  subtitle: "Serverdaten für Apple Mail")
                     }
                 } footer: {
-                    
-                    
                     Text("Die Uni-Mail kennt nur Anmeldung per Passwort — weder IMAP noch SOGo bieten OAuth an. StudGo fragt deshalb grundsätzlich kein Uni-Passwort ab und verweist stattdessen auf SOGo und die Mail-App des Geräts.")
                 }
 
@@ -413,7 +411,7 @@ struct AboutView: View {
 /// bietet nur `AUTH=PLAIN`, SOGos DAV-Endpunkt nur HTTP Basic. Ein
 /// Posteingang in der App hieße, das zentrale Uni-Passwort abzufragen und
 /// vorzuhalten — das widerspricht der Zusage, dass nur widerrufbare Tokens
-/// auf dem Gerät liegen. 
+/// auf dem Gerät liegen.
 struct MailSetupView: View {
     private struct Entry: Identifiable {
         let label: String

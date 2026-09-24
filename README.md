@@ -53,7 +53,7 @@ App/Core        OAuth2, Keychain, JSON:API-Transport, Zwischenspeicher,
 App/Models      Domänenmodelle (Attributnamen aus den Stud.IP-6.0-Schemas)
 App/Features    SwiftUI-Ansichten
 App/Resources   Assets, Datenschutzmanifest
-docs/           API-Befunde, Codemagic-Anleitung, Arbeitsweise
+docs/           API-Befunde, Funktionsumfang, Codemagic-Anleitung
 tools/          Swift-Toolchain im Container, Lint, Codemagic-CLI, Secrets
 Tests/          Tests der Logikschicht (swift-testing)
 PRIVACY.md      Datenschutzerklärung (Adresse im App Store)
@@ -70,7 +70,6 @@ lokal übersetzen und testen — die Swift-Toolchain läuft dafür im Container.
 ```
 
 Beides zusammen fängt ab, was sonst erst nach Minuten bei Codemagic auffiele.
-
 
 ## Bauen
 

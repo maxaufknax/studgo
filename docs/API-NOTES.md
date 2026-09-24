@@ -24,7 +24,7 @@ Nicht existent (führen zu "No route matches"): `/dispatch.php/oauth2/*`,
 `/dispatch.php/api/oauth/*` (ohne die 2), `/.well-known/oauth-authorization-server`.
 Es gibt **keine Discovery-Metadaten** — Endpunkte müssen fest verdrahtet werden.
 
-## Client-Registrierung (LUH, von der ZQS-elsa)
+## Client-Registrierung (LUH, ZQS-elsa)
 
 | | |
 | --- | --- |

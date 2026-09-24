@@ -29,7 +29,7 @@ Ursache:
    dafür schlicht **keine** Routen. Diese Wege führen dauerhaft über die
    Weboberfläche; StudGo verlinkt sie an Ort und Stelle.
 3. **Uni-Mail** — technisch möglich, aber nur gegen das zentrale
-   Uni-Passwort. Bewusst ausgelassen, aus Sicherheitsgründen.
+   Uni-Passwort. Bewusst ausgelassen.
 
 Für den täglichen Gebrauch heißt das: **Was man unterwegs mit dem Telefon tun
 will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
