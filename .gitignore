@@ -34,3 +34,6 @@ docs/mail-*.md
 
 # App-Store-Aufnahmen (Marketing, nicht im Quelltext gebraucht)
 store/
+
+# Logo-Quelldateien des Entwurfs — verarbeitet liegen sie in den Assets
+logos/

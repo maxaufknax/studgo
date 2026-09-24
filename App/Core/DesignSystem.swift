@@ -22,9 +22,10 @@ enum Design {
 /// Logo, unabhängig davon, welche Farbwelt jemand später einstellt.
 enum Brand {
     /// Der Untergrund des Logos.
-    static let night = Color(red: 10 / 255, green: 14 / 255, blue: 34 / 255)
-    /// Das kräftige Blau am unteren Ende des Verlaufs im App-Symbol.
-    static let deep = Color(red: 33 / 255, green: 130 / 255, blue: 220 / 255)
+    static let night = Color(red: 9 / 255, green: 10 / 255, blue: 10 / 255)
+    /// Das Blau am unteren Ende des Verlaufs in der dunklen Fassung des
+    /// App-Symbols.
+    static let deep = Color(red: 42 / 255, green: 63 / 255, blue: 103 / 255)
     /// Das Blau der Wortmarke, #38B6FF.
     static let blue = Color(red: 56 / 255, green: 182 / 255, blue: 255 / 255)
 
