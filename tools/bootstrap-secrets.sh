@@ -7,7 +7,6 @@ set -a; . ./.env; set +a
 cat > Config/Secrets.xcconfig <<XC
 // GENERIERT von tools/bootstrap-secrets.sh — nicht committen.
 STUDIP_CLIENT_ID = ${STUDIP_CLIENT_ID}
-STUDIP_CLIENT_SECRET = ${STUDIP_CLIENT_SECRET}
 XC
 chmod 600 Config/Secrets.xcconfig
 echo "Config/Secrets.xcconfig geschrieben (client_id=${STUDIP_CLIENT_ID})"

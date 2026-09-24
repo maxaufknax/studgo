@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """StudGo Dev-CLI — OAuth2-Flow gegen Stud.IP LUH testen und die JSON:API erkunden.
 
-  ./tools/studip-cli.py login            # PKCE-Flow über den Browser
-  ./tools/studip-cli.py login --cookie   # ohne Browser, via Sitzungscookie
-  ./tools/studip-cli.py refresh          # Access-Token erneuern
-  ./tools/studip-cli.py get /v1/users/me # authentifizierter API-Call
+  ./tools/studip-cli.py login              # PKCE-Flow über den Browser
+  ./tools/studip-cli.py login --loopback   # Code kommt automatisch (RFC 8252 §7.3)
+  ./tools/studip-cli.py login --cookie     # ohne Browser, via Sitzungscookie
+  ./tools/studip-cli.py refresh            # Access-Token erneuern
+  ./tools/studip-cli.py get /v1/users/me  # authentifizierter API-Call
   ./tools/studip-cli.py whoami
 """
 import base64, hashlib, json, re, secrets, sys, urllib.parse, urllib.request, urllib.error
@@ -29,6 +30,10 @@ BASE = ENV["STUDIP_BASE_URL"]
 AUTHORIZE = f"{BASE}/dispatch.php/api/oauth2/authorize"
 TOKEN = f"{BASE}/dispatch.php/api/oauth2/token"
 API = f"{BASE}/jsonapi.php"
+
+# Als zweite Redirect-URI beim Client eingetragen (RFC 8252 §7.3): Nur auf
+# dem eigenen Rechner erreichbar, erlaubt den Flow ohne iOS-Gerät zu testen.
+LOOPBACK_URI = "http://127.0.0.1:8765/callback"
 
 
 
@@ -186,15 +191,16 @@ def extract_code(pasted, state):
     return params["code"][0], None
 
 
-def cmd_login(use_cookie=False):
+def cmd_login(mode):
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(48)).rstrip(b"=").decode()
     challenge = base64.urlsafe_b64encode(
         hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     state = secrets.token_urlsafe(16)
+    redirect_uri = LOOPBACK_URI if mode == "loopback" else ENV["STUDIP_REDIRECT_URI"]
     params = {
         "response_type": "code",
         "client_id": ENV["STUDIP_CLIENT_ID"],
-        "redirect_uri": ENV["STUDIP_REDIRECT_URI"],
+        "redirect_uri": redirect_uri,
         "scope": ENV.get("STUDIP_SCOPE", "api"),
         "state": state,
         "code_challenge": challenge,
@@ -202,14 +208,16 @@ def cmd_login(use_cookie=False):
     }
     authorize_url = f"{AUTHORIZE}?{urllib.parse.urlencode(params)}"
 
-    code = (login_with_cookie(authorize_url, state) if use_cookie
-            else login_with_browser(authorize_url, state))
+    login = {
+        "cookie": login_with_cookie,
+        "loopback": login_with_loopback,
+    }.get(mode, login_with_browser)
+    code = login(authorize_url, state)
 
     tok = post_form(TOKEN, {
         "grant_type": "authorization_code",
         "client_id": ENV["STUDIP_CLIENT_ID"],
-        "client_secret": ENV["STUDIP_CLIENT_SECRET"],
-        "redirect_uri": ENV["STUDIP_REDIRECT_URI"],
+        "redirect_uri": redirect_uri,
         "code": code,
         "code_verifier": verifier,
     })
@@ -252,6 +260,71 @@ Der Cookie ist nur für diese Sitzung gültig und wird nirgends gespeichert.
     return code
 
 
+def login_with_loopback(authorize_url, state):
+    """RFC 8252 §7.3: Loopback-Redirect — der Code kommt automatisch.
+
+    Ein kleiner HTTP-Server auf 127.0.0.1:8765 nimmt den Rückruf entgegen,
+    den Browser nach 'Zugriff erlauben' ausführt. Nichts muss kopiert werden;
+    der Browser muss dazu auf diesem Rechner laufen.
+    """
+    import http.server
+    import threading
+    import webbrowser
+
+    result = {}
+    done = threading.Event()
+
+    class Callback(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            parsed = urllib.parse.urlparse(self.path)
+            if parsed.path != "/callback":
+                self.send_error(404)
+                return
+            result["params"] = urllib.parse.parse_qs(parsed.query)
+            body = ("<html><body style='font-family: system-ui; padding: 2rem'>"
+                    "<h2>StudGo-CLI: Code erhalten</h2>"
+                    "<p>Ob der Token-Tausch geklappt hat, steht im Terminal — "
+                    "dieses Fenster kann geschlossen werden.</p></body></html>").encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            done.set()
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 8765), Callback)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    print("\n1) Diese URL im Browser öffnen (dort bei Stud.IP eingeloggt sein):\n")
+    print(f"   {authorize_url}\n")
+    # Öffnen im Daemon-Thread: webbrowser.open kann auf Rechnern ohne
+    # Oberfläche (headless) hängen und darf den Rückruf nicht blockieren —
+    # die URL steht ja bereits über ihr.
+    threading.Thread(target=webbrowser.open, args=(authorize_url,), daemon=True).start()
+    print("2) 'Zugriff erlauben' klicken — der Code kommt automatisch zurück.\n")
+
+    try:
+        if not done.wait(timeout=300):
+            sys.exit("Fünf Minuten kein Rückruf auf 127.0.0.1:8765 — abgebrochen. "
+                     "Läuft der Browser auf diesem Rechner?")
+    finally:
+        server.shutdown()
+
+    params = result.get("params", {})
+    if params.get("state", [state])[0] != state:
+        sys.exit("Der state stimmt nicht überein — bitte den Flow neu starten.")
+    if "code" not in params:
+        detail = params.get("error_description", [""])[0]
+        sys.exit(f"Stud.IP hat abgelehnt: "
+                 f"{params.get('error', ['unbekannt'])[0]} {detail}".strip())
+    code = params["code"][0]
+    print(f"Code erhalten: {code[:8]}…")
+    return code
+
+
 def login_with_browser(authorize_url, state):
     print("\n1) Diese URL im Browser öffnen (dort bei Stud.IP eingeloggt sein):\n")
     print(f"   {authorize_url}\n")
@@ -259,7 +332,7 @@ def login_with_browser(authorize_url, state):
     print("   studgo://oauth/callback?code=... — viele Browser zeigen das")
     print("   kommentarlos gar nicht an. Passiert nach dem Klick scheinbar")
     print("   nichts, brich hier ab und nutze stattdessen:")
-    print("       ./tools/studip-cli.py login --cookie\n")
+    print("       ./tools/studip-cli.py login --loopback\n")
     print("3) Sonst die studgo://-Adresse aus der Adresszeile kopieren.\n")
 
     for _ in range(3):
@@ -278,7 +351,6 @@ def cmd_refresh():
     new = post_form(TOKEN, {
         "grant_type": "refresh_token",
         "client_id": ENV["STUDIP_CLIENT_ID"],
-        "client_secret": ENV["STUDIP_CLIENT_SECRET"],
         "refresh_token": tok["refresh_token"],
     })
     save_token(new)
@@ -310,7 +382,13 @@ def main():
         sys.exit(__doc__)
     cmd = sys.argv[1]
     if cmd == "login":
-        cmd_login(use_cookie="--cookie" in sys.argv[2:])
+        flags = sys.argv[2:]
+        if "--cookie" in flags:
+            cmd_login("cookie")
+        elif "--loopback" in flags:
+            cmd_login("loopback")
+        else:
+            cmd_login("browser")
     elif cmd == "refresh":
         cmd_refresh()
     elif cmd == "get":

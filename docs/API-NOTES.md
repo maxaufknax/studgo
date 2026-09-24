@@ -28,37 +28,31 @@ Es gibt **keine Discovery-Metadaten** — Endpunkte müssen fest verdrahtet werd
 
 | | |
 | --- | --- |
-| `client_id` | `15` |
-| `client_secret` | in `.env`, **nicht im Repo** |
-| Redirect-URI | `studgo://oauth/callback` (exakt, wird serverseitig geprüft) |
+| `client_id` | `17` |
+| `client_secret` | keins — der Client ist als *public* registriert, PKCE trägt den Flow allein (RFC 8252) |
+| Redirect-URIs | `studgo://oauth/callback` (exakt, wird serverseitig geprüft) und `http://127.0.0.1:8765/callback` (Loopback, RFC 8252 §7.3) |
 | Scope | `api` (einziger existierender Scope, voller Zugriff) |
 
-Verifiziert per Kontrolltest:
+Client 17 wurde am 2026-09-24 von der ZQS eingerichtet, weil der bestehende
+Client 15 sich nicht umstellen ließ; 15 bleibt als *confidential* registriert
+und läuft aus. Für Bestandsnutzer heißt das: Refresh-Tokens von Client 15
+werden mit der ersten Version auf Client 17 ungültig — einmal neu anmelden.
+
+Verifiziert am 2026-09-24 per Kontrolltest gegen Authorize- und Token-Endpunkt:
 
 | Request | Ergebnis |
 | --- | --- |
-| `client_id=15` + korrekte Redirect-URI | **302 → `/dispatch.php/login`** ✅ Client aktiv |
-| falsche Redirect-URI | 500 Fehlerseite |
-| `client_id=99999` | 500 Fehlerseite |
+| `client_id=17` + `studgo://oauth/callback` | **302 → `/dispatch.php/login`** ✅ Client aktiv, URI eingetragen |
+| `client_id=17` + `http://127.0.0.1:8765/callback` | **302 → `/dispatch.php/login`** ✅ Loopback eingetragen |
+| `client_id=17` + fremde Redirect-URI | 500 Fehlerseite |
+| `client_id=999` | 500 Fehlerseite |
+| Token: Client 17, `refresh_token` **ohne** `client_secret` | `The refresh token is invalid` — die Client-Auth ist bestanden, der Fake-Token scheitert erst danach ✅ *public* |
+| Token: Client 17, falsches `client_secret` | derselbe Fehler — das Secret wird ignoriert ✅ |
+| Token: Client 15 **ohne** `client_secret` | `Client authentication failed` (Kontrollgruppe, *confidential*) ❌ |
 
-## ⚠️ Kernproblem: Client ist als *confidential* registriert
-
-Der Token-Endpunkt **erzwingt das `client_secret`**:
-
-| Token-Request | Antwort |
-| --- | --- |
-| ohne `client_secret`, nur `code_verifier` (PKCE) | `Client authentication failed` ❌ |
-| mit falschem `client_secret` | `Client authentication failed` ❌ |
-| mit korrektem `client_secret` | kommt durch die Client-Auth, scheitert erst am Fake-Code ✅ |
-
-Für eine App ohne Backend heißt das: Das Secret müsste ins Binary — es wäre per
-`strings`/IPA-Extraktion auslesbar. Das widerspricht RFC 8252 (OAuth für native Apps)
-und der Zusage an die Uni ("Tokens nur lokal im Keychain").
-→ **Die ZQS bitten, Client 15 als *public client* (PKCE-only, ohne Secret) umzustellen.**
-PKCE wird vom Authorize-Endpunkt bereits akzeptiert (`code_challenge_method=S256`).
-
-Zusatzwunsch für die Entwicklung: zweite Redirect-URI `http://127.0.0.1:8765/callback`
-erlaubt den Flow ohne iOS-Gerät zu testen (RFC 8252 §7.3 Loopback).
+PKCE wird vom Authorize-Endpunkt akzeptiert (`code_challenge_method=S256`).
+Der Loopback-Redirect erlaubt, den Flow ohne iOS-Gerät zu testen:
+`./tools/studip-cli.py login --loopback`.
 
 ## Relevante Routen für StudGo
 

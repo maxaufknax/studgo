@@ -46,12 +46,11 @@ enum AppConfig {
     static let redirectURI = "studgo://oauth/callback"
     static let scope = "api"
 
+    /// ID 17, am 2026-09-24 von der ZQS als *public client* eingerichtet:
+    /// PKCE trägt den Flow allein, ein `client_secret` existiert nicht.
+    /// (Vorgänger war Client 15, confidential — er verlangte ein Secret im
+    /// Bundle und läuft aus.)
     static let clientID = infoValue("STUDIP_CLIENT_ID") ?? ""
-
-    /// Bei Client 15 verlangt der Token-Endpunkt zwingend ein `client_secret`
-    /// (confidential client). Sobald die ZQS den Client auf *public* umstellt,
-    /// fällt dieser Wert ersatzlos weg — PKCE trägt den Flow dann allein.
-    static let clientSecret = infoValue("STUDIP_CLIENT_SECRET")
 
     private static func infoValue(_ key: String) -> String? {
         guard let raw = Bundle.main.object(forInfoDictionaryKey: key) as? String else { return nil }

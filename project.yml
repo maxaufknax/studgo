@@ -63,11 +63,10 @@ targets:
         UIBackgroundModes:
           - fetch
         STUDIP_CLIENT_ID: $(STUDIP_CLIENT_ID)
-        STUDIP_CLIENT_SECRET: $(STUDIP_CLIENT_SECRET)
         CFBundleURLTypes:
           - CFBundleURLName: de.maxaufknax.studgo.oauth
             CFBundleURLSchemes: [studgo]
-    # Enthält client_id, client_secret und die Build-Nummer; erzeugt von
+    # Enthält client_id und die Build-Nummer; erzeugt von
     # tools/bootstrap-secrets.sh bzw. von Codemagic.
     #
     # Muss `configFiles` heißen. Unter `settings.configs.<Name>.xcconfig`

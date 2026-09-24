@@ -55,11 +55,10 @@ hochgeladen. Ein eigener Mac ist dafür nicht nötig.
 
    | Variable | Wert | Secure |
    | --- | --- | --- |
-   | `STUDIP_CLIENT_ID` | `15` | nein |
-   | `STUDIP_CLIENT_SECRET` | das Secret aus der Mail der ZQS | **ja** |
+   | `STUDIP_CLIENT_ID` | `17` | nein |
 
-   Die Werte landen zur Bauzeit in `Config/Secrets.xcconfig`; im Repo steht das
-   Secret nirgends.
+   Client 17 ist ein *public client* — ein `client_secret` existiert nicht
+   mehr. Die Werte landen zur Bauzeit in `Config/Secrets.xcconfig`.
 4. Optional: `APP_STORE_APPLE_ID` (die numerische Apple-ID der App aus App Store
    Connect) als weitere Variable. Ist sie gesetzt, zählt die Pipeline die
    Build-Nummer automatisch von der letzten TestFlight-Version hoch.

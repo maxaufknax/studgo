@@ -3,9 +3,8 @@
 # Einmalige Einrichtung in Codemagic (siehe docs/CODEMAGIC.md):
 #   1. App-Store-Connect-Schlüssel als Integration anlegen — vorhanden ist
 #      bereits "PocketADM ASC key", der für alle Apps des Kontos gilt
-#   2. Variablengruppe "studip_oauth" mit STUDIP_CLIENT_ID,
-#      STUDIP_CLIENT_SECRET und CERTIFICATE_PRIVATE_KEY
-#      (die letzten beiden als "secure" markieren)
+#   2. Variablengruppe "studip_oauth" mit STUDIP_CLIENT_ID und
+#      CERTIFICATE_PRIVATE_KEY (letzteres als "secure" markieren)
 #   3. Bundle-ID de.maxaufknax.studgo im Apple Developer Portal registrieren
 #      und die App in App Store Connect anlegen
 
@@ -31,8 +30,7 @@ definitions:
         XCODE_SCHEME: "StudGo"
         XCODE_PROJECT: "StudGo.xcodeproj"
       groups:
-        # Enthält STUDIP_CLIENT_ID, STUDIP_CLIENT_SECRET **und**
-        # CERTIFICATE_PRIVATE_KEY (die letzten beiden "secure").
+        # Enthält STUDIP_CLIENT_ID und CERTIFICATE_PRIVATE_KEY ("secure").
         - studip_oauth
 
   build_scripts: &build_scripts
@@ -45,8 +43,7 @@ definitions:
         problems=""
         note() { problems="$problems\n  - $1"; }
 
-        [ -n "${STUDIP_CLIENT_ID:-}" ]     || note "STUDIP_CLIENT_ID fehlt — Wert: 15"
-        [ -n "${STUDIP_CLIENT_SECRET:-}" ] || note "STUDIP_CLIENT_SECRET fehlt — aus der ZQS-Mail, secure ✅"
+        [ -n "${STUDIP_CLIENT_ID:-}" ]     || note "STUDIP_CLIENT_ID fehlt — Wert: 17"
 
         # Zertifikatsschlüssel. Zwei Formen sind erlaubt:
         #   CERTIFICATE_PRIVATE_KEY      — der PEM-Text selbst (bevorzugt)
@@ -153,11 +150,9 @@ definitions:
         mkdir -p Config
         cat > Config/Secrets.xcconfig <<XCCONFIG
         STUDIP_CLIENT_ID = ${STUDIP_CLIENT_ID}
-        STUDIP_CLIENT_SECRET = ${STUDIP_CLIENT_SECRET}
         CURRENT_PROJECT_VERSION = ${STUDGO_BUILD_NUMBER}
         XCCONFIG
-        # Kontrolle ohne das Secret zu protokollieren
-        grep -v CLIENT_SECRET Config/Secrets.xcconfig
+        cat Config/Secrets.xcconfig
 
     - name: Xcode-Projekt erzeugen
       script: |
@@ -320,7 +315,6 @@ workflows:
           mkdir -p Config
           cat > Config/Secrets.xcconfig <<XCCONFIG
           STUDIP_CLIENT_ID = 0
-          STUDIP_CLIENT_SECRET =
           CURRENT_PROJECT_VERSION = ${BUILD_NUMBER:-1}
           XCCONFIG
       - name: Projekt erzeugen und für den Simulator bauen

@@ -17,12 +17,11 @@ final class OAuthService: NSObject {
     }
 
     func refresh(using refreshToken: String) async throws -> TokenSet {
-        var form = [
+        let form = [
             "grant_type": "refresh_token",
             "client_id": AppConfig.clientID,
             "refresh_token": refreshToken,
         ]
-        form["client_secret"] = AppConfig.clientSecret
         return try await postToken(form)
     }
 
@@ -87,14 +86,13 @@ final class OAuthService: NSObject {
     }
 
     private func exchange(code: String, verifier: String) async throws -> TokenSet {
-        var form = [
+        let form = [
             "grant_type": "authorization_code",
             "client_id": AppConfig.clientID,
             "redirect_uri": AppConfig.redirectURI,
             "code": code,
             "code_verifier": verifier,
         ]
-        form["client_secret"] = AppConfig.clientSecret
         return try await postToken(form)
     }
 

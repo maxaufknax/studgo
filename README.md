@@ -100,16 +100,13 @@ hoch — Einrichtung in [docs/CODEMAGIC.md](docs/CODEMAGIC.md).
 Alle verifizierten Endpunkte, Attributnamen und Fehlerformate stehen in
 [docs/API-NOTES.md](docs/API-NOTES.md).
 
-## Offener Punkt: Client-Typ
+## Client-Typ
 
-Der OAuth-Client ist als *confidential client* registriert — der
-Token-Endpunkt verlangt zwingend das `client_secret`. Für eine App ohne Backend
-gehört der Client auf *public* (PKCE-only) umgestellt; eine entsprechende
-Anfrage liegt beim E-Learning-Service der ZQS.
-
-Bis dahin wird das Secret über `Config/Secrets.xcconfig` ins Bundle gereicht.
-Sobald der Client umgestellt ist, entfällt der Wert ersatzlos —
-`AppConfig.clientSecret` ist bereits optional, PKCE läuft ohnehin immer mit.
+Der OAuth-Client ist als *public client* registriert (Client 17, von der ZQS
+am 24. September 2026 eingerichtet): Der Token-Endpunkt verlangt kein
+`client_secret`, PKCE trägt den Anmeldeflow allein (RFC 8252). Der Vorgänger
+Client 15 war *confidential* und ist ausgelaufen — Nutzer mit einer unter
+Client 15 begonnenen Sitzung melden sich einmal neu an.
 
 ## Lizenz
 
