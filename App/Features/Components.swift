@@ -214,7 +214,7 @@ struct EventRow: View {
 
     private var headline: String {
         if preferTopic, let topic = event.topic { return topic }
-        return event.title
+        return event.displayTitle
     }
 
     var body: some View {

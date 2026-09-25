@@ -147,7 +147,7 @@ struct OwnScheduleEntryRow: View {
                 .padding(.vertical, 2)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(entry.title)
+                Text(entry.displayTitle)
                     .font(.subheadline.weight(.medium))
                 Text(entry.timeRange)
                     .font(.caption)

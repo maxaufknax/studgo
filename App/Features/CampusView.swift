@@ -99,6 +99,11 @@ struct CampusView: View {
             PushLink(value: Route.announcements) {
                 RowLabel(symbol: "megaphone", title: "Ankündigungen der Uni")
             }
+            PushLink(value: Route.mensa) {
+                RowLabel(symbol: "fork.knife",
+                         title: "Mensa & Speiseplan",
+                         subtitle: "Alle Hannoveraner Mensen, Preise und Kennzeichnungen")
+            }
         }
     }
 

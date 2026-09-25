@@ -254,7 +254,7 @@ struct TimetableView: View {
             onSelect(entry)
         } label: {
             VStack(alignment: .leading, spacing: 1) {
-                Text(entry.title)
+                Text(entry.displayTitle)
                     .font(.system(size: 10, weight: .semibold))
                     .lineLimit(height > 46 ? 3 : 1)
                 if let location = entry.location, height > 54 {
@@ -303,7 +303,7 @@ struct TimetableView: View {
         }
         .offset(x: blockGap + CGFloat(placement.column) * lane,
                 y: layout.y(of: entry.startMinutes))
-        .accessibilityLabel("\(entry.title), \(Weekday.full(entry.normalizedWeekday)) \(entry.timeRange)")
+        .accessibilityLabel("\(entry.displayTitle), \(Weekday.full(entry.normalizedWeekday)) \(entry.timeRange)")
         .accessibilityValue(isDormant ? "Findet zurzeit nicht statt" : "")
         .accessibilityHint("Öffnet die Einzelheiten")
     }

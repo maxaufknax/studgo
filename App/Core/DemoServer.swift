@@ -123,6 +123,11 @@ enum DemoServer {
             store.markMessage(segments[1], read: attributes["is-read"] as? Bool ?? true)
             return Data()
 
+        case ("messages", "DELETE"):
+            guard segments.count == 2 else { throw notFound(path) }
+            store.deleteMessage(segments[1])
+            return Data()
+
         // MARK: Ankündigungen
         case ("studip", "GET"):
             guard segments.count == 2 else { throw notFound(path) }
@@ -220,6 +225,37 @@ enum DemoServer {
                           "description": term.description,
                           "is-default": term.isDefault])
             })
+
+        // MARK: Courseware
+        case ("courseware-structural-elements", "GET"):
+            if segments.count == 2 {
+                guard DemoData.coursewareChapters.contains(where: { $0.id == segments[1] })
+                else { throw notFound(path) }
+                let chapter = DemoData.coursewareChapters.first { $0.id == segments[1] }!
+                return try document(coursewareChapterResource(chapter))
+            }
+            guard segments.count == 3 else { throw notFound(path) }
+            switch segments[2] {
+            case "children":
+                let children = DemoData.coursewareChapters
+                    .filter { $0.parentID == segments[1] }
+                    .map(coursewareChapterResource)
+                return try document(children)
+            case "containers":
+                let sections = DemoData.coursewareSections
+                    .filter { $0.chapterID == segments[1] }
+                    .map(coursewareSectionResource)
+                return try document(sections)
+            default:
+                throw notFound(path)
+            }
+
+        case ("courseware-containers", "GET"):
+            guard segments.count == 3, segments[2] == "blocks" else { throw notFound(path) }
+            let blocks = DemoData.coursewareBlocks
+                .filter { $0.sectionID == segments[1] }
+                .map(coursewareBlockResource)
+            return try document(blocks)
 
         // MARK: Sprechstunden
         case ("consultation-blocks", "GET"):
@@ -357,6 +393,14 @@ enum DemoServer {
         guard segments.count >= 3 else { return try document(courseResource(course)) }
 
         switch segments[2] {
+        case "courseware":
+            // Die Instanz trägt nur die Beziehung auf ihr Wurzelkapitel.
+            return try document(resource("courseware-instances",
+                                         "Course_\(id)_demo-unit",
+                                         [:],
+                                         ["root": one("courseware-structural-elements",
+                                                      DemoData.coursewareChapters[0].id)]))
+
         case "events":
             return try document(courseEvents(course).map { $0 })
 
@@ -470,6 +514,33 @@ enum DemoServer {
             "start-of-lectures": DemoData.stamp(semester.lectureStart),
             "end-of-lectures": DemoData.stamp(semester.lectureEnd),
             "is-current": semester.isCurrent,
+        ])
+    }
+
+    private static func coursewareChapterResource(_ chapter: DemoData.DemoCoursewareChapter) -> [String: Any] {
+        resource("courseware-structural-elements", chapter.id, [
+            "title": chapter.title,
+            "payload": ["description": chapter.summary],
+            "can-visit": true,
+            "position": chapter.position,
+        ])
+    }
+
+    private static func coursewareSectionResource(_ section: DemoData.DemoCoursewareSection) -> [String: Any] {
+        resource("courseware-containers", section.id, [
+            "container-type": section.kind,
+            "title": section.title,
+            "payload": ["title": section.title],
+            "position": section.position,
+        ])
+    }
+
+    private static func coursewareBlockResource(_ block: DemoData.DemoCoursewareBlock) -> [String: Any] {
+        resource("courseware-blocks", block.id, [
+            "block-type": block.type,
+            "title": block.typeTitle,
+            "payload": block.payload,
+            "position": block.position,
         ])
     }
 
