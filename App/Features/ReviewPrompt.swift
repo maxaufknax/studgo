@@ -38,7 +38,7 @@ enum ReviewPrompt {
         let defaults = self.defaults
         let today = Calendar.current.startOfDay(for: Date())
 
-        var launches = defaults.integer(forKey: Key.launches) + 1
+        let launches = defaults.integer(forKey: Key.launches) + 1
         defaults.set(launches, forKey: Key.launches)
 
         let firstLaunch = defaults.object(forKey: Key.firstLaunch) as? Date

@@ -141,7 +141,18 @@ struct EventMergeTests {
 
 extension EventMergeTests {
 
-    /// Zwei Darstellungen desselben Termins aus einer Hand: ein datierter
+    /// Eine datierte Sitzung an einem konkreten Datum — derselbe Weg, den
+    /// auch der ICS-Strom geht.
+    static func sitzzungAm(_ datum: Date, id: String, titel: String,
+                           kurs: String? = nil) -> CourseEvent {
+        let event = ICSParser.Event(uid: "Stud.IP-SEM-\(id)", summary: titel,
+                                    description: nil, location: nil, categories: nil,
+                                    start: datum, end: datum.addingTimeInterval(3600),
+                                    isAllDay: false)
+        return CourseEvent(ics: event, courseID: kurs)
+    }
+
+    /// Zwei Darstellungen desselben Termins aus einer Hand: ein datierte
     /// Termin in zwei Kopien. `combine` muss ihn einmal zeigen.
     static func icsEvent(id: String, titel: String, am tag: String,
                          von: String, bis: String, kurs: String? = nil,
@@ -216,6 +227,61 @@ extension EventMergeTests {
         let merged = EventMerge.combine(dated: [vorlesung, arzt], plans: [], days: 1)
 
         #expect(merged.count == 2)
+    }
+
+    /// **Der Startabsturz des Testflugs zu 1.7.0.** `combine` läuft mehrfach je
+    /// Bildschirmaufbau auf dem Hauptthread; die erste Fassung des Abgleichs
+    /// verglich jeden Termin mit jedem (O(n²), mit Textnormalisierung je
+    /// Paar). Bei einem echten Stundenplan blockierte das die App so lange,
+    /// dass iOS sie über den Wachhund abschoss. Seitdem wird in Slots
+    /// vorsortiert und nur innerhalb eines Slots verglichen — linear.
+    ///
+    /// Geprüft wird hier die Funktion auf einem Stundenplan in realer Größe;
+    /// die Suite läuft sonst in unter einer Sekunde — eine Pathologie fällt
+    /// als Laufzeit auf, nicht erst im Testflug.
+    @Test("Ein Semester in echtem Umfang bleibt handhabbar")
+    func einSemesterVollerTermine() throws {
+        // Drei Kurse an drei Wochentagen; jede echte Sitzung liegt zweimal im
+        // Strom (Kalenderkopie und Veranstaltungstermin, verschieden benannt).
+        let eintraege = [
+            try Self.entry(id: "c1", titel: "Analysis I", wochentag: 1,
+                           von: "08:15", bis: "09:45", kurs: true),
+            try Self.entry(id: "c2", titel: "Logik und Formale Systeme", wochentag: 2,
+                           von: "12:15", bis: "13:45", kurs: true),
+            try Self.entry(id: "c3", titel: "Rechnerarchitektur", wochentag: 4,
+                           von: "11:30", bis: "13:00", kurs: true),
+        ]
+
+        var dated: [CourseEvent] = []
+        var sitzungen = 0
+        for offset in 0..<90 {
+            guard let tag = Self.calendar.date(byAdding: .day, value: offset,
+                                               to: Self.am("2026-10-12")) else { continue }
+            let wochentag = Weekday.of(tag, in: Self.calendar)
+            for eintrag in eintraege where eintrag.normalizedWeekday == wochentag {
+                sitzungen += 1
+                let start = Self.calendar.date(bySettingHour: eintrag.startMinutes / 60,
+                                               minute: eintrag.startMinutes % 60,
+                                               second: 0, of: tag)!
+                for nummer in 1...2 {
+                    let titel = nummer == 1 ? eintrag.title : "11568  Übung: \(eintrag.title)"
+                    dated.append(Self.sitzzungAm(start, id: "e\(offset)-\(eintrag.id)-\(nummer)",
+                                                 titel: titel, kurs: eintrag.courseID))
+                }
+            }
+        }
+        #expect(!dated.isEmpty)
+        #expect(sitzungen * 2 == dated.count)
+
+        let merged = EventMerge.combine(
+            dated: dated,
+            plans: [EventMerge.PlanWindow(entries: eintraege, period: Self.vorlesungszeit)],
+            from: Self.am("2026-10-12"),
+            days: 90)
+
+        // Jede echte Sitzung genau einmal: Die Kopie im Strom fällt weg, und
+        // die aus dem Wochenplan abgeleitete Sitzung weicht dem echten Termin.
+        #expect(merged.count == sitzungen)
     }
 
     @Test("Titel-Wortfolgen: Analysis I ist nicht Analysis II")

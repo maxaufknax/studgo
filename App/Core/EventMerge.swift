@@ -55,32 +55,41 @@ enum EventMerge {
     /// Der Abgleich führt deshalb **Slot und Zugehörigkeit** zusammen: dieselbe
     /// Veranstaltung (oder derselbe Wortlaut) im selben Slot ist ein Termin,
     /// verschiedene Veranstaltungen im selben Slot sind zwei.
+    ///
+    /// **Warum erst in Slots vorsortiert wird:** Der Vergleich selbst ist
+    /// teuer (Titel normalisieren, Wortfolgen prüfen). Über die volle
+    /// Terminliste paarweise gegerechnet — und `combine` läuft dreimal je
+    /// Bildschirmaufbau direkt auf dem Hauptthread — blockierte das die App
+    /// beim Start so lange, dass iOS sie über den Wachhund abschoss
+    /// (Testflug-Bericht zu 1.7.0: „lädt nichts, stürzt ab"). Termine mit
+    /// verschiedenem Slot können ohnehin nie dasselbe Ereignis sein; der
+    /// Blick in den Slot-Eimer genügt.
     static func combine(dated: [CourseEvent],
                         plans: [PlanWindow],
                         from start: Date = Date(),
                         days: Int) -> [CourseEvent] {
         var merged: [CourseEvent] = []
-        for event in dated where !representsDuplicate(of: merged, event) {
+        var buckets: [String: [CourseEvent]] = [:]
+
+        func admit(_ event: CourseEvent) {
+            let key = slot(event)
+            if let sameSlot = buckets[key],
+               sameSlot.contains(where: { isSameEvent($0, event) }) { return }
+            buckets[key, default: []].append(event)
             merged.append(event)
         }
+
+        for event in dated { admit(event) }
 
         for plan in plans {
             for session in plannedSessions(from: plan.entries,
                                            startingAt: start,
                                            days: days,
                                            within: plan.period) {
-                guard !representsDuplicate(of: merged, session) else { continue }
-                merged.append(session)
+                admit(session)
             }
         }
         return merged.sorted { $0.start < $1.start }
-    }
-
-    /// Steht dieser Termin schon in der Liste — als derselbe aus einer
-    /// anderen Quelle?
-    private static func representsDuplicate(of merged: [CourseEvent],
-                                             _ event: CourseEvent) -> Bool {
-        merged.contains { isSameEvent($0, event) }
     }
 
     /// Zwei Darstellungen desselben Termins: gleicher Tag, gleiche
