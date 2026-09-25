@@ -28,6 +28,9 @@ enum ReviewPrompt {
 
     /// Beim Erscheinen der App rufen. Zählt den Start und bittet
     /// gegebenenfalls um die Bewertung.
+    /// `@MainActor`: `AppStore.requestReview(in:)` verlangt den Hauptaktor —
+    /// und der Aufruf kommt ohnehin aus einem SwiftUI-`.task` heraus.
+    @MainActor
     static func registerLaunch(scene: UIWindowScene?) {
         guard !didCountThisLaunch else { return }
         didCountThisLaunch = true

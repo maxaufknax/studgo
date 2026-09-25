@@ -16,14 +16,11 @@ struct CoursewareView: View {
     let course: Course
     @EnvironmentObject private var auth: AuthStore
 
-    @StateObject private var chapter = Loadable<CoursewareChapter?>()
+    @StateObject private var chapter = Loadable<CoursewareChapter>()
     @StateObject private var children = Loadable<[CoursewareChapter]>()
     @StateObject private var sections = Loadable<[CoursewareSection]>()
     @State private var blocksBySection: [String: [CoursewareBlock]] = [:]
     @State private var webTarget: WebTarget?
-
-    /// Das Wurzelkapitel, angefordert über seine Kennung.
-    private var rootID: String?
 
     var body: some View {
         List {
@@ -105,7 +102,7 @@ struct CoursewareView: View {
                     ForEach(blocksBySection[section.id] ?? []) { block in
                         CoursewareBlockRow(block: block,
                                            courseID: course.id,
-                                           openWeb: { webTarget = $0 })
+                                           openWeb: { webTarget = WebTarget(url: $0) })
                     }
                     if (blocksBySection[section.id] ?? []).isEmpty
                         && sections.hasValue {
@@ -230,7 +227,7 @@ struct CoursewareChapterView: View {
                     ForEach(blocksBySection[section.id] ?? []) { block in
                         CoursewareBlockRow(block: block,
                                            courseID: course.id,
-                                           openWeb: { webTarget = $0 })
+                                           openWeb: { webTarget = WebTarget(url: $0) })
                     }
                 }
             }
