@@ -41,11 +41,15 @@ struct SettingsView: View {
             linkRow("IT-Dienste (LUIS)", "server.rack", WebLinks.itServices)
             linkRow("Standortfinder", "map", WebLinks.campusMap,
                     hint: "Gebäude und Hörsäle auf dem Campus")
-            linkRow("Mensa & Speiseplan", "fork.knife", WebLinks.canteen)
+            PushLink(value: Route.mensa) {
+                RowLabel(symbol: "fork.knife",
+                         title: "Mensa & Speiseplan",
+                         subtitle: "In der App, über OpenMensa")
+            }
         } header: {
             Text("Schnellzugriff")
         } footer: {
-            Text("Öffnet sich im eingebauten Browser. Prüfungsanmeldung und Noten laufen über QIS und nicht über Stud.IP — dafür gibt es keine Schnittstelle.")
+            Text("Öffnet sich im eingebauten Browser. Prüfungsanmeldung und Noten laufen über QIS und nicht über Stud.IP; dafür gibt es keine Schnittstelle.")
         }
     }
 
@@ -157,7 +161,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Kalender")
                 } footer: {
-                    Text("Langes Drücken auf einen Termin blendet ihn aus — nützlich bei Übungen, die an mehreren Wochentagen liegen, von denen nur einer der eigene ist. Ausgeblendete Termine verschwinden aus Kalender, Stundenplan und Heute-Ansicht; mit diesem Schalter erscheinen sie wieder, etwa um sie dauerhaft zurückzuholen.")
+                    Text("Langes Drücken auf einen Termin blendet ihn aus. Nützlich bei Übungen, die an mehreren Wochentagen liegen, von denen nur einer der eigene ist. Ausgeblendete Termine verschwinden aus Kalender, Stundenplan und Heute-Ansicht; mit diesem Schalter erscheinen sie wieder, etwa um sie dauerhaft zurückzuholen.")
                 }
 
                 quickLinks
@@ -188,7 +192,7 @@ struct SettingsView: View {
                 } footer: {
                     // Der Handel steht ausführlich in `Preferences`.
                     Text(preferences.sharesWebSession
-                         ? "Die Anmeldung läuft in der Safari-Sitzung. Weil Stud.IP über Shibboleth anmeldet, bist du damit auch auf allen Seiten angemeldet, die StudGo öffnet — Eintragen, Profilbild, QIS. Wirkt ab der nächsten Anmeldung."
+                         ? "Die Anmeldung läuft in der Safari-Sitzung. Weil Stud.IP über Shibboleth anmeldet, bist du damit auch auf allen Seiten angemeldet, die StudGo öffnet: Eintragen, Profilbild, QIS. Wirkt ab der nächsten Anmeldung."
                          : "Die Anmeldung läuft in einer eigenen Sitzung: Es bleibt kein Cookie in Safari zurück, dafür verlangt jede geöffnete Stud.IP-Seite eine eigene Anmeldung. Wirkt ab der nächsten Anmeldung.")
                 }
 
@@ -227,7 +231,7 @@ struct SettingsView: View {
                                  subtitle: "Serverdaten für Apple Mail")
                     }
                 } footer: {
-                    Text("Die Uni-Mail kennt nur Anmeldung per Passwort — weder IMAP noch SOGo bieten OAuth an. StudGo fragt deshalb grundsätzlich kein Uni-Passwort ab und verweist stattdessen auf SOGo und die Mail-App des Geräts.")
+                    Text("Die Uni-Mail kennt nur Anmeldung per Passwort; weder IMAP noch SOGo bieten OAuth an. StudGo fragt deshalb grundsätzlich kein Uni-Passwort ab und verweist stattdessen auf SOGo und die Mail-App des Geräts.")
                 }
 
                 // Richtlinie 1.2 verlangt, dass Filter, Meldeweg und
@@ -241,6 +245,17 @@ struct SettingsView: View {
                                     ? "Filter und Nutzungsbedingungen"
                                     : "\(moderation.blocklist.count) blockiert")
                     }
+                    Button {
+                        // Falsche Inhalte **in Stud.IP** — veraltete Daten,
+                        // tote Verweise — kann nur die ZQS ändern; die
+                        // vorbereitete Mail geht aus der Mail-App raus.
+                        UIApplication.shared.open(WebLinks.zqsContentReport())
+                    } label: {
+                        RowLabel(symbol: "envelope.open",
+                                 title: "Inhalte an die ZQS melden",
+                                 subtitle: "Wenn in Stud.IP selbst etwas falsch ist")
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 Section {
@@ -293,7 +308,7 @@ struct SettingsView: View {
                     Text("Die Beispieldaten werden verworfen und du landest wieder auf der Anmeldung.")
                 } else {
                     Text(preferences.sharesWebSession
-                         ? "Tokens und Zwischenspeicher werden gelöscht. Die Anmeldung im Browser bleibt bestehen — sie liegt bei Safari, nicht bei StudGo."
+                         ? "Tokens und Zwischenspeicher werden gelöscht. Die Anmeldung im Browser bleibt bestehen; sie liegt bei Safari, nicht bei StudGo."
                          : "Tokens und Zwischenspeicher werden gelöscht.")
                 }
             }
@@ -452,7 +467,7 @@ struct MailSetupView: View {
             } header: {
                 Text("Kalender und Kontakte")
             } footer: {
-                Text("Der Stundenplan aus Stud.IP steckt bereits in StudGo — diese Adresse ist für den persönlichen SOGo-Kalender gedacht.")
+                Text("Der Stundenplan aus Stud.IP steckt bereits in StudGo. Diese Adresse ist für den persönlichen SOGo-Kalender gedacht.")
             }
         }
         .listStyle(.insetGrouped)
@@ -548,7 +563,7 @@ struct NotificationSettingsView: View {
             } header: {
                 Text("Postfach")
             } footer: {
-                Text("StudGo hat keinen eigenen Server: Es fragt bei Stud.IP nach, wenn iOS die App im Hintergrund weckt — typisch einige Male am Tag, nicht in Echtzeit. Für ein Gespräch, in dem du auf Antwort wartest, ist der Chat in der App der schnellere Weg.")
+                Text("StudGo hat keinen eigenen Server: Es fragt bei Stud.IP nach, wenn iOS die App im Hintergrund weckt, typisch einige Male am Tag, nicht in Echtzeit. Für ein Gespräch, in dem du auf Antwort wartest, ist der Chat in der App der schnellere Weg.")
             }
 
             Section {

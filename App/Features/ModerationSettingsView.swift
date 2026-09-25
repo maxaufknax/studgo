@@ -58,7 +58,7 @@ struct ModerationSettingsView: View {
                 }
                 .buttonStyle(.plain)
             } footer: {
-                Text("So meldest du einen einzelnen Beitrag: lange darauf tippen und „Beitrag melden“ wählen — oder in der Detailansicht das Menü oben rechts. Wir sehen uns jede Meldung innerhalb von 24 Stunden an, entfernen anstößige Inhalte und schließen Verfasser aus, die wiederholt auffallen.")
+                Text("So meldest du einen einzelnen Beitrag: lange darauf tippen und „Beitrag melden“ wählen oder in der Detailansicht das Menü oben rechts. Wir sehen uns jede Meldung innerhalb von 24 Stunden an, entfernen anstößige Inhalte und schließen Verfasser aus, die wiederholt auffallen.")
             }
         }
         .listStyle(.insetGrouped)

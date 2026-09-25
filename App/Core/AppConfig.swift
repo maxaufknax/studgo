@@ -43,6 +43,13 @@ enum AppConfig {
     /// Die Adresse für die Rückfall-E-Mail und für Rückfragen zu Meldungen.
     static let moderationMail = "maximilian.elias.paasch@gmail.com"
 
+    /// Die ZQS-elsa betreut Stud.IP an der LUH (Kontaktadresse aus dem
+    /// Schriftverkehr zum OAuth-Client). Falsche Inhalte **in Stud.IP** —
+    /// veraltete Veranstaltungsdaten, tote Verweise, ungeeignete
+    /// Beschreibungen — kann nur die ZQS ändern; die App schreibt deshalb
+    /// eine vorbereitete Mail, abschicken bleibt beim Absender.
+    static let zqsMail = "schuettloeffel@zqs.uni-hannover.de"
+
     static let callbackScheme = "studgo"
     static let redirectURI = "studgo://oauth/callback"
     static let scope = "api"

@@ -52,6 +52,13 @@ enum WebLinks {
     /// „Meine Veranstaltungen" — dort wird ausgetragen.
     static var myCourses: URL { studip("dispatch.php/my_courses") }
 
+    /// Die Courseware einer Veranstaltung — für alles, was die App nur liest:
+    /// Blöcke bearbeiten, Dateien abspielen, Fortschritte verfolgen.
+    static func courseware(courseID: String) -> URL {
+        studip("dispatch.php/course/courseware",
+               query: [URLQueryItem(name: "cid", value: courseID)])
+    }
+
     /// Der Dateibereich einer Veranstaltung in der Weboberfläche.
     ///
     /// Hochladen kann StudGo inzwischen selbst
@@ -162,6 +169,48 @@ enum WebLinks {
     /// `GET /api/v2/canteens/{id}/days/{YYYY-MM-DD}/meals`. Kein Schlüssel,
     /// kein Scraping der Studentenwerk-Seite, keine Urheberrechtsfrage.
     static let canteen = URL(string: "https://www.studentenwerk-hannover.de/essen/mensen-und-cafes")!
+
+    /// **Eine vorbereitete Mail an die ZQS-elsa** für Inhalte, die in
+    /// Stud.IP selbst falsch sind: veraltete Veranstaltungsdaten, tote
+    /// Verweise, unpassende Beschreibungen. Das kann nur die ZQS ändern —
+    /// die Meldestelle der App erreicht den Entwickler, aber niemanden mit
+    /// Schreibrecht in Stud.IP.
+    ///
+    /// Die App setzt Betreff und Gliederung, den Inhalt schreibt die
+    /// meldende Person; versendet wird aus der Mail-App des Geräts.
+    static func zqsContentReport(courseID: String? = nil,
+                                 courseTitle: String? = nil) -> URL {
+        var subject = "StudGo: Inhalte in Stud.IP melden"
+        if let courseTitle { subject += ": \(courseTitle)" }
+
+        var lines = [
+            "Hallo,",
+            "",
+            "über die App StudGo möchte ich Inhalte in Stud.IP melden:",
+            "",
+        ]
+        if let courseTitle { lines.append("Veranstaltung: \(courseTitle)") }
+        if let courseID {
+            lines.append("Kennung: \(courseID)")
+            lines.append("Verweis: \(course(courseID).absoluteString)")
+        }
+        lines += [
+            "",
+            "Was stimmt nicht:",
+            "",
+            "",
+            "Viele Grüße",
+        ]
+
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = AppConfig.zqsMail
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: subject),
+            URLQueryItem(name: "body", value: lines.joined(separator: "\n")),
+        ]
+        return components.url!
+    }
 
     /// Sucht einen Raum im Standortfinder.
     ///

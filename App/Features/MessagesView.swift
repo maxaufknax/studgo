@@ -102,6 +102,13 @@ struct MailboxView: View {
                     .tint(.accentColor)
                 }
             }
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    Task { await delete(message) }
+                } label: {
+                    Label("Löschen", systemImage: "trash")
+                }
+            }
         }
         .listStyle(.insetGrouped)
         .overlay {
@@ -180,6 +187,15 @@ struct MailboxView: View {
         try? await auth.client.markMessage(message.id, read: read)
         await reload(fresh: true)
     }
+
+    /// Löscht die Nachricht aus dem eigenen Postfach. `DELETE /v1/messages/{id}`
+    /// setzt nur das eigene `deleted`-Kennzeichen — beim Gegenüber bleibt sie.
+    /// Schlägt der Server fehl, bleibt die Nachricht stehen und die Zeile
+    /// sagt nichts Falsches.
+    private func delete(_ message: Message) async {
+        guard (try? await auth.client.deleteMessage(message.id)) != nil else { return }
+        await reload(fresh: true)
+    }
 }
 
 // MARK: - Chats (Blubber)
@@ -228,7 +244,7 @@ struct BlubberInboxView: View {
         var hint: String {
             switch self {
             case .mine:
-                return "Der globale Blubber, deine Direktnachrichten und die Ströme deiner Veranstaltungen und Studiengruppen — dieselbe Auswahl wie unter „Blubber“ in Stud.IP."
+                return "Der globale Blubber, deine Direktnachrichten und die Ströme deiner Veranstaltungen und Studiengruppen, dieselbe Auswahl wie unter „Blubber“ in Stud.IP."
             case .courses:
                 return "Nur, was in belegten Veranstaltungen und Studiengruppen geschrieben wurde."
             case .openStream:
@@ -504,6 +520,9 @@ struct BlubberThreadView: View {
     @State private var trail: [String] = []
     @State private var showsTrail = false
     @State private var webTarget: WebTarget?
+    /// Die Person, deren Blatt gerade offen ist — Antippen eines Namens oder
+    /// Avatars im Verlauf genügt.
+    @State private var person: PersonRef?
 
     /// Wie viele Beiträge auf einmal geholt werden.
     private let pageSize = 60
@@ -553,6 +572,9 @@ struct BlubberThreadView: View {
         .sheet(item: $webTarget) { target in
             WebSheet(url: target.url)
         }
+        .sheet(item: $person) { person in
+            PersonSheet(personID: person.id, name: person.name)
+        }
         .task { await load() }
     }
 
@@ -574,7 +596,12 @@ struct BlubberThreadView: View {
 
                     ForEach(comments.value ?? []) { comment in
                         let isOwn = comment.authorID == auth.currentUserID
-                        BlubberCommentBubble(comment: comment, isOwn: isOwn)
+                        BlubberCommentBubble(comment: comment, isOwn: isOwn,
+                                             onAuthorTap: {
+                                guard let id = comment.authorID,
+                                      let name = comment.authorName else { return }
+                                person = PersonRef(id: id, name: name)
+                             })
                             .id(comment.id)
                             // Eigene Beiträge bleiben unangetastet: Sich
                             // selbst zu melden ergibt nichts, und blockieren
@@ -645,8 +672,16 @@ struct BlubberThreadView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Image(systemName: shown.context.symbol).font(.caption2)
-                    Text(shown.authorName ?? shown.context.label)
-                        .font(.caption.weight(.semibold))
+                    Button {
+                        if let id = shown.authorID, let name = shown.authorName {
+                            person = PersonRef(id: id, name: name)
+                        }
+                    } label: {
+                        Text(shown.authorName ?? shown.context.label)
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(shown.authorID == nil)
                     Spacer(minLength: 0)
                     if let created = shown.createdAt {
                         Text(Format.listDate(created))
@@ -670,7 +705,7 @@ struct BlubberThreadView: View {
                 .font(.subheadline.weight(.semibold))
 
             Text(shown.isCommentable
-                 ? "Schreib den ersten Beitrag — das Feld unten gehört dazu."
+                 ? "Schreib den ersten Beitrag; das Feld unten gehört dazu."
                  : "In diesem Faden darfst du nicht schreiben.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -802,6 +837,10 @@ struct BlubberThreadView: View {
 struct BlubberCommentBubble: View {
     let comment: BlubberComment
     var isOwn = false
+    /// Antippen von Name oder Bild öffnet das Profil — Nachricht schreiben,
+    /// Sprechstunde, Kontakt pflegen und nötigenfalls melden stehen dort
+    /// zusammen. Eigene Beiträge führen nicht aufs eigene Profil.
+    var onAuthorTap: (() -> Void)? = nil
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -809,13 +848,21 @@ struct BlubberCommentBubble: View {
 
             if !isOwn {
                 InitialsBadge(initials: comment.initials, size: 28)
+                    .onTapGesture { onAuthorTap?() }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityLabel("Profil von \(comment.authorName ?? "dieser Person")")
             }
 
             VStack(alignment: isOwn ? .trailing : .leading, spacing: 3) {
                 if !isOwn, let author = comment.authorName {
-                    Text(author)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                    Button {
+                        onAuthorTap?()
+                    } label: {
+                        Text(author)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 // `FormattedText` statt `Text`: Ein Blubber-Beitrag kommt als
@@ -903,8 +950,10 @@ struct MessageDetailView: View {
     let message: Message
 
     @EnvironmentObject private var auth: AuthStore
+    @Environment(\.dismiss) private var dismiss
     @State private var isReplying = false
     @State private var didMarkRead = false
+    @State private var showsDeleteConfirmation = false
 
     /// Ob die Nachricht von einem selbst stammt, steht am Absender — dafür
     /// braucht es keinen Parameter vom Aufrufer.
@@ -964,6 +1013,18 @@ struct MessageDetailView: View {
                 }
                 .disabled(message.senderID == nil || outgoing)
             }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(role: .destructive) {
+                        showsDeleteConfirmation = true
+                    } label: {
+                        Label("Löschen", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .accessibilityLabel("Weitere Möglichkeiten")
+            }
             if !outgoing {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     ModerationMenu(target: ModerationTarget(kind: .message,
@@ -976,6 +1037,15 @@ struct MessageDetailView: View {
         }
         .sheet(isPresented: $isReplying) {
             ComposeMessageView(replyTo: message)
+        }
+        .confirmationDialog("Diese Nachricht aus deinem Postfach löschen?",
+                            isPresented: $showsDeleteConfirmation,
+                            titleVisibility: .visible) {
+            Button("Löschen", role: .destructive) {
+                Task { await deleteMessage() }
+            }
+        } message: {
+            Text("Sie verschwindet nur bei dir. Beim Gegenüber bleibt sie.")
         }
         .task { await markReadIfNeeded() }
     }
@@ -994,6 +1064,22 @@ struct MessageDetailView: View {
         try? await auth.client.markMessage(message.id, read: true)
         auth.noteMailboxChanged()
     }
+
+    /// Löscht die Nachricht im eigenen Postfach und verlässt die Seite.
+    /// Schlägt das Löschen fehl, bleibt alles, wie es ist — die Detailseite
+    /// sagt dann nicht, eine gelöschte Nachricht sei noch da.
+    private func deleteMessage() async {
+        guard (try? await auth.client.deleteMessage(message.id)) != nil else { return }
+        auth.noteMailboxChanged()
+        dismiss()
+    }
+}
+
+/// Die Person im Blubber-Verlauf — Kennung und Name genügen für das
+/// Profilblatt; alles Weitere holt sich `PersonSheet` selbst.
+struct PersonRef: Identifiable {
+    let id: String
+    let name: String
 }
 
 extension Message: Hashable {

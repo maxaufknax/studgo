@@ -370,7 +370,7 @@ extension StudIPClient {
         guard let api = error as? APIError else { return error.localizedDescription }
         switch api {
         case .http(let code, let detail):
-            return detail.map { "HTTP \(code) — \($0)" } ?? "HTTP \(code)"
+            return detail.map { "HTTP \(code): \($0)" } ?? "HTTP \(code)"
         case .decoding(let text): return "unlesbar (\(text))"
         case .jsonAPI(let messages): return messages.first ?? "Fehlermeldung ohne Text"
         case .offline: return "keine Verbindung"

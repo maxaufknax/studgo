@@ -136,3 +136,99 @@ struct EventMergeTests {
         #expect(merged.count == 1)
     }
 }
+
+// MARK: - Deduplizierung (Rückmeldung 1.6.1: doppelt angezeigte Termine)
+
+extension EventMergeTests {
+
+    /// Zwei Darstellungen desselben Termins aus einer Hand: ein datierter
+    /// Termin in zwei Kopien. `combine` muss ihn einmal zeigen.
+    static func icsEvent(id: String, titel: String, am tag: String,
+                         von: String, bis: String, kurs: String? = nil,
+                         persoenlich: Bool = false) -> CourseEvent {
+        let uhr = { (_ zeit: String) -> Date in
+            let teile = zeit.split(separator: ":").compactMap { Int($0) }
+            return Self.calendar.date(bySettingHour: teile[0], minute: teile[1],
+                                      second: 0, of: Self.am(tag))!
+        }
+        let uid = persoenlich ? id : "Stud.IP-SEM-\(id)"
+        let event = ICSParser.Event(uid: uid, summary: titel, description: nil,
+                                    location: nil, categories: nil,
+                                    start: uhr(von), end: uhr(bis), isAllDay: false)
+        return CourseEvent(ics: event, courseID: kurs)
+    }
+
+    @Test("Dieselbe Sitzung zweimal im ICS-Strom erscheint einmal")
+    func doppelteSitzungImStrom() throws {
+        // exportCalendarDates + exportCourseDates liefern dieselbe Sitzung,
+        // wenn sie auch im persönlichen Kalender liegt — mit derselben
+        // Kennung der Veranstaltung.
+        let erste = Self.icsEvent(id: "a", titel: "Logik und Formale Systeme",
+                                  am: "2026-10-13", von: "12:15", bis: "13:45", kurs: "kurs1")
+        let zweite = Self.icsEvent(id: "b", titel: "11568  Übung: Logik und Formale Systeme",
+                                   am: "2026-10-13", von: "12:15", bis: "13:45", kurs: "kurs1")
+
+        let merged = EventMerge.combine(dated: [erste, zweite], plans: [], days: 1)
+
+        #expect(merged.count == 1)
+    }
+
+    @Test("Zwei verschiedene Veranstaltungen zur selben Stunde bleiben beide")
+    func verschiedeneKurseGleicheStunde() throws {
+        // Bis 1.7.0 flog jede abgeleitete Sitzung aus dem Raster, sobald
+        // *irgendein* datierter Termin den Slot belegte — Vorlesung und
+        // Übung im selben Block verloren so die eine Hälfte.
+        let vorlesung = Self.icsEvent(id: "a", titel: "Analysis I",
+                                      am: "2026-10-13", von: "10:00", bis: "12:00", kurs: "kursA")
+        let uebung = Self.icsEvent(id: "b", titel: "Analysis I Übung",
+                                   am: "2026-10-13", von: "10:00", bis: "12:00", kurs: "kursB")
+
+        let merged = EventMerge.combine(dated: [vorlesung, uebung], plans: [], days: 1)
+
+        #expect(merged.count == 2)
+    }
+
+    @Test("Eine abgeleitete Sitzung weicht dem echten Termin desselben Kurses")
+    func abgeleiteteWeichtEchtem() throws {
+        let echt = Self.icsEvent(id: "a", titel: "11568 Übung: Logik und Formale Systeme",
+                                 am: "2026-10-13", von: "12:15", bis: "13:45", kurs: "kurs1")
+        let vorlesung = try Self.entry(id: "c1", titel: "Logik und Formale Systeme",
+                                       wochentag: 2, von: "12:15", bis: "13:45", kurs: true)
+
+        let merged = EventMerge.combine(
+            dated: [echt],
+            plans: [EventMerge.PlanWindow(entries: [vorlesung], period: Self.vorlesungszeit)],
+            from: Self.am("2026-10-12"),
+            days: 7)
+
+        #expect(merged.count == 1)
+    }
+
+    @Test("Ein persönlicher Termin zur Vorlesungsstunde bleibt sichtbar")
+    func persoenlicherTerminZurVorlesungsstunde() throws {
+        // Vorlesung um 10 Uhr, persönlicher Termin (Zahnarzt) auch um 10 Uhr:
+        // zwei Termine, die nichts miteinander zu tun haben.
+        let vorlesung = Self.icsEvent(id: "a", titel: "Analysis I",
+                                      am: "2026-10-13", von: "10:00", bis: "12:00", kurs: "kursA")
+        let arzt = Self.icsEvent(id: "b", titel: "Zahnarzt",
+                                 am: "2026-10-13", von: "10:00", bis: "11:00", persoenlich: true)
+
+        let merged = EventMerge.combine(dated: [vorlesung, arzt], plans: [], days: 1)
+
+        #expect(merged.count == 2)
+    }
+
+    @Test("Titel-Wortfolgen: Analysis I ist nicht Analysis II")
+    func wortfolgen() {
+        #expect(EventMerge.titleWords("11568  Übung: Logik und Formale Systeme")
+                == ["11568", "ubung", "logik", "und", "formale", "systeme"])
+        #expect(EventMerge.isSameEvent(
+            Self.icsEvent(id: "a", titel: "Analysis I", am: "2026-10-13", von: "10:00", bis: "12:00"),
+            Self.icsEvent(id: "b", titel: "Analysis II", am: "2026-10-13", von: "10:00", bis: "12:00"))
+            == false)
+        #expect(EventMerge.isSameEvent(
+            Self.icsEvent(id: "a", titel: "Logik und Formale Systeme", am: "2026-10-13", von: "12:15", bis: "13:45"),
+            Self.icsEvent(id: "b", titel: "11568 Übung: Logik und Formale Systeme", am: "2026-10-13", von: "12:15", bis: "13:45"))
+            == true)
+    }
+}

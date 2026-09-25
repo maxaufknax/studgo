@@ -47,7 +47,7 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Dateien: Veranstaltungsordner | `/courses/{id}/folders` → `/folders/{id}/file-refs` | ✅ Ordnerbaum, Vorschau, Teilen, Download |
 | Dateien: **persönliche Ablage** | `/users/{id}/folders`, `/users/{id}/file-refs` | ⬜ Route vorhanden, noch nicht gebaut |
 | Dateien **hochladen**, Ordner anlegen | `POST /folders/{id}/file-refs`, `POST .../folders` | ⬜ möglich, noch nicht gebaut |
-| Courseware (Lernmaterialien) | ~50 Routen (`/courseware-*`) | ⬜ **größte Lücke** |
+| Courseware (Lernmaterialien) | ~50 Routen (`/courseware-*`) | ◐ seit 1.7.0: Kapitelbaum und textnahe Blöcke lesend; dateibasierte Blöcke und der Editor weiter außen vor |
 | Fragebögen | – | 🚫 keine Route |
 | Merkzettel (Clipboard) | `/clipboards`, `/clipboard-items` | ⬜ möglich, geringer Nutzen unterwegs |
 
@@ -90,6 +90,8 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Stud.IP | JSON:API | StudGo |
 | --- | --- | --- |
 | Nachrichten lesen, senden, antworten | `/inbox`, `/outbox`, `POST /messages` | ✅ mit Gelesen-Markierung und Empfängersuche |
+| Nachrichten **löschen** | `DELETE /messages/{id}` | ✅ seit 1.7.0 — Wischgeste und Detailansicht; löscht nur die eigene Kopie |
+| Blubber: Profil hinter einem Beitrag | `GET /users/{id}` | ✅ seit 1.7.0 — Antippen von Name oder Bild öffnet das Profilblatt; auch im Meldemenü |
 | Blubber: alle Fäden | `GET /blubber-threads` | ✅ Postfach → Chats, in derselben Auswahl wie `dispatch.php/blubber` |
 | Blubber: **globaler Strom** | `GET /blubber-threads/global` | ✅ fest oben in der Chatliste (Befund 15) |
 | Blubber: Verlauf | `…/{id}/comments`, ersatzweise `…/{id}?include=comments` | ✅ neueste zuerst geladen, Älteres nachladbar, schreiben; über drei Wege geholt und mit Diagnose, wenn keiner trägt (Befund 17) |
@@ -125,6 +127,9 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Datei hochladen / umbenennen / löschen | ✅ seit 1.3.0 — `POST /folders/{id}/file-refs` mit `multipart/form-data`, dazu Mehrfachauswahl und „In Dateien sichern“. Angeboten wird es nur, wo `is-writable` am Ordner steht. |
 | Echte Sitzungstermine mit Ausfällen | ✅ seit 1.3.0 über `GET /users/{id}/events.ics` — bis 2037, samt Raum, Thema und abgesagten Terminen. Vorher aus dem Wochenraster abgeleitet und deshalb außerhalb der Vorlesungszeit leer. |
 | Offline-Betrieb | ✅ die zuletzt geladenen Listen liegen auf dem Gerät, die App startet ohne Empfang mit dem letzten Stand |
+| Mensa & Speisepläne | ✅ seit 1.7.0 — über die offene OpenMensa-Schnittstelle: alle Hannoveraner Mensen, Preise nach Gruppe, Kennzeichnungen; die gewählte Mensa bleibt eingestellt. Im Demo-Modus mit erfundenen Gerichten. |
+| Bewertung im App Store | ✅ seit 1.7.0 — die App bittet nach ein paar Tagen Nutzung selbst um eine Bewertung (Systemdialog, von iOS gedrosselt). |
+| Inhalte an die ZQS melden | ✅ seit 1.7.0 — vorbereitete Mail an die ZQS-elsa aus der Veranstaltung und den Einstellungen, für alles, was in Stud.IP selbst falsch ist. |
 
 ---
 

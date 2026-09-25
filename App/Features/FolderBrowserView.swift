@@ -143,7 +143,7 @@ struct FolderContentView: View {
                          errorMessage: files.errorMessage ?? subfolders.errorMessage,
                          isEmpty: isEmpty && transfer == nil,
                          emptyText: folder.allowsUpload
-                            ? "Ordner ist leer — du kannst hier hochladen"
+                            ? "Ordner ist leer, du kannst hier hochladen"
                             : "Ordner ist leer",
                          emptySymbol: "folder",
                          retry: { Task { await reload(fresh: true) } })

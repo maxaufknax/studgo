@@ -85,7 +85,7 @@ struct CoursesView: View {
                 } footer: {
                     // Ehrlicher Hinweis statt eines Knopfes, der nichts tut:
                     // die JSON:API hat keine Route zum An- oder Abmelden.
-                    Text("Das Ein- und Austragen zu Veranstaltungen bietet die Stud.IP-Schnittstelle nicht an — es läuft über die Weboberfläche. Danach hier nach unten ziehen, um die Liste zu erneuern.")
+                    Text("Das Ein- und Austragen zu Veranstaltungen bietet die Stud.IP-Schnittstelle nicht an; es läuft über die Weboberfläche. Danach hier nach unten ziehen, um die Liste zu erneuern.")
                 }
             }
             .listStyle(.insetGrouped)

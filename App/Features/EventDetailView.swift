@@ -17,12 +17,12 @@ struct EventDetailView: View {
     private var headline: String {
         // Bei `course-events` steht im Titel der Veranstaltungsname und im
         // Beschreibungsfeld das Thema der Sitzung — hier zählt das Thema.
-        event.topic ?? event.title
+        event.topic ?? event.displayTitle
     }
 
     private var subheadline: String? {
         guard event.topic != nil else { return courseTitle }
-        return courseTitle ?? event.title
+        return courseTitle ?? event.displayTitle
     }
 
     var body: some View {
@@ -186,7 +186,7 @@ struct EventDetailView: View {
         PushButton(value: Route.courseByID(courseID)) {
             RowLabel(symbol: "books.vertical",
                      title: "Zur Veranstaltung",
-                     subtitle: courseTitle ?? event.title) {
+                     subtitle: courseTitle ?? event.displayTitle) {
                 Image(systemName: "chevron.right")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -225,7 +225,7 @@ struct ScheduleEntryDetailView: View {
                     Chip(text: entry.isCourse ? "Veranstaltung" : "Eigener Eintrag",
                          symbol: entry.isCourse ? "books.vertical.fill" : "pencil",
                          color: .white)
-                    Text(entry.title)
+                    Text(entry.displayTitle)
                         .font(.title3.bold())
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
@@ -265,7 +265,7 @@ struct ScheduleEntryDetailView: View {
                     PushButton(value: Route.courseByID(courseID)) {
                         RowLabel(symbol: "books.vertical",
                                  title: "Zur Veranstaltung",
-                                 subtitle: entry.title) {
+                                 subtitle: entry.displayTitle) {
                             Image(systemName: "chevron.right")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)

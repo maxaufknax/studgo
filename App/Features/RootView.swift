@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct RootView: View {
     @EnvironmentObject private var auth: AuthStore
@@ -76,6 +77,14 @@ struct MainTabView: View {
         }
         // Das App-Symbol trägt die Zahl der ungelesenen Nachrichten mit.
         .task(id: auth.unreadCount) { await Notifications.setBadge(auth.unreadCount) }
+        // Irgendwann bittet die App um eine App-Store-Bewertung — wann genau,
+        // entscheidet `ReviewGate`; hier steht nur der Aufruf, einmal je
+        // App-Start und nur für angemeldete Konten.
+        .task {
+            let scene = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }.first
+            ReviewPrompt.registerLaunch(scene: scene)
+        }
     }
 }
 

@@ -132,7 +132,10 @@ enum Notifications {
 
         for event in upcoming {
             let content = UNMutableNotificationContent()
-            content.title = event.title
+            // Derselbe geglättete Titel wie in der Terminliste — mit
+            // Nummer und Doppel-Leerzeichen sähe die Mitteilung anders aus
+            // als die App, aus der sie kommt.
+            content.title = event.displayTitle
             content.body = reminderBody(for: event, leadMinutes: leadMinutes)
             content.sound = .default
             content.threadIdentifier = "studgo.calendar"

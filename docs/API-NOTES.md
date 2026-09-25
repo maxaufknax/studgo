@@ -870,3 +870,99 @@ beendet" schreiben — wäre dagegen eine Schätzung: Die Zuordnung der
 ICS-Sitzungen zu einer Veranstaltung läuft über einen Namensabgleich
 (`StudIPClient.matchCourse`), und ein verfehlter Abgleich erklärte eine
 laufende Veranstaltung für beendet. Deshalb bleibt es bei der Semesterangabe.
+
+---
+
+# Befunde aus Fassung 1.7.0
+
+## 22. Nachrichten lassen sich löschen — `DELETE /v1/messages/{id}`
+
+Die Route fehlte in der Tabelle oben, nicht im System: `RouteMap.php` führt
+sie, bedient von `Routes\Messages\MessageDelete`. Semantik aus dem Quelltext:
+
+* Der Server setzt für das **eigene** Konto das `deleted`-Kennzeichen — auf
+  der Sende- (`snd`) wie auf der Empfangsseite (`rec`), je nachdem, welche
+  Rolle man hat. Die Nachricht verschwindet nur im eigenen Postfach; beim
+  Gegenüber bleibt sie.
+* `MessageAuthority::canDeleteMessage()` erlaubt das jedem, der die
+  Nachricht lesen darf. Antwort: **204**, kein Rumpf.
+
+StudGo löscht damit aus Posteingang (Wischgesten) und aus der Detailansicht.
+
+## 23. Die Courseware ist vollständig über die JSON:API lesbar
+
+Die Courseware — Stud.IPs Modul für Lerninhalte in Veranstaltungen — hängt mit
+eigenen Routen an der API. Verifiziert gegen `/v1/discovery` (397 Routen) und
+die Schemas unter `lib/classes/JsonApi/Schemas/Courseware`:
+
+| Schritt | Route | Paging |
+| --- | --- | --- |
+| Instanz der Veranstaltung | `GET /v1/courses/{id}/courseware` | nein (Show) |
+| Kapitel im Einzelnen | `GET /v1/courseware-structural-elements/{id}` | **nein** (`StructuralElementsShow`) |
+| Unterkapitel | `GET /v1/courseware-structural-elements/{id}/children` | `offset`, `limit` |
+| Abschnitte | `GET /v1/courseware-structural-elements/{id}/containers` | `offset`, `limit` |
+| Blöcke | `GET /v1/courseware-containers/{id}/blocks` | `offset`, `limit` |
+
+Der Weg in die Blöcke: Die Instanz trägt ihre Beziehung `root` auf das
+Wurzelkapitel; jedes Kapitel heißt `children` (weitere Kapitel) und
+`containers` (Abschnitte) und jeder Abschnitt `blocks`.
+
+**Attribute, die zählen:**
+
+* `courseware-structural-elements`: `title`, `payload` (dict, dort
+  `description`), `can-visit`, `can-edit`, `position`, `is-link`.
+* `courseware-containers`: `container-type`, `title` (**Titel des Typs**, der
+  eigene Name steht im `payload` unter `title`), `position`.
+* `courseware-blocks`: `block-type` (`text`, `html`, `typewriter`, `headline`,
+  `video`, `audio`, `pdf`, `download`, `link`, `image`, …), `title` (der
+  Klartextname der **Blockart**), `payload` — je Blocktyp anders bestückt.
+  Textnahe Typen tragen ihr Markup unter `payload.text` (der HTML-Block unter
+  `payload.html`), verweisende unter `payload.url`, dateibasierte unter
+  `payload.file_id`.
+
+**Was in 1.7.0 daraus gebaut ist:** der Lese-Baum (Kapitel, Abschnitte,
+textnahe und verweisende Blöcke). Offen: dateibasierte Blöcke — ihre Dateien
+ließen sich über die Beziehung `file-refs` einzeln auflösen, aber nicht über
+eine Route, die StudGo sonst schon benutzt; sie verweisen vorerst auf die
+Weboberfläche (`dispatch.php/course/courseware?cid=…`). Schreibende Routen
+(Blöcke anlegen, verschieben, feedback geben) existieren vollständig — das
+wäre ein eigener Editor.
+
+## 24. OpenMensa — Speisepläne ohne Schlüssel
+
+Die Mensapläne liegen nicht in Stud.IP. [OpenMensa](https://openmensa.org)
+führt sie als offene Daten, ohne Anmeldung:
+
+```
+GET https://openmensa.org/api/v2/canteens                → alle Mensen
+GET …/canteens/{id}/days                                 → geplante Tage (date, closed)
+GET …/canteens/{id}/days/{YYYY-MM-DD}/meals              → Gerichte
+```
+
+Ein Gericht: `id`, `name`, `category`, `prices` (**nach Gruppe**;
+`students` ist der relevante), `notes` (Ernährungsformen und
+Zusatzstoffe in Klartext). **204**, wenn für den Tag kein Plan vorliegt —
+kein Fehler. Die Hannoveraner Kennungen: 6 = Hauptmensa, 7 = Contine,
+9 = Caballus, 10 = TiHo-Tower, 11 = HMTMH, 12 = Ricklinger Stadtweg,
+13 = Blumhardtstraße, 14 = Große Pause, 15 = Cafeteria Herrenhausen,
+16 = Marktstand, 17 = Restaurant c.t.
+
+Im Demo-Modus liefert `DemoData` erfundene Gerichte — die Demo ruft
+`openmensa.org` nie an.
+
+## 25. Routen, die noch frei liegen
+
+Aus `/v1/discovery`, noch ungenutzt — sortiert nach Nutzen für Studierende:
+
+| Bereich | Route | Was daraus würde |
+| --- | --- | --- |
+| **Raumaushang** | `GET /v1/raumaushang/current-view/{id}`, `room-view/{id}` | Belegungsansicht eines Raums — frei, belegt, nächste Veranstaltung. Praktisch am Termin („ist der Raum danach noch frei?“), aber Stud.IP nennt Räume nur als Namen (`location`), nicht als Kennung: Die Raum-ID aus dem Namen abzuleiten geht nicht ohne weiteres. |
+| **Feedback-Module** | `GET /v1/courses/{id}/feedback-elements`, `…/entries` | Das Aktivitäts-Feedback der Weboberfläche („Wie läuft’s?“) — je Einrichtung anders gepflegt, an der LUH wenig benutzt. |
+| **Courseware-Feedback** | `GET /v1/courseware-blocks/{id}/feedback` | Rückmeldung je Lernblock; gehört zum Courseware-Editor, nicht zum Lesen. |
+| **Konfiguration** | `GET /v1/users/{id}/config-values` | Persönliche Stud.IP-Einstellungen; für die App ohne Nutzen, die App hat ihre eigenen. |
+| **Feiertage** | `GET /v1/holidays` | Ließe sich in den Kalender legen; Deutschlandweit, nicht LUH-spezifisch. |
+| **Massenmail** | `GET /v1/mass-mails/…` | Verwaltungswerkzeug der Institute; für Studierende nicht freigegeben und nicht sinnvoll. |
+
+Nicht in der API (weiterhin): Ein-/Austragen zu Veranstaltungen, eigene
+Stundenplaneinträge schreiben, Uni-Mail, QIS/Noten, Mensen des Studentenwerks
+aus Stud.IP selbst.

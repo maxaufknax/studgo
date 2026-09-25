@@ -109,6 +109,12 @@ final class DemoStore {
         messageList[index].isRead = read
     }
 
+    func deleteMessage(_ id: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        messageList.removeAll { $0.id == id }
+    }
+
     func sendMessage(subject: String, body: String, recipients: [String]) {
         lock.lock()
         defer { lock.unlock() }

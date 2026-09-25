@@ -362,7 +362,7 @@ struct ScheduleView: View {
                     ? (title: "Plan des kommenden Semesters zeigen", scope: .upcoming)
                     : nil
             return PlanNote(symbol: "moon.zzz",
-                            title: "Vorlesungsfreie Zeit — nichts davon findet gerade statt",
+                            title: "Vorlesungsfreie Zeit: nichts davon findet gerade statt",
                             detail: parts.isEmpty ? nil : parts.joined(separator: " "),
                             action: switchAction)
         }
@@ -420,7 +420,7 @@ struct ScheduleView: View {
             return context.emptyExplanation(on: anchor)
         }
         if calendar.isDateInWeekend(anchor) {
-            return "Wochenende — nichts eingetragen."
+            return "Wochenende, nichts eingetragen."
         }
         return "An diesem Tag steht nichts an."
     }
@@ -557,6 +557,31 @@ struct ScheduleView: View {
         async let ahead: Void = loadPreview(client: client, context: known)
         async let dates: Void = loadAgenda(client: client)
         _ = await (plan, ahead, dates)
+        deriveUpcomingPlan(context: known)
+    }
+
+    /// Der Plan des kommenden Semesters aus dem ICS-Strom, solange der
+    /// Stundenplan-Endpunkt noch keine Turnustermine dafür liefert.
+    ///
+    /// **Der Fall, der das braucht (Rückmeldung 1.6.1):** Ende September
+    /// zeigte das Wochenraster den Plan des SoSe, die Listenansicht dagegen
+    /// die Sitzungen des WiSe. Beide hatten recht — die Liste liest den
+    /// ICS-Strom, der die Sitzungen des kommenden Semesters schon kennt, das
+    /// Raster liest `/v1/users/{id}/schedule`, und das liefert die Turnustermine
+    /// erst, wenn Stud.IP die Belegung in `semester_courses` eingetragen hat
+    /// (Befund 11 in docs/API-NOTES.md). Die Sitzungen liegen hier schon vor;
+    /// `PlanDerivation` legt sie zurück in ein Wochenraster, und das Raster
+    /// steht auf demselben Semester wie die Liste.
+    ///
+    /// Sobald der Server selbst Turnustermine liefert, gewinnt die echte
+    /// Antwort — abgeleitet wird nur, wenn dort nichts steht.
+    private func deriveUpcomingPlan(context: SemesterContext) {
+        guard let upcoming = context.upcoming(),
+              let period = SemesterContext.lecturePeriod(of: upcoming) else { return }
+        guard !SchedulePlan.hasCourses(preview.value ?? []) else { return }
+        let derived = PlanDerivation.cycleEntries(from: agenda.value ?? [], within: period)
+        guard SchedulePlan.hasCourses(derived) else { return }
+        preview.value = derived
     }
 
     /// Der Plan des kommenden Semesters.
@@ -788,7 +813,7 @@ struct DayAgendaRow: View {
                 .padding(.vertical, 2)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(event.title)
+                Text(event.displayTitle)
                     .font(.subheadline.weight(.semibold))
                     .strikethrough(event.isCancelled)
                     .foregroundStyle(event.isCancelled ? .secondary : .primary)

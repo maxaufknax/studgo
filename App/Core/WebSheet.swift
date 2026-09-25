@@ -47,7 +47,7 @@ private struct DemoWebNotice: View {
                 Label("Weiter geht es in Stud.IP", systemImage: "globe.badge.chevron.backward")
             } description: {
                 VStack(spacing: 12) {
-                    Text("Im angemeldeten Betrieb öffnet dieser Knopf eine Seite deiner Hochschule — dort wird ein- und ausgetragen, das Profilbild geändert und die Prüfungsverwaltung erreicht.")
+                    Text("Im angemeldeten Betrieb öffnet dieser Knopf eine Seite deiner Hochschule; dort wird ein- und ausgetragen, das Profilbild geändert und die Prüfungsverwaltung erreicht.")
 
                     Text(url.absoluteString)
                         .font(.footnote.monospaced())

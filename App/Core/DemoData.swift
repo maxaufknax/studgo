@@ -1,19 +1,19 @@
 import Foundation
 
-/// Die Daten hinter dem Demo-Modus — ein vollständiges, erfundenes
+/// Die Daten hinter dem Demo-Modus – ein vollständiges, erfundenes
 /// Stud.IP-Konto.
 ///
 /// **Wozu:** Die Anmeldung an StudGo läuft über OAuth2 gegen
 /// `studip.uni-hannover.de`, und dort hängt die LUH an **Shibboleth**. Wer
 /// keine Kennung der Leibniz Universität hat, kommt an keinen einzigen
-/// Bildschirm der App — das betrifft die Prüfung im App Store genauso wie
+/// Bildschirm der App – das betrifft die Prüfung im App Store genauso wie
 /// jeden, der sich die App vor der Einschreibung ansehen möchte. Ein
 /// Demo-Konto beim Rechenzentrum zu beantragen hilft nicht: Es müsste
 /// dauerhaft gültig bleiben, das Kennwort stünde in einem Formular bei Apple,
 /// und die Prüfung fiele trotzdem aus, sobald das Kennwort abläuft.
 ///
 /// Deshalb liegt die Demo **in der App**. `DemoServer` beantwortet dieselben
-/// Routen wie Stud.IP, mit denselben Feldnamen — die Modelle, der Parser, der
+/// Routen wie Stud.IP, mit denselben Feldnamen – die Modelle, der Parser, der
 /// ICS-Leser, das Zusammenführen der Termine laufen unverändert. Was der
 /// Prüfer sieht, ist also nicht ein zweiter, nachgebauter Bildschirmsatz,
 /// sondern die echte App an einer erfundenen Datenlage.
@@ -68,7 +68,7 @@ enum DemoData {
         calendar.date(byAdding: .day, value: count, to: base ?? today) ?? today
     }
 
-    /// ISO-8601 mit Zeitzone — genau so schreibt Stud.IP jeden Zeitstempel.
+    /// ISO-8601 mit Zeitzone – genau so schreibt Stud.IP jeden Zeitstempel.
     static func stamp(_ date: Date) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
@@ -93,7 +93,7 @@ enum DemoData {
     ///
     /// Das ist bewusst nicht der echte Kalender der LUH: Fiele die Demo in
     /// die vorlesungsfreie Zeit, zeigte der Stundenplan zu Recht ein blasses
-    /// Raster und der Startbildschirm „keine Termine" — richtig, aber als
+    /// Raster und der Startbildschirm „keine Termine" – richtig, aber als
     /// erster Eindruck der App unbrauchbar.
     static var semesters: [DemoSemester] {
         let current = DemoSemester(
@@ -116,7 +116,7 @@ enum DemoData {
         return [current, next]
     }
 
-    /// „Sommersemester 2026" bzw. „Wintersemester 2026/27" — nach dem Monat,
+    /// „Sommersemester 2026" bzw. „Wintersemester 2026/27" – nach dem Monat,
     /// wie es die LUH benennt.
     static func seasonTitle(for date: Date) -> String {
         let calendar = self.calendar
@@ -184,7 +184,7 @@ enum DemoData {
     }
 
     /// Die Veranstaltungsarten dieser „Installation". `sem-class` 1 sind
-    /// gewöhnliche Veranstaltungen, 5 sind Studiengruppen — daraus leitet
+    /// gewöhnliche Veranstaltungen, 5 sind Studiengruppen – daraus leitet
     /// `StudygroupKinds` ab, was eine Studiengruppe ist.
     static let semTypes: [(id: String, name: String, classID: String)] = [
         ("1", "Vorlesung", "1"),
@@ -215,7 +215,7 @@ enum DemoData {
                    """,
                    enrolled: true),
         DemoCourse(id: "demo-prog2",
-                   title: "Programmieren 2 — Objektorientierung",
+                   title: "Programmieren 2 – Objektorientierung",
                    subtitle: nil,
                    number: "10203", typeID: 1, room: "3703 - 023",
                    description: """
@@ -249,7 +249,7 @@ enum DemoData {
                    number: nil, typeID: 99, room: nil,
                    description: "Wir treffen uns freitags in der Bibliothek und rechnen die Blätter durch.",
                    enrolled: true),
-        // Nicht belegt — nur über die Suche zu finden.
+        // Nicht belegt – nur über die Suche zu finden.
         DemoCourse(id: "demo-lineare-algebra",
                    title: "Lineare Algebra für Informatik",
                    subtitle: nil, number: "10110", typeID: 1, room: "1101 - F303",
@@ -292,7 +292,7 @@ enum DemoData {
         let topics: [String]
     }
 
-    /// Sieben Veranstaltungstermine und zwei eigene Einträge — genug für ein
+    /// Sieben Veranstaltungstermine und zwei eigene Einträge – genug für ein
     /// glaubwürdiges Wochenraster, wenig genug, um übersichtlich zu bleiben.
     static let slots: [DemoSlot] = [
         DemoSlot(id: "demo-cyc-1", title: "Analysis für Ingenieurinnen und Ingenieure I",
@@ -300,7 +300,7 @@ enum DemoData {
                  room: "1101 - E001", note: nil,
                  topics: ["Konvergenz von Reihen", "Potenzreihen", "Stetigkeit",
                           "Der Mittelwertsatz", "Taylorentwicklung"]),
-        DemoSlot(id: "demo-cyc-2", title: "Programmieren 2 — Objektorientierung",
+        DemoSlot(id: "demo-cyc-2", title: "Programmieren 2 – Objektorientierung",
                  courseID: "demo-prog2", weekday: 1, start: "14:00", end: "15:30",
                  room: "3703 - 023", note: nil,
                  topics: ["Vererbung", "Schnittstellen", "Generics", "Testen mit JUnit",
@@ -324,7 +324,7 @@ enum DemoData {
                  room: "3703 - 135", note: nil,
                  topics: ["Aufgabe 3 besprechen", "Debugging", "Codeverbesserung",
                           "Aufgabe 6 besprechen", "Klausurvorbereitung"]),
-        DemoSlot(id: "demo-cyc-7", title: "Datenbanksysteme — Übung",
+        DemoSlot(id: "demo-cyc-7", title: "Datenbanksysteme – Übung",
                  courseID: "demo-dbs", weekday: 5, start: "09:15", end: "10:45",
                  room: "1101 - B302", note: nil,
                  topics: ["SQL üben", "Normalisierung üben", "ER-Diagramme",
@@ -337,7 +337,7 @@ enum DemoData {
                  room: nil, note: "Bibliothek, 2. Obergeschoss", topics: []),
     ]
 
-    /// Eine Sitzung, die ausfällt — im ICS-Strom mit „(fällt aus)" markiert,
+    /// Eine Sitzung, die ausfällt – im ICS-Strom mit „(fällt aus)" markiert,
     /// damit die Ansicht ihren durchgestrichenen Zustand auch zeigt.
     static let cancelledSlotID = "demo-cyc-5"
     static let cancelledWeekOffset = 1
@@ -355,7 +355,7 @@ enum DemoData {
 
     static let appointments: [DemoAppointment] = [
         DemoAppointment(id: "demo-cal-1", title: "Abgabe Übungsblatt 4",
-                        description: "Programmieren 2 — Abgabe im Dateibereich",
+                        description: "Programmieren 2 – Abgabe im Dateibereich",
                         dayOffset: 2, start: "12:00", end: "12:30", location: nil),
         DemoAppointment(id: "demo-cal-2", title: "Sprechstunde Prof. Weber",
                         description: "Frage zur Reihenkonvergenz",
@@ -399,7 +399,7 @@ enum DemoData {
                    name: "Allgemeiner Dateiordner",
                    description: "<!--HTML--><p>Hier liegen Folien und Übungsblätter.</p>",
                    files: [
-                       DemoFile(id: "demo-file-1", name: "Folien 05 — Vererbung.pdf",
+                       DemoFile(id: "demo-file-1", name: "Folien 05 – Vererbung.pdf",
                                 mime: "application/pdf", size: 482_113, dayOffset: -3),
                        DemoFile(id: "demo-file-2", name: "Modulhandbuch.pdf",
                                 mime: "application/pdf", size: 1_204_882, dayOffset: -40),
@@ -471,7 +471,7 @@ enum DemoData {
         DemoMessage(id: "demo-msg-3", subject: "Rückmeldung zum Sommersemester",
                     body: """
                     Die Rückmeldefrist läuft noch bis zum Ende des Monats. \
-                    Der Semesterbeitrag ist bereits eingegangen — es ist nichts \
+                    Der Semesterbeitrag ist bereits eingegangen – es ist nichts \
                     weiter zu tun.
                     """,
                     senderID: "demo-studienbuero", recipientIDs: [userID],
@@ -485,7 +485,7 @@ enum DemoData {
                     senderID: userID, recipientIDs: ["demo-behrens"],
                     hoursAgo: 94, isRead: true, outgoing: true),
         DemoMessage(id: "demo-msg-6", subject: "Frage zu Aufgabe 3",
-                    body: "Guten Tag, ich komme bei Aufgabe 3b nicht weiter — darf ich in die Sprechstunde kommen?",
+                    body: "Guten Tag, ich komme bei Aufgabe 3b nicht weiter – darf ich in die Sprechstunde kommen?",
                     senderID: userID, recipientIDs: ["demo-weber"],
                     hoursAgo: 30, isRead: true, outgoing: true),
     ]
@@ -610,7 +610,7 @@ enum DemoData {
                    contextType: "private", contextID: nil,
                    name: "Lena Behrens", authorID: "demo-behrens", hoursAgo: 3),
         DemoThread(id: "demo-thread-lerngruppe",
-                   content: "Nächste Woche rechnen wir Blatt 5 — bringt eure Lösungen mit.",
+                   content: "Nächste Woche rechnen wir Blatt 5 – bringt eure Lösungen mit.",
                    contextType: "course", contextID: "demo-lerngruppe",
                    name: nil, authorID: "demo-behrens", hoursAgo: 20),
     ]
@@ -669,15 +669,15 @@ enum DemoData {
                        content: "Hier können Fragen zur Veranstaltung gestellt werden. Bitte vorher schauen, ob es die Frage schon gibt.",
                        hoursAgo: 400),
         DemoForumEntry(id: "demo-forum-2", parentID: "demo-cat-2",
-                       title: "Aufgabe 3b — Verständnisfrage",
+                       title: "Aufgabe 3b – Verständnisfrage",
                        content: "Ist mit „stabil sortieren\" gemeint, dass gleiche Schlüssel ihre Reihenfolge behalten?",
                        hoursAgo: 34),
         DemoForumEntry(id: "demo-forum-3", parentID: "demo-forum-2",
-                       title: "Re: Aufgabe 3b — Verständnisfrage",
-                       content: "Ich habe bei 3b denselben Fehler bekommen — es lag an der Vergleichsfunktion.",
+                       title: "Re: Aufgabe 3b – Verständnisfrage",
+                       content: "Ich habe bei 3b denselben Fehler bekommen – es lag an der Vergleichsfunktion.",
                        hoursAgo: 30),
         DemoForumEntry(id: "demo-forum-4", parentID: "demo-forum-2",
-                       title: "Re: Aufgabe 3b — Verständnisfrage",
+                       title: "Re: Aufgabe 3b – Verständnisfrage",
                        content: "Genau so ist es gemeint. Die Reihenfolge gleicher Schlüssel bleibt erhalten.",
                        hoursAgo: 28),
         DemoForumEntry(id: "demo-forum-5", parentID: "demo-cat-3",
@@ -738,6 +738,106 @@ enum DemoData {
                   start: "14:00", end: "15:00", room: "1101 - A410", note: ""),
         DemoBlock(id: "demo-block-3", ownerID: "demo-okonkwo", dayOffset: 6,
                   start: "11:00", end: "12:00", room: "3703 - 210", note: ""),
+    ]
+
+    // MARK: - Mensa
+
+    struct DemoCanteen {
+        let id: Int
+        let name: String
+    }
+
+    struct DemoMeal {
+        let id: Int
+        let name: String
+        let category: String
+        let price: Double?
+        let notes: [String]
+    }
+
+    static let canteens: [DemoCanteen] = [
+        DemoCanteen(id: 6, name: "Hauptmensa"),
+        DemoCanteen(id: 7, name: "Mensa Contine"),
+        DemoCanteen(id: 9, name: "Mensa Caballus"),
+    ]
+
+    /// Die Gerichte eines Tages – am Wochenende hat die Demo zu.
+    static func meals(for date: Date) -> [DemoMeal] {
+        guard !calendar.isDateInWeekend(date) else { return [] }
+        return [
+            DemoMeal(id: 1, name: "Hausgemachte Pasta mit Muhammara-Dip",
+                     category: "Tagesgericht 1", price: 2.0, notes: ["vegan"]),
+            DemoMeal(id: 2, name: "Lammragout mit Kichererbsen und Semmelknödel",
+                     category: "Tagesgericht 2", price: 3.8,
+                     notes: ["mit Alkohol", "enthält Sellerie"]),
+            DemoMeal(id: 3, name: "Ofengemüse mit Kartoffelkruste",
+                     category: "Vegetarisch", price: 2.6, notes: ["vegetarisch"]),
+            DemoMeal(id: 4, name: "Champignon-Pfanne mit Kräuterquark",
+                     category: "Grill", price: 3.2, notes: ["vegetarisch"]),
+            DemoMeal(id: 5, name: "Apfelstrudel mit Vanillesauce",
+                     category: "Dessert", price: 1.2, notes: ["enthält Milch"]),
+        ]
+    }
+
+    // MARK: - Courseware
+
+    struct DemoCoursewareChapter {
+        let id: String
+        let title: String
+        let summary: String
+        let parentID: String?
+        let position: Int
+    }
+
+    struct DemoCoursewareSection {
+        let id: String
+        let chapterID: String
+        let title: String
+        let kind: String
+        let position: Int
+    }
+
+    struct DemoCoursewareBlock {
+        let id: String
+        let sectionID: String
+        let type: String
+        let typeTitle: String
+        let payload: [String: String]
+        let position: Int
+    }
+
+    static let coursewareChapters: [DemoCoursewareChapter] = [
+        DemoCoursewareChapter(id: "demo-cw-root", title: "Startseite",
+                              summary: "Willkommen in der Courseware der Veranstaltung.",
+                              parentID: nil, position: 0),
+        DemoCoursewareChapter(id: "demo-cw-1", title: "Kapitel 1: Grundlagen",
+                              summary: "Einführung, Folien und Übungsaufgaben.",
+                              parentID: "demo-cw-root", position: 1),
+        DemoCoursewareChapter(id: "demo-cw-2", title: "Kapitel 2: Vertiefung",
+                              summary: "Beispiele aus der Vorlesung.",
+                              parentID: "demo-cw-root", position: 2),
+    ]
+
+    static let coursewareSections: [DemoCoursewareSection] = [
+        DemoCoursewareSection(id: "demo-cw-s1", chapterID: "demo-cw-root",
+                              title: "Überblick", kind: "list", position: 0),
+        DemoCoursewareSection(id: "demo-cw-s2", chapterID: "demo-cw-1",
+                              title: "Folien", kind: "list", position: 0),
+    ]
+
+    static let coursewareBlocks: [DemoCoursewareBlock] = [
+        DemoCoursewareBlock(id: "demo-cw-b1", sectionID: "demo-cw-s1",
+                            type: "text", typeTitle: "Text",
+                            payload: ["text": "Diese Courseware ist Teil der Demo – im angemeldeten Betrieb stehen hier die echten Lerninhalte der Veranstaltung."],
+                            position: 0),
+        DemoCoursewareBlock(id: "demo-cw-b2", sectionID: "demo-cw-s2",
+                            type: "headline", typeTitle: "Überschrift",
+                            payload: ["title": "Erste Vorlesung"],
+                            position: 0),
+        DemoCoursewareBlock(id: "demo-cw-b3", sectionID: "demo-cw-s2",
+                            type: "text", typeTitle: "Text",
+                            payload: ["text": "Die Folien stehen zusätzlich im Dateibereich der Veranstaltung."],
+                            position: 1),
     ]
 
     // MARK: - Lizenzen

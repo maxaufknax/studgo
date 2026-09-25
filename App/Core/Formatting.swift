@@ -68,4 +68,34 @@ enum Format {
         if calendar.isDateInTomorrow(date) { return "Morgen" }
         return date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
+    /// Veranstaltungs- und Termintitel für die Anzeige.
+    ///
+    /// Stud.IP nennt dieselbe Veranstaltung je Quelle unterschiedlich: Der
+    /// ICS-Strom schreibt `Course::getFullName()` — „11568  Übung: Logik und
+    /// Formale Systeme", mit führender Nummer und je Einrichtung doppeltem
+    /// Leerzeichen —, der Stundenplan und die Kursliste dagegen nur den Titel.
+    /// Ohne Angleich sah eine Terminliste von zwei Kursen zweierlei Format
+    /// aus (Rückmeldung zur Fassung 1.6.1, Screenshots IMG_1179/1180).
+    ///
+    /// Gekürzt wird nur, was eindeutig Zusatz ist: mehrfache Leerzeichen, eine
+    /// führende Veranstaltungsnummer samt Trennraum. Alles Weitere — etwa der
+    /// Zusatz „Übung:" — ist Inhalt und bleibt stehen.
+    static func displayTitle(_ raw: String) -> String {
+        let collapsed = raw
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Führende Veranstaltungsnummer: „11568 Übung: …" oder „11412 – …".
+        // Nur kürzen, wenn danach noch etwas folgt — sonst wäre ein Titel aus
+        // bloßen Ziffern hinterher leer.
+        if let range = collapsed.range(of: "^\\d{2,6}\\s*[-–:.]?\\s*",
+                                       options: .regularExpression) {
+            let remainder = String(collapsed[range.upperBound...])
+            if !remainder.isEmpty {
+                let trimmed = remainder.trimmingCharacters(in: CharacterSet(charactersIn: " –-:"))
+                if !trimmed.isEmpty { return trimmed }
+            }
+        }
+        return collapsed
+    }
 }

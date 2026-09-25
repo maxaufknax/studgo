@@ -41,6 +41,9 @@ private struct ModerationModifier: ViewModifier {
     @EnvironmentObject private var moderation: ModerationStore
     @State private var revealed = false
     @State private var sheet: ModerationSheet?
+    /// Das Profil des Verfassers — im Kontextmenü erreichbar, denn längeres
+    /// Drücken ist der Weg, den iOS für „weitere Möglichkeiten" vorsieht.
+    @State private var person: PersonRef?
 
     func body(content: Content) -> some View {
         Group {
@@ -60,6 +63,16 @@ private struct ModerationModifier: ViewModifier {
             default:
                 content
                     .contextMenu {
+                        // Wer den eigenen Beitrag meldet, hat nichts davon —
+                        // die Aufrufer reichen dafür keine Autorkennung mit.
+                        if let id = target.authorID?.nilIfEmpty {
+                            Button {
+                                person = PersonRef(id: id,
+                                                   name: target.authorName ?? "Person")
+                            } label: {
+                                Label("Profil ansehen", systemImage: "person.crop.circle")
+                            }
+                        }
                         Button {
                             sheet = .report
                         } label: {
@@ -77,6 +90,9 @@ private struct ModerationModifier: ViewModifier {
         }
         .sheet(item: $sheet) { which in
             ReportSheet(target: target, mode: which == .block ? .block : .report)
+        }
+        .sheet(item: $person) { person in
+            PersonSheet(personID: person.id, name: person.name)
         }
     }
 }
@@ -218,7 +234,7 @@ struct ReportSheet: View {
                 Button("Fertig") { dismiss() }
             } message: {
                 Text(result == .mailed
-                     ? "Der Meldeweg war gerade nicht erreichbar — die Meldung liegt als E-Mail bereit; bitte einmal auf Senden tippen."
+                     ? "Der Meldeweg war gerade nicht erreichbar. Die Meldung liegt als E-Mail bereit; bitte einmal auf Senden tippen."
                      : "Die Meldung ist angekommen. Wir sehen sie uns innerhalb von 24 Stunden an.")
             }
             .alert("Das hat nicht geklappt", isPresented: failureBinding) {
@@ -247,7 +263,7 @@ struct ReportSheet: View {
         case .report:
             return "Die Inhalte in StudGo stammen aus Stud.IP und von anderen Angehörigen deiner Hochschule. Was gegen die Nutzungsbedingungen verstößt, kannst du hier melden."
         case .block:
-            return "Blockierte Personen siehst du in StudGo nicht mehr — weder ihre Beiträge noch ihre Nachrichten. Aufheben lässt sich das in den Einstellungen unter „Melden und Blockieren“."
+            return "Blockierte Personen siehst du in StudGo nicht mehr, weder ihre Beiträge noch ihre Nachrichten. Aufheben lässt sich das in den Einstellungen unter „Melden und Blockieren“."
         }
     }
 

@@ -159,7 +159,7 @@ enum Countdown {
     static func text(start: Date, end: Date, now: Date = Date()) -> String {
         if now >= start && now <= end {
             let remaining = Int(end.timeIntervalSince(now) / 60)
-            return remaining <= 1 ? "endet gleich" : "läuft — noch \(remaining) Min"
+            return remaining <= 1 ? "endet gleich" : "läuft, noch \(remaining) Min"
         }
         let minutes = Int(start.timeIntervalSince(now) / 60)
         if minutes < 0 { return "vorbei" }

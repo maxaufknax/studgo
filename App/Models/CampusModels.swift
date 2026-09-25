@@ -456,7 +456,7 @@ struct ConsultationSlot: Identifiable, Equatable, Hashable {
     }
 
     var timeLabel: String {
-        guard let start else { return "—" }
+        guard let start else { return "–" }
         guard let end else { return start.formatted(date: .omitted, time: .shortened) }
         return Format.timeRange(start, end)
     }

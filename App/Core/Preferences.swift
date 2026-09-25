@@ -19,6 +19,7 @@ final class Preferences: ObservableObject {
         static let quietWeekend = "studgo.notify.quietWeekend"
         static let lastMessageDate = "studgo.notify.lastMessage"
         static let lastActivityDate = "studgo.notify.lastActivity"
+        static let mensaCanteen = "studgo.mensa.canteen"
     }
 
     // MARK: - Weboberfläche
@@ -75,6 +76,14 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(lastNotifiedActivity.timeIntervalSince1970, forKey: Key.lastActivityDate) }
     }
 
+    // MARK: - Mensa
+
+    /// Welche Mensa der Speiseplan zeigt. Kennungen nach OpenMensa; die
+    /// Hauptmensa (6) ist die naheliegendste Vorgabe.
+    @Published var mensaCanteenID: Int {
+        didSet { defaults.set(mensaCanteenID, forKey: Key.mensaCanteen) }
+    }
+
     /// Sind überhaupt Benachrichtigungen gewünscht?
     var wantsNotifications: Bool { eventReminders || mailboxAlerts }
 
@@ -94,6 +103,7 @@ final class Preferences: ObservableObject {
             defaults.double(forKey: Key.lastMessageDate))
         lastNotifiedActivity = Date(timeIntervalSince1970:
             defaults.double(forKey: Key.lastActivityDate))
+        mensaCanteenID = defaults.object(forKey: Key.mensaCanteen) as? Int ?? 6
     }
 
     /// Mögliche Vorlaufzeiten für die Auswahl.

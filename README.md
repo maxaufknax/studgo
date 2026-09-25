@@ -12,10 +12,10 @@ Quelloffenes Studierendenprojekt, keine offizielle App der Universität.
 | --- | --- |
 | **Heute** | Was gerade läuft oder als Nächstes ansteht, mit Countdown; der restliche Tag, die nächsten Termine, ungelesene Nachrichten, neue Ankündigungen |
 | **Plan** | Tag, Woche und Liste: Wochenraster mit Kursfarben und Überschneidungen, Tagesansicht mit Datumsleiste, datierte Terminliste. Eigene Termine gelten ganzjährig; anlegen und ändern führt an die richtige Stelle in Stud.IP. Einzelne Turnusfenster — etwa die Übungsgruppe, die nicht die eigene ist — lassen sich überall ausblenden und in den Einstellungen wiederfinden |
-| **Kurse** | Veranstaltungen des laufenden Semesters (umschaltbar) mit Suche; je Kurs Info, Termine, Aushang, Dateien und Teilnehmende |
+| **Kurse** | Veranstaltungen des laufenden Semesters (umschaltbar) mit Suche; je Kurs Info, Termine, Aushang, Dateien, Teilnehmende und Courseware |
 | **Dateien** | Ordner durchblättern, herunterladen, in der Systemvorschau öffnen und teilen |
-| **Postfach** | Nachrichten (Posteingang, Gesendet, Suche, Antworten, Verfassen mit Personensuche) und **Blubber**: globaler Strom, Direktnachrichten und die Ströme der Veranstaltungen und Studiengruppen in einer Liste |
-| **Campus** | Eigene Zahlen, Aktivitätenstrom, Verzeichnis: Veranstaltungs- und Personensuche, Kontakte, Studiengruppen, Einrichtungen, Ankündigungen |
+| **Postfach** | Nachrichten (Posteingang, Gesendet, Suche, Antworten, Verfassen mit Personensuche, Löschen) und **Blubber**: globaler Strom, Direktnachrichten und die Ströme der Veranstaltungen und Studiengruppen in einer Liste; Antippen einer Person öffnet ihr Profil |
+| **Campus** | Eigene Zahlen, Aktivitätenstrom, Verzeichnis: Veranstaltungs- und Personensuche, Kontakte, Studiengruppen, Einrichtungen, Ankündigungen, Mensa & Speisepläne (über OpenMensa) |
 | **Profil** | Darstellung, Benachrichtigungen, Semesterübersicht, Uni-Mail, Zwischenspeicher, Datenschutzhinweise, Abmelden |
 
 Anmeldung über **OAuth2 Authorization Code Flow mit PKCE** in einer

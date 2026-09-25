@@ -107,7 +107,7 @@ struct SemesterContext {
             return "In den nächsten Wochen steht nichts an."
         case .semesterBreak(let title, let start):
             guard let start else {
-                return "Vorlesungsfreie Zeit — im Stundenplan steht deshalb nichts."
+                return "Vorlesungsfreie Zeit. Im Stundenplan steht deshalb nichts."
             }
             let day = start.formatted(.dateTime.day().month(.wide).year())
             let days = daysUntilLectures(from: date)

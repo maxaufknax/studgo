@@ -85,7 +85,7 @@ struct CourseSearchView: View {
             Text("Eingrenzen")
         } footer: {
             Text(isTermTooShort
-                 ? "Mindestens drei Zeichen — Stud.IP lehnt kürzere Anfragen ab."
+                 ? "Mindestens drei Zeichen; Stud.IP lehnt kürzere Anfragen ab."
                  : "Aktuell: \(field.label) · \(semesterLabel)")
         }
         // Bei geänderten Filtern gleich neu suchen — aber nur, wenn schon
@@ -119,7 +119,7 @@ struct CourseSearchView: View {
                     }
                 }
             } footer: {
-                Text("Zum Eintragen eine Veranstaltung öffnen — die Anmeldung läuft über die Stud.IP-Weboberfläche.")
+                Text("Zum Eintragen eine Veranstaltung öffnen; die Anmeldung läuft über die Stud.IP-Weboberfläche.")
             }
         } else if awaitingResults {
             // Ruhiger Zwischenstand vom ersten Zeichen an, statt kurz „nichts
@@ -138,7 +138,7 @@ struct CourseSearchView: View {
                 ContentUnavailableView {
                     Label("Suche gerade nicht möglich", systemImage: "wifi.exclamationmark")
                 } description: {
-                    Text("Stud.IP hat nicht rechtzeitig geantwortet. Das liegt meist an der Verbindung — noch einmal versuchen geht oft sofort.")
+                    Text("Stud.IP hat nicht rechtzeitig geantwortet. Das liegt meist an der Verbindung; noch einmal versuchen geht oft sofort.")
                 } actions: {
                     Button("Erneut suchen") { schedule(delay: 0) }
                         .buttonStyle(.borderedProminent)
@@ -156,7 +156,7 @@ struct CourseSearchView: View {
             Section {
                 ContentUnavailableView("Veranstaltung suchen",
                                        systemImage: "magnifyingglass",
-                                       description: Text("Tippen genügt — ab drei Zeichen wird von selbst gesucht."))
+                                       description: Text("Tippen genügt; ab drei Zeichen wird von selbst gesucht."))
             }
         }
     }

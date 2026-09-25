@@ -38,7 +38,7 @@ struct LoginView: View {
             AppLogoView(size: 132, cornerRadius: 30)
                 .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
 
-            Text("Dein Stud.IP —\naufs Wesentliche reduziert.")
+            Text("Dein Stud.IP,\naufs Wesentliche reduziert.")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
@@ -145,7 +145,7 @@ struct LoginView: View {
             .controlSize(.large)
             .disabled(auth.isWorking || !moderation.hasAcceptedTerms)
 
-            Text("Zeigt die vollständige App mit Beispieldaten — Stundenplan, Kurse, Postfach und Campus. Es werden keine Daten übertragen.")
+            Text("Zeigt die vollständige App mit Beispieldaten: Stundenplan, Kurse, Postfach und Campus. Es werden keine Daten übertragen.")
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)

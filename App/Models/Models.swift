@@ -173,6 +173,29 @@ struct ScheduleEntry: Identifiable, Equatable {
             .first?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
     }
 
+    /// Direktes Anlegen ohne Umweg über eine JSON:API-Ressource — für
+    /// abgeleitete Blöcke (`PlanDerivation`), die aus Sitzungen statt aus
+    /// einer Serverantwort entstehen.
+    init(id: String,
+         title: String,
+         description: String? = nil,
+         weekday: Int,
+         start: String,
+         end: String,
+         location: String? = nil,
+         isCourse: Bool,
+         courseID: String? = nil) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.weekday = weekday
+        self.start = start
+        self.end = end
+        self.location = location
+        self.isCourse = isCourse
+        self.courseID = courseID
+    }
+
     /// Stud.IP zählt 1 = Montag … 7 = Sonntag, ältere Bestände schreiben für
     /// Sonntag eine 0. Alles Weitere rechnet mit dieser einen Lesart.
     var normalizedWeekday: Int {
@@ -182,6 +205,10 @@ struct ScheduleEntry: Identifiable, Equatable {
     var weekdayName: String {
         Weekday.full(normalizedWeekday)
     }
+
+    /// Wie `CourseEvent.displayTitle`: dieselbe Normalisierung, denn auch der
+    /// Stundenplan nennt den Kurs je Installation mit oder ohne Nummer.
+    var displayTitle: String { Format.displayTitle(title) }
 
     var timeRange: String { "\(start) – \(end)" }
 
@@ -305,6 +332,12 @@ struct CourseEvent: Identifiable, Equatable {
     var isDerived: Bool { id.hasPrefix("plan-") }
 
     var tintSeed: String { courseID ?? title }
+
+    /// Der Titel, wie er in einer Terminzeile stehen soll: ohne führende
+    /// Veranstaltungsnummer und ohne doppelte Leerzeichen, die Stud.IP je
+    /// Quelle anders mitgibt (`Course::getFullName()` im ICS-Strom gegen den
+    /// bloßen Titel im Stundenplan).
+    var displayTitle: String { Format.displayTitle(title) }
 
     var isOver: Bool { end < Date() }
 }

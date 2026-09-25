@@ -162,6 +162,78 @@ struct DemoServerTests {
         DemoStore.shared.reset()
     }
 
+    @Test("Löschen nimmt die Nachricht nur aus dem eigenen Postfach")
+    func mailboxDelete() async throws {
+        DemoStore.shared.reset()
+        let client = self.client
+
+        let victim = try #require(try await client.inbox(for: userID).first)
+        try await client.deleteMessage(victim.id)
+        let inbox = try await client.inbox(for: userID)
+        #expect(!inbox.contains { $0.id == victim.id })
+        DemoStore.shared.reset()
+    }
+
+    // MARK: - Courseware
+
+    @Test("Courseware: vom Wurzelkapitel über Abschnitte bis zum Block")
+    func courseware() async throws {
+        let client = self.client
+
+        let root = try #require(await client.coursewareRootID(of: "demo-analysis"))
+        #expect(root == DemoData.coursewareChapters[0].id)
+
+        let chapter = try await client.coursewareChapter(id: root)
+        #expect(chapter.title == DemoData.coursewareChapters[0].title)
+        #expect(chapter.canVisit == true)
+
+        let children = try await client.coursewareChildren(of: root)
+        #expect(children.count == 2)
+        #expect(children.contains { $0.id == "demo-cw-1" })
+
+        let sections = try await client.coursewareSections(of: root)
+        #expect(sections.count == 1)
+
+        let blocks = try await client.coursewareBlocks(of: sections[0].id)
+        #expect(blocks.count == 1)
+        #expect(blocks[0].blockType == "text")
+        if case .formatted(let text) = blocks[0].content {
+            #expect(!text.isEmpty)
+        } else {
+            Issue.record("Der Textblock kam nicht als formatierter Inhalt")
+        }
+    }
+
+    @Test("Ohne Courseware gibt es kein Wurzelkapitel, sondern nichts")
+    func coursewareUnknownCourse() async throws {
+        let client = self.client
+        let root = try await client.coursewareRootID(of: "demo-nix")
+        #expect(root == nil)
+    }
+
+    // MARK: - Mensa (Demo)
+
+    @Test("Mensa: Mensen, Tage und Gerichte aus DemoData")
+    func mensa() async throws {
+        let source = MensaSource(isDemo: true)
+
+        let canteens = try await source.canteens()
+        #expect(canteens.count == DemoData.canteens.count)
+        #expect(canteens.first?.id == 6)
+
+        let days = try await source.days(of: 6)
+        #expect(days.count == 7)
+
+        // Der nächste Montag — die Demo liefert unter der Woche immer
+        // Gerichte, am Wochenende hat sie zu.
+        let weekday = DemoData.days(7, from: DemoData.monday)
+        let meals = try await source.meals(of: 6, on: weekday)
+        #expect(!meals.isEmpty)
+        #expect(meals.allSatisfy { $0.studentPrice != nil })
+        let vegan = try #require(meals.first { $0.isVegan })
+        #expect(vegan.notes.contains("vegan"))
+    }
+
     // MARK: - Blubber
 
     @Test("Fadenliste enthält den globalen Blubber und die Direktnachricht")

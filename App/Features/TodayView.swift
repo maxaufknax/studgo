@@ -168,7 +168,7 @@ struct TodayView: View {
                 .foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Demo-Modus").font(.footnote.weight(.semibold))
-                Text("Beispieldaten — keine Verbindung zu Stud.IP")
+                Text("Beispieldaten, keine Verbindung zu Stud.IP")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -348,7 +348,7 @@ struct NextUpCard: View {
                 }
                 .foregroundStyle(Tint.color(event.tintSeed))
 
-                Text(event.title)
+                Text(event.displayTitle)
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(3)

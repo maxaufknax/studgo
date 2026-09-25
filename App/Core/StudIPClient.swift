@@ -265,6 +265,17 @@ struct StudIPClient {
         _ = try await send("PATCH", "/v1/messages/\(id)", body: body)
     }
 
+    /// Löscht eine Nachricht aus dem eigenen Postfach.
+    ///
+    /// `DELETE /v1/messages/{id}` (`Routes\\Messages\\MessageDelete`): Der
+    /// Server setzt für das eigene Konto das `deleted`-Kennzeichen — auf der
+    /// Sende- wie auf der Empfangsseite. Die Nachricht verschwindet nur im
+    /// eigenen Postfach, beim Gegenüber bleibt sie. Wer eine Nachricht lesen
+    /// darf, darf sie auch löschen (`MessageAuthority::canDeleteMessage`).
+    func deleteMessage(_ id: String) async throws {
+        _ = try await send("DELETE", "/v1/messages/\(id)", body: [:])
+    }
+
     /// Verschickt eine Nachricht. Stud.IP erwartet die Empfänger als
     /// `recipients`-Beziehung, der Betreff darf nicht leer sein.
     func sendMessage(subject: String, body text: String, to recipients: [String]) async throws {

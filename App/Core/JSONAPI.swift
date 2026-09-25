@@ -176,7 +176,7 @@ enum APIError: LocalizedError {
         case .http(403, _):
             return "Für diesen Bereich fehlen die Rechte."
         case .http(404, _):
-            return "Nicht gefunden — vielleicht wurde der Eintrag entfernt."
+            return "Nicht gefunden. Vielleicht wurde der Eintrag entfernt."
         case .http(let code, let detail):
             return detail.map { "Serverfehler \(code): \($0)" } ?? "Serverfehler \(code)"
         case .decoding(let reason):

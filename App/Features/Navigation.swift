@@ -64,6 +64,8 @@ enum Route: Hashable {
     case courseForum(Course)
     case courseWiki(Course)
     case courseBlubber(Course)
+    case courseware(Course)
+    case coursewareChapter(Course, CoursewareChapter)
     case forumCategory(ForumCategory)
     case forumEntry(ForumEntry)
     case wikiPage(WikiPage)
@@ -78,6 +80,8 @@ enum Route: Hashable {
     case studygroups
     case institutes
     case announcements
+    /// Speisepläne über OpenMensa — gehört zum Campus wie der Stundenplan.
+    case mensa
 
     // MARK: Profil und Einstellungen
 
@@ -149,6 +153,9 @@ struct StudGoDestinations: ViewModifier {
         case .courseForum(let course):        CourseForumView(course: course)
         case .courseWiki(let course):         CourseWikiView(course: course)
         case .courseBlubber(let course):      CourseBlubberView(course: course)
+        case .courseware(let course):         CoursewareView(course: course)
+        case .coursewareChapter(let course, let chapter):
+                                             CoursewareChapterView(chapter: chapter, course: course)
         case .forumCategory(let category):    ForumCategoryView(category: category)
         case .forumEntry(let entry):          ForumEntryView(entry: entry)
         case .wikiPage(let page):             WikiPageView(page: page)
@@ -161,6 +168,7 @@ struct StudGoDestinations: ViewModifier {
         case .studygroups:                    StudygroupsView()
         case .institutes:                     InstitutesView(user: user)
         case .announcements:                  NewsView(user: user)
+        case .mensa:                           MensaView()
 
         case .appearance:                     AppearanceView()
         case .notificationSettings:           NotificationSettingsView()

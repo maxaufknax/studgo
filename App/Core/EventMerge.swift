@@ -35,30 +35,93 @@ enum EventMerge {
     }
 
     /// Persönliche Termine und abgeleitete Sitzungen, nach Zeit sortiert.
+    ///
+    /// **Zwei Sorten doppel, die es zu vermeiden gilt** — beide aus der
+    /// Rückmeldung zur Fassung 1.6.1:
+    ///
+    /// * **Dasselbe Ereignis zweimal in `dated`.** Der ICS-Strom ruft
+    ///   `exportCalendarDates()` *und* `exportCourseDates()` auf. Wer eine
+    ///   Veranstaltung in den persönlichen Kalender übernommen hat (Stud.IP
+    ///   bietet das an), erhält dieselbe Sitzung dort **zweimal**: einmal als
+    ///   Kalenderkopie, einmal als Veranstaltungstermin. Zwei Schlüssel mit
+    ///   derselben Kennung, aber ohne Deduplizierung innerhalb `dated`
+    ///   standen beide im Kalender.
+    /// * **Ein echter Termin neben seiner Ableitung.** Bis hier stand der
+    ///   Abgleich auf dem Slot allein: Eine abgeleitete Sitzung fiel weg,
+    ///   sobald **irgendein** datierter Termin den Slot belegte. Zwei
+    ///   *verschiedene* Veranstaltungen zur selben Stunde — Vorlesung und
+    ///   Übung im Block — blendete das stillschweigend die eine aus.
+    ///
+    /// Der Abgleich führt deshalb **Slot und Zugehörigkeit** zusammen: dieselbe
+    /// Veranstaltung (oder derselbe Wortlaut) im selben Slot ist ein Termin,
+    /// verschiedene Veranstaltungen im selben Slot sind zwei.
     static func combine(dated: [CourseEvent],
                         plans: [PlanWindow],
                         from start: Date = Date(),
                         days: Int) -> [CourseEvent] {
-        var seen = Set(dated.map(slot))
-        var merged = dated
+        var merged: [CourseEvent] = []
+        for event in dated where !representsDuplicate(of: merged, event) {
+            merged.append(event)
+        }
 
         for plan in plans {
             for session in plannedSessions(from: plan.entries,
                                            startingAt: start,
                                            days: days,
                                            within: plan.period) {
-                let key = slot(session)
-                guard !seen.contains(key) else { continue }
-                seen.insert(key)
+                guard !representsDuplicate(of: merged, session) else { continue }
                 merged.append(session)
             }
         }
         return merged.sorted { $0.start < $1.start }
     }
 
-    /// Erkennt denselben Termin aus beiden Quellen an Tag und Startminute —
-    /// sonst stünde eine Vorlesung doppelt da, sobald Stud.IP sie doch in den
-    /// persönlichen Kalender legt.
+    /// Steht dieser Termin schon in der Liste — als derselbe aus einer
+    /// anderen Quelle?
+    private static func representsDuplicate(of merged: [CourseEvent],
+                                             _ event: CourseEvent) -> Bool {
+        merged.contains { isSameEvent($0, event) }
+    }
+
+    /// Zwei Darstellungen desselben Termins: gleicher Tag, gleiche
+    /// Startminute — und entweder dieselbe Veranstaltung oder derselbe Wortlaut.
+    static func isSameEvent(_ a: CourseEvent, _ b: CourseEvent) -> Bool {
+        guard slot(a) == slot(b) else { return false }
+
+        if let courseA = a.courseID, let courseB = b.courseID {
+            return courseA == courseB
+        }
+        // Titel-Wortfolge gegen Titel-Wortfolge. Nötig, weil die Quellen
+        // denselben Kurs verschieden vollständig nennen: Der ICS-Strom
+        // schreibt `Course::getFullName()` („11568  Übung: Logik …"), der
+        // Stundenplan nur den Kurstitel. Wortweise statt zeichenweise, damit
+        // „Analysis I" nicht in „Analysis II" gefunden wird.
+        let wordsA = titleWords(a.title)
+        let wordsB = titleWords(b.title)
+        guard !wordsA.isEmpty else { return false }
+        return wordsA == wordsB || containsWords(wordsA, in: wordsB)
+            || containsWords(wordsB, in: wordsA)
+    }
+
+    /// Titel in vergleichbare Wörter — Groß-/Kleinschreibung und
+    /// Satzzeichen fallen weg, Diakritika werden abgebaut.
+    static func titleWords(_ raw: String) -> [String] {
+        raw.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+    }
+
+    /// Ob `short` als zusammenhängende Wortfolge in `long` steckt.
+    private static func containsWords(_ short: [String], in long: [String]) -> Bool {
+        guard short.count >= 2, short.count < long.count else { return false }
+        for offset in 0...long.count - short.count {
+            let window = long[offset..<(offset + short.count)]
+            if window.elementsEqual(short) { return true }
+        }
+        return false
+    }
+
+    /// Erkennt den Slot eines Termins an Tag und Startminute.
     static func slot(_ event: CourseEvent) -> String {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: event.start)

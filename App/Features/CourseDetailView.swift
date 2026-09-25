@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Die Veranstaltungsseite als **Übersicht mit Einstiegen** statt als
 /// segmentierter Umschalter.
@@ -81,6 +82,18 @@ struct CourseDetailView: View {
                     }
                     ShareLink(item: StudIPClient.courseURL(courseID: course.id)) {
                         Label("Link teilen", systemImage: "square.and.arrow.up")
+                    }
+                    Divider()
+                    Button {
+                        // Inhalte, die in Stud.IP selbst falsch sind, kann
+                        // nur die ZQS ändern — die App bereitet die Mail
+                        // vor, absenden tut die Mail-App.
+                        UIApplication.shared.open(WebLinks.zqsContentReport(
+                            courseID: course.id,
+                            courseTitle: course.title))
+                    } label: {
+                        Label("Fehlerhafte Inhalte an die ZQS melden",
+                              systemImage: "envelope.open")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -192,6 +205,7 @@ struct CourseDetailView: View {
             (.courseFiles(course), "folder", "Dateien", nil),
             (.courseParticipants(course), "person.2", "Personen", participants.value?.count),
             (.courseNews(course), "megaphone", "Aushang", news.value?.count),
+            (.courseware(course), "square.grid.2x2", "Courseware", nil),
             (.courseForum(course), "text.bubble", "Forum", nil),
             (.courseWiki(course), "book.closed", "Wiki", nil),
             (.courseBlubber(course), "bubble.left.and.bubble.right",
@@ -246,7 +260,7 @@ struct CourseDetailView: View {
                                       : "Du bist hier nicht eingetragen")
                         .font(.subheadline.weight(.semibold))
                     Text(isStudygroup
-                         ? "Termine, Personen, Aushang und der Gruppenchat gehören den Mitgliedern. Wer beitritt, sieht sie sofort — auch hier in StudGo."
+                         ? "Termine, Personen, Aushang und der Gruppenchat gehören den Mitgliedern. Wer beitritt, sieht sie sofort, auch hier in StudGo."
                          : "Termine, Personen und Aushang gibt Stud.IP nur Eingetragenen heraus.")
                         .font(.caption)
                         .foregroundStyle(.secondary)

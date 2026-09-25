@@ -1,18 +1,19 @@
 # Datenschutzerklärung für StudGo
 
-**Stand: 8. September 2026**
+**Stand: 25. September 2026**
 
 > **In short (English):** StudGo signs you in to `studip.uni-hannover.de` with
 > your own account and talks to it directly. Access tokens stay in the iOS
 > keychain on your device, cached content stays in the app's sandbox. There is
 > no analytics, no tracking, no advertising and no third-party SDK.
-> **One exception:** if *you* report a post or block a person, that single
+> **Two exceptions:** if *you* report a post or block a person, that single
 > report is sent to `studgo.de/report`, a service run by the
 > developer, so that abuse can be dealt with — see *Melden und Blockieren*
-> below. That endpoint is the only server besides Stud.IP the app ever
-> contacts, it is contacted only when you report or block, and it does not
-> record who you are. A built-in demo mode uses fictional sample data and
-> contacts no university server.
+> below. That endpoint is contacted only when you report or block, and it does
+> not record who you are. And if *you* open the canteen menu, the day's meals
+> are fetched from the open-data service OpenMensa (`openmensa.org`); it is
+> contacted only then, and it does not record who you are either. A built-in
+> demo mode uses fictional sample data and contacts no server at all.
 > Contact: <maximilian.elias.paasch@gmail.com>.
 
 ## Wer ist verantwortlich?
@@ -53,11 +54,22 @@ unter *Melden und Blockieren*.
 | Deine Blockliste | `UserDefaults` auf dem Gerät | nur die App |
 | Deine Stud.IP-Inhalte | auf den Servern der LUH | wie in Stud.IP |
 | Eine von dir abgeschickte Meldung | Meldestelle des Entwicklers | nur der Entwickler |
+| Speisepläne, die du dir ansiehst | OpenMensa (`openmensa.org`), beim Öffnen der Mensa-Ansicht | der Anbieter, nur die Anfrage selbst |
+| Deine Mensa-Wahl | `UserDefaults` auf dem Gerät | nur die App |
+| Eine von dir vorbereitete ZQS-Mail | Mail-App deines Geräts, erst nach deinem Senden | die ZQS-elsa |
 
-Bis auf die letzte Zeile verlässt nichts davon dein Gerät in eine andere
-Richtung als zu `studip.uni-hannover.de`, verschlüsselt über HTTPS, mit
-deinem eigenen Zugangstoken — also genau so, wie wenn du dich im Browser bei
-Stud.IP anmeldest.
+Bis auf die Meldung an die Meldestelle und die Speiseplan-Anfrage an
+OpenMensa verlässt nichts davon dein Gerät in eine andere Richtung als zu
+`studip.uni-hannover.de`, verschlüsselt über HTTPS, mit deinem eigenen
+Zugangstoken — also genau so, wie wenn du dich im Browser bei Stud.IP
+anmeldest.
+
+**Zur Mensa-Anfrage im Einzelnen:** Wer den Speiseplan öffnet, fragt die App
+bei `openmensa.org` nach — ein offenes Verzeichnis der Speisepläne
+deutscher Mensen, geführt als freies Projekt. Mitgeschickt wird nur, was
+jede Webanfrage mitbringt (die IP-Adresse, verschlüsselt über HTTPS); Namen,
+Konto oder Kennung gibt es dort nicht zu sehen. Ohne das Öffnen der
+Mensa-Ansicht geht nichts dorthin, und im Demo-Modus ebenfalls nichts.
 
 ## Melden und Blockieren
 

@@ -336,7 +336,7 @@ struct StudygroupsView: View {
             Text("Meine Gruppen")
         } footer: {
             if (mine.value ?? []).isEmpty && !mine.isLoading {
-                Text("Studiengruppen sind in Stud.IP gewöhnliche Veranstaltungen einer eigenen Art — deshalb stehen sie, sobald du beigetreten bist, auch unter „Kurse“.")
+                Text("Studiengruppen sind in Stud.IP gewöhnliche Veranstaltungen einer eigenen Art. Deshalb stehen sie, sobald du beigetreten bist, auch unter „Kurse“.")
             }
         }
     }
@@ -389,7 +389,7 @@ struct StudygroupsView: View {
             if !auth.studygroupKinds.isKnown {
                 // Ehrlich bleiben statt still nichts zu tun: Ohne bekannte
                 // Klasse durchsucht die Anfrage das ganze Verzeichnis.
-                Text("Welche Veranstaltungsarten hier Studiengruppen sind, ließ sich nicht ermitteln — die Suche geht deshalb über das ganze Vorlesungsverzeichnis.")
+                Text("Welche Veranstaltungsarten hier Studiengruppen sind, ließ sich nicht ermitteln. Die Suche geht deshalb über das ganze Vorlesungsverzeichnis.")
             }
         }
     }
