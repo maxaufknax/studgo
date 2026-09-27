@@ -37,6 +37,23 @@ struct MensaMeal: Identifiable, Equatable, Codable {
         prices["students"].flatMap { $0 }
     }
 
+    /// Preisspalten von OpenMensa - Kennung → Klartext, wie die Mensa selbst
+    /// gruppiert. Das Gericht-Blatt zeigt alle, die Zeile in der Liste nur
+    /// den Studierendenpreis.
+    private static let priceGroups: [(key: String, label: String)] = [
+        ("students", "Studierende"),
+        ("employees", "Beschäftigte"),
+        ("pupils", "Schüler:innen"),
+        ("others", "Gäste"),
+    ]
+
+    /// Alle Preise, die der Plan nennt - „Studierende 2,30 €, Gäste 4,10 €".
+    var priceRows: [(label: String, price: Double)] {
+        Self.priceGroups.compactMap { group in
+            prices[group.key].flatMap { $0 }.map { (group.label, $0) }
+        }
+    }
+
     var isVegan: Bool { notes.contains("vegan") }
     var isVegetarian: Bool { notes.contains { $0.lowercased().contains("vegetar") } }
 
@@ -69,6 +86,17 @@ struct MensaMeal: Identifiable, Equatable, Codable {
 struct MensaSource {
     var isDemo = false
 
+    /// Der eigentliche Netzaufruf - als austauschbares Stück, damit sich der
+    /// Offlineweg („Verbindung reißt ab, was gilt dann?") ohne Netz prüfen
+    /// lässt: `MensaSourceTests` setzt hier eine stets scheiternde Funktion
+    /// ein und einen Cache mit abgelaufenem Eintrag.
+    var transport: @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse) = Self.perform
+    /// Eintrag aus dem Zwischenspeicher, mit Alter. Die Vorgaben greifen auf
+    /// denselben `ResponseCache` zu wie der Stud.IP-Zugriff.
+    var cachedEntry: @Sendable (String) -> (data: Data, age: TimeInterval)? = ResponseCache.load(for:)
+    /// Antwort in den Zwischenspeicher legen.
+    var persist: @Sendable (Data, String) -> Void = ResponseCache.store(_:for:)
+
     private static let root = URL(string: "https://openmensa.org/api/v2")!
     /// Die Hannoveraner Mensen stehen mit dem Namen der Stadt in der Liste;
     /// alles andere dieser einen Hochschule brauchte niemand.
@@ -87,7 +115,7 @@ struct MensaSource {
     /// die große Hauptmensa zuerst, danach der Rest nach Name.
     func canteens() async throws -> [Canteen] {
         if isDemo { return DemoData.canteens.map(Canteen.init) }
-        let all: [Canteen] = try await Self.get("canteens")
+        let all: [Canteen] = try await get("canteens")
         return all
             .filter { $0.city == Self.city }
             .sorted { $0.id < $1.id }
@@ -101,45 +129,69 @@ struct MensaSource {
                            closed: Self.isWeekend(DemoData.days(offset)))
             }
         }
-        return try await Self.get("canteens/\(canteenID)/days")
+        return try await get("canteens/\(canteenID)/days")
     }
 
     /// Die Gerichte eines Tages. Ohne Plan antwortet OpenMensa mit 204 -
     /// hier heißt das schlicht: geschlossen oder nichts geplant.
     func meals(of canteenID: Int, on date: Date) async throws -> [MensaMeal] {
         if isDemo { return DemoData.meals(for: date).map(MensaMeal.init) }
-        return try await Self.get("canteens/\(canteenID)/days/\(Self.iso(date))/meals")
+        return try await get("canteens/\(canteenID)/days/\(Self.iso(date))/meals")
     }
 
     // MARK: - Transport
 
     /// Holt und behält: Frische Antworten landen im `ResponseCache`, und
     /// ohne Netz zählt auch ein älterer Stand - dasselbe Versprechen wie beim
-    /// Stud.IP-Zugriff, nur ohne Anmeldung.
-    private static func get<T: Decodable>(_ path: String) async throws -> T {
-        let address = root.appendingPathComponent(path)
+    /// Stud.IP-Zugriff, nur ohne Anmeldung („Ohne Empfang", siehe README).
+    ///
+    /// **Der Fehler, den es hier nicht mehr gibt:** Bis 1.7.0 warf diese
+    /// Stelle bei jedem Verbindungsfehler - der Stud.IP-Zugriff zeigte
+    /// unterdessen jeden alten Cache-Stand, der Speiseplan brach ab. Ohne
+    /// Empfang stand dann „nicht geladen" statt des Plans von gestern.
+    private func get<T: Decodable>(_ path: String) async throws -> T {
+        let address = Self.root.appendingPathComponent(path)
         let key = address.absoluteString
 
-        if let hit = ResponseCache.load(for: key), hit.age < ResponseCache.maxAge,
+        if let hit = cachedEntry(key), hit.age < ResponseCache.maxAge,
            let fresh = try? JSONDecoder().decode(T.self, from: hit.data) {
             return fresh
         }
 
         var request = URLRequest(url: address)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        do {
+            let (data, http) = try await transport(request)
+            // 204: kein Plan für diesen Tag - die leere Liste, kein Fehler.
+            guard http.statusCode != 204 else {
+                return try JSONDecoder().decode(T.self, from: Data("[]".utf8))
+            }
+            guard (200..<300).contains(http.statusCode) else {
+                throw APIError.http(http.statusCode, nil)
+            }
+            persist(data, key)
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            // Ohne Verbindung zählt jeder gespeicherte Stand, auch ein alter -
+            // ein Serverfehler (5xx) dagegen bleibt einer: Der Plan wäre dann
+            // womöglich falsch, nicht nur alt.
+            guard error.isConnectivityFailure else { throw error }
+            if let hit = cachedEntry(key),
+               let stale = try? JSONDecoder().decode(T.self, from: hit.data) {
+                return stale
+            }
+            throw APIError.offline
+        }
+    }
+
+    /// Der Standardtransport: eine Anfrage über die eigene Sitzung.
+    private static func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.decoding("Keine HTTP-Antwort")
         }
-        // 204: kein Plan für diesen Tag - die leere Liste, kein Fehler.
-        guard http.statusCode != 204 else {
-            return try JSONDecoder().decode(T.self, from: Data("[]".utf8))
-        }
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, nil)
-        }
-        ResponseCache.store(data, for: key)
-        return try JSONDecoder().decode(T.self, from: data)
+        return (data, http)
     }
 
     // MARK: - Datumsformate

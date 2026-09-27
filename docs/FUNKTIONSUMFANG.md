@@ -1,6 +1,6 @@
 # Wie vollständig ist StudGo?
 
-Stand: **2026-08-26**, Fassung 1.4.1. Gegenübergestellt werden drei Dinge:
+Stand: **2026-09-27**, Fassung 1.8.0. Gegenübergestellt werden drei Dinge:
 was die **Stud.IP-Weboberfläche** an der LUH kann, was die **JSON:API**
 überhaupt hergibt, und was **StudGo** heute daraus macht.
 
@@ -47,7 +47,7 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Dateien: Veranstaltungsordner | `/courses/{id}/folders` → `/folders/{id}/file-refs` | ✅ Ordnerbaum, Vorschau, Teilen, Download |
 | Dateien: **persönliche Ablage** | `/users/{id}/folders`, `/users/{id}/file-refs` | ⬜ Route vorhanden, noch nicht gebaut |
 | Dateien **hochladen**, Ordner anlegen | `POST /folders/{id}/file-refs`, `POST .../folders` | ⬜ möglich, noch nicht gebaut |
-| Courseware (Lernmaterialien) | ~50 Routen (`/courseware-*`) | ◐ seit 1.7.0: Kapitelbaum und textnahe Blöcke lesend; dateibasierte Blöcke und der Editor weiter außen vor |
+| Courseware (Lernmaterialien) | ~50 Routen (`/courseware-*`) | ◐ seit 1.7.0: Kapitelbaum und textnahe Blöcke lesend; seit 1.8.0 auch dateibasierte Blöcke - Datei nach Kennung aufgelöst, mit Größe und Systemvorschau. Der Editor bleibt außen vor |
 | Fragebögen | – | 🚫 keine Route |
 | Merkzettel (Clipboard) | `/clipboards`, `/clipboard-items` | ⬜ möglich, geringer Nutzen unterwegs |
 
@@ -83,7 +83,7 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Eigene Termine ansehen | `GET /users/{id}/schedule` | ✅ eigener Bereich „Eigene Termine", nach Wochentag gruppiert |
 | Termin **anlegen, ändern, löschen** | – | 🚫 Zu `schedule-entries` gibt es **nur** `GET` (Befund 18). StudGo führt an Ort und Stelle in die Weboberfläche - beim Anlegen aus dem Kalender heraus mit vorbelegtem Wochentag und Uhrzeit. |
 | Kalender abonnieren (iCal) | `GET /users/{id}/events.ics` | ⬜ Möglichkeit, den Plan in die Kalender-App zu legen |
-| Feiertage | `GET /holidays` | ⬜ |
+| Feiertage | `GET /holidays` | ✅ seit 1.8.0 - **lokal berechnet** für Niedersachsen (feste Tage plus die osterabhängigen), mit Anzeige in Heute, Tagesansicht und Liste. Die API-Route bliebe eine deutschlandweite Quelle; für den Hochschulort genügt der Landesstand, und die Rechnung funktioniert auch offline |
 
 ## Nachrichten und Community
 
@@ -127,7 +127,8 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Datei hochladen / umbenennen / löschen | ✅ seit 1.3.0 - `POST /folders/{id}/file-refs` mit `multipart/form-data`, dazu Mehrfachauswahl und „In Dateien sichern“. Angeboten wird es nur, wo `is-writable` am Ordner steht. |
 | Echte Sitzungstermine mit Ausfällen | ✅ seit 1.3.0 über `GET /users/{id}/events.ics` - bis 2037, samt Raum, Thema und abgesagten Terminen. Vorher aus dem Wochenraster abgeleitet und deshalb außerhalb der Vorlesungszeit leer. |
 | Offline-Betrieb | ✅ die zuletzt geladenen Listen liegen auf dem Gerät, die App startet ohne Empfang mit dem letzten Stand |
-| Mensa & Speisepläne | ✅ seit 1.7.0 - über die offene OpenMensa-Schnittstelle: alle Hannoveraner Mensen, Preise nach Gruppe, Kennzeichnungen; die gewählte Mensa bleibt eingestellt. Im Demo-Modus mit erfundenen Gerichten. |
+| Mensa & Speisepläne | ✅ seit 1.7.0 - über die offene OpenMensa-Schnittstelle: alle Hannoveraner Mensen, Preise nach Gruppe, Kennzeichnungen; die gewählte Mensa bleibt eingestellt. Seit 1.8.0: Tag- **und** Wochenansicht, ein Detailblatt je Gericht mit allen Preisen und der vollen Kennzeichnung - und der Speiseplan gilt ohne Empfang wie der Rest der App (alter Cache-Stand statt Fehlermeldung). Im Demo-Modus mit erfundenen Gerichten. |
+| Widgets (Sperrbildschirm) | ✅ seit 1.8.0 - nächster Termin und ungelesene Nachrichten als WidgetKit-Kacheln. Die Widgets fragen nie selbst beim Server an; sie lesen einen Schnappschuss, den die App über eine App-Group hinterlegt (siehe `Widgets/StudGoWidgets.swift`) |
 | Bewertung im App Store | ✅ seit 1.7.0 - die App bittet nach ein paar Tagen Nutzung selbst um eine Bewertung (Systemdialog, von iOS gedrosselt). |
 | Inhalte an die ZQS melden | ✅ seit 1.7.0 - vorbereitete Mail an die ZQS-elsa aus der Veranstaltung und den Einstellungen, für alles, was in Stud.IP selbst falsch ist. |
 

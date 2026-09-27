@@ -481,7 +481,7 @@ struct BlubberThreadRow: View {
             if let activity = thread.latestActivity {
                 Text(Format.listDate(activity))
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 3)
@@ -881,7 +881,7 @@ struct BlubberCommentBubble: View {
                 if let created = comment.createdAt {
                     Text(Format.listDate(created))
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -926,7 +926,7 @@ struct MessageRow: View {
                 }
                 Text(message.preview)
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
 
@@ -935,7 +935,7 @@ struct MessageRow: View {
             if let sentAt = message.sentAt {
                 Text(Format.listDate(sentAt))
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 2)

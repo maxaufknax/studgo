@@ -75,4 +75,27 @@ extension StudIPClient {
                 .sorted { $0.position < $1.position }
         }
     }
+
+    /// Eine einzelne Datei nach Kennung - der Weg der Courseware-Dateiblöcke
+    /// zu Name, Größe und Vorschau.
+    ///
+    /// **Warum nicht der Weblink:** Bis 1.7.0 sagte ein Dateiblock nur „in
+    /// Stud.IP öffnen". Die Datei hängt aber an derselben Route, die der
+    /// Dateibereich schon benutzt (`FileRefsShow`), und ihr Inhalt liegt an
+    /// `/v1/file-refs/{id}/content` - beides zusammen macht aus dem Verweis
+    /// eine Zeile mit Namen und Größe, die sich in der Systemvorschau
+    /// öffnen lässt.
+    ///
+    /// Fehlt die Datei - gelöscht, Rechte entzogen, Kenner kaputt -, ist das
+    /// kein Fehlerbild: Der Block fällt dann in der Ansicht auf den
+    /// Stud.IP-Verweis zurück.
+    func fileRef(id: String) async throws -> FileRef? {
+        do {
+            return try await get("/v1/file-refs/\(id)").first.flatMap(FileRef.init)
+        } catch let error as APIError {
+            if case .http(404, _) = error { return nil }
+            if case .http(403, _) = error { return nil }
+            throw error
+        }
+    }
 }

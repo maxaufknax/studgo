@@ -33,6 +33,18 @@ final class NotificationRouter: ObservableObject {
         default: break
         }
     }
+
+    /// Wohin ein Antipp der Widgets führt - „studgo://heute“ und
+    /// „studgo://postfach“, dieselben Adressen, die das Widget anlegt
+    /// (siehe `Widgets/StudGoWidgets.swift`).
+    func route(url: URL) {
+        switch url.host {
+        case "heute": target = .today
+        case "postfach": target = .postfach
+        case "plan": target = .schedule
+        default: break
+        }
+    }
 }
 
 /// Benachrichtigungen ohne Push-Server.

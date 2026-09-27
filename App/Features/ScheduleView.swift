@@ -123,6 +123,11 @@ struct ScheduleView: View {
          EventMerge.PlanWindow(entries: preview.value ?? [], semester: context.upcoming())]
     }
 
+    /// Die zusammengeführten Termine ab einem Tag. **Einmal je Bildaufbau
+    /// aufrufen** - jede Ansicht holt sich ihr Ergebnis einmal und leitet
+    /// alles weitere daraus ab; bis 1.8.0 lief die Zusammenführung hier bis
+    /// zu dreimal je Rendern (Tag, Punkte der Datumsleiste, Liste), und das
+    /// machte das Aus- und Einblenden von Terminen ruckelig.
     private func events(from start: Date, days: Int) -> [CourseEvent] {
         let merged = EventMerge.combine(dated: agenda.value ?? [],
                                         plans: planWindows,
@@ -377,12 +382,18 @@ struct ScheduleView: View {
     // MARK: - Tag
 
     private var dayView: some View {
-        VStack(spacing: 0) {
-            DayStrip(selection: $anchor, markedDays: daysWithEvents)
+        // Ein Merge für Leiste und Tagesliste: Die Punkte der Datumsleiste
+        // brauchen dieselben Termine wie der Tag selbst - 35 Tage reichen
+        // für beide (siehe `events(from:days:)`).
+        let calendar = Calendar.current
+        let merged = events(from: calendar.startOfDay(for: min(anchor, Date())), days: 35)
+        return VStack(spacing: 0) {
+            DayStrip(selection: $anchor,
+                     markedDays: Set(merged.map { calendar.startOfDay(for: $0.start) }))
             Divider()
             DayAgenda(date: anchor,
-                      events: events(from: anchor, days: 1)
-                        .filter { Calendar.current.isDate($0.start, inSameDayAs: anchor) },
+                      events: merged
+                          .filter { calendar.isDate($0.start, inSameDayAs: anchor) },
                       isLoading: agenda.isLoading && !agenda.hasValue,
                       explanation: emptyDayText,
                       addEntry: {
@@ -392,14 +403,6 @@ struct ScheduleView: View {
                               end: Format.clock(nextFullHour.addingTimeInterval(3600))))
                       })
         }
-    }
-
-    /// Welche Tage der nächsten Wochen überhaupt etwas enthalten - die
-    /// Datumsleiste setzt darunter einen Punkt.
-    private var daysWithEvents: Set<Date> {
-        let calendar = Calendar.current
-        let from = calendar.startOfDay(for: min(anchor, Date()))
-        return Set(events(from: from, days: 35).map { calendar.startOfDay(for: $0.start) })
     }
 
     /// Die nächste volle Stunde auf dem gewählten Tag - als Vorgabe für ein
@@ -416,6 +419,11 @@ struct ScheduleView: View {
 
     private var emptyDayText: String {
         let calendar = Calendar.current
+        // Der Feiertag vor allem anderen: „Tag der Deutschen Einheit“
+        // beantwortet die Frage nach dem leeren Tag ohne raten zu müssen.
+        if let holiday = HolidayCalendar.holiday(on: anchor) {
+            return "Feiertag: \(holiday.name)."
+        }
         if context.lecturePeriod(covering: anchor) == nil {
             return context.emptyExplanation(on: anchor)
         }
@@ -488,9 +496,19 @@ struct ScheduleView: View {
     // MARK: - Liste
 
     private var listView: some View {
-        List {
+        // Sechs Wochen weit - genug, um in den Semesterferien den
+        // Vorlesungsbeginn und die Klausurtermine zu erreichen.
+        let byDay = UpcomingEvents.group(
+            events(from: Date(), days: 42).filter { $0.end >= Date() })
+        return List {
             ForEach(byDay, id: \.day) { group in
                 Section(Format.dayHeader(group.day)) {
+                    if let holiday = HolidayCalendar.holiday(on: group.day) {
+                        Label(holiday.name, systemImage: "sparkles")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Feiertag: \(holiday.name)")
+                    }
                     ForEach(group.events) { event in
                         PushLink(value: event) {
                             EventRow(event: event)
@@ -530,15 +548,6 @@ struct ScheduleView: View {
                                    })
             }
         }
-    }
-
-    /// Sechs Wochen weit - genug, um in den Semesterferien den
-    /// Vorlesungsbeginn und die Klausurtermine zu erreichen.
-    private var byDay: [(day: Date, events: [CourseEvent])] {
-        let upcoming = events(from: Date(), days: 42).filter { $0.end >= Date() }
-        return Dictionary(grouping: upcoming) { Calendar.current.startOfDay(for: $0.start) }
-            .sorted { $0.key < $1.key }
-            .map { (day: $0.key, events: $0.value.sorted { $0.start < $1.start }) }
     }
 
     // MARK: - Laden
@@ -789,6 +798,9 @@ struct DayAgenda: View {
             Text(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
                 .font(.footnote.weight(.semibold))
             Spacer(minLength: 0)
+            if let holiday = HolidayCalendar.holiday(on: date) {
+                Chip(text: holiday.name, symbol: "sparkles", color: .orange)
+            }
             if total > 0 {
                 Chip(text: "\(Int(total / 3600)) Std", symbol: "clock", color: .accentColor)
             }
@@ -836,7 +848,7 @@ struct DayAgendaRow: View {
                     }
                 }
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
 
                 if event.isCancelled {
                     Chip(text: "Fällt aus", symbol: "xmark.circle.fill", color: .red)
@@ -880,6 +892,7 @@ struct CalendarEmptyState: View {
                 Image(systemName: symbol)
                     .font(.system(size: 38, weight: .light))
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
                 VStack(spacing: 6) {
                     Text(title)
                         .font(.headline)

@@ -14,13 +14,30 @@ final class Loadable<Value>: ObservableObject {
         isLoading = value == nil
         errorMessage = nil
         do {
-            value = try await operation()
+            value = try await Self.offTheMainActor(operation)
         } catch {
             // Ein vorhandener Stand bleibt stehen: bei einem gescheiterten
             // Nachladen ist der alte Inhalt mehr wert als eine leere Seite.
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    /// Führt die Arbeit außerhalb des Hauptaktors aus.
+    ///
+    /// **Warum das nötig wurde (Rückmeldung zur 1.7.0):** Das Holen einer
+    /// Antwort wartet zwar von sich aus ab, aber das **Dekodieren** lief bis
+    /// hier auf dem Hauptaktor - und der ICS-Strom umfasst jede Sitzung von
+    /// heute bis 2036. Die Oberfläche stand während des Parsens still, auf
+    /// dem Bildschirm wirkte das wie ein Absturz („braucht lange, nichts
+    /// rührt sich"). Ein nicht-isolierter Aufruf genügt: Swift hüpft für
+    /// seinen Rumpf vom Hauptaktor auf den freien Executor, und die
+    /// Veröffentlichung des Ergebnisses wartet danach wieder auf dem
+    /// Hauptaktor.
+    private nonisolated static func offTheMainActor(
+        _ operation: () async throws -> Value
+    ) async throws -> Value {
+        try await operation()
     }
 }
 
@@ -153,7 +170,9 @@ struct RowLabel<Trailing: View>: View {
             Spacer(minLength: 8)
 
             if let detail {
-                Text(detail).font(.caption).foregroundStyle(.tertiary)
+                // Kontrast (WCAG 1.4.3): Das Detail trägt Information -
+                // etwa Datum oder Größe -, `.tertiary` bleibt der Zier.
+                Text(detail).font(.caption).foregroundStyle(.secondary)
             }
             trailing
         }

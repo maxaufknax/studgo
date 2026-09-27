@@ -1,7 +1,11 @@
 import SwiftUI
 
-/// Der Speiseplan der Mensen über OpenMensa - pro Mensa ein Plan, pro Tag
-/// die Gerichte mit Studierendenpreis und Kennzeichnungen.
+/// Der Speiseplan der Mensen über OpenMensa - pro Mensa ein Plan, in zwei
+/// Lesarten: **Tag** zeigt einen Tag mit seinen Gerichten, **Woche** die
+/// ganze Woche in Abschnitten - wer nur „mittwochs essen gehen“ will, blättert
+/// nicht durch Einzeltage. Jedes Gericht öffnet ein Blatt mit allen Preisen
+/// und der vollständigen Kennzeichnung; die Liste zeigt von allem nur den
+/// Studierendenpreis als Zeile.
 ///
 /// **Warum das in der App steht:** Der Weg zur Mensa ist der häufigste Weg
 /// des Tages auf dem Campus, und der Plan hing bisher an zwei Stellen - an
@@ -12,10 +16,22 @@ struct MensaView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var preferences: Preferences
 
+    enum Mode: String, CaseIterable, Identifiable {
+        case day = "Tag"
+        case week = "Woche"
+        var id: String { rawValue }
+    }
+
+    @State private var mode: Mode = .day
     @StateObject private var canteens = Loadable<[Canteen]>()
     @StateObject private var days = Loadable<[CanteenDay]>()
     @StateObject private var meals = Loadable<[MensaMeal]>()
+    /// Die Gerichte der Wochenansicht, nach ISO-Datum verschlüsselt -
+    /// sieben Tage parallel geholt, jeder bleibt für sich im
+    /// Zwischenspeicher.
+    @State private var weekMeals: [String: [MensaMeal]] = [:]
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
+    @State private var selectedMeal: MensaMeal?
     @State private var webTarget: WebTarget?
 
     private var source: MensaSource { MensaSource(isDemo: auth.isDemo) }
@@ -32,11 +48,42 @@ struct MensaView: View {
         return list.first { $0.date == key }?.closed ?? false
     }
 
+    /// Ob die Mensa an einem Tag der Woche geschlossen hat - nach OpenMensa
+    /// bedeutet ein Tag ohne Eintrag: kein Plan veröffentlicht.
+    private func isClosed(_ day: Date) -> Bool {
+        guard let list = days.value else { return false }
+        let key = MensaSource.iso(day)
+        return list.first { $0.date == key }?.closed ?? false
+    }
+
+    /// Die Woche der Wochenansicht: die des gewählten Tages, Montag bis
+    /// Sonntag. Wer in der Wochenansicht einen anderen Tag wählen will,
+    /// wählt ihn in der Tagesleiste - beide Ansichten folgen derselben
+    /// Auswahl.
+    private var week: [Date] {
+        let calendar = Calendar.current
+        let start = calendar.dateInterval(of: .weekOfYear, for: selectedDay)?.start ?? selectedDay
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+    }
+
+    /// Wann die Wochenansicht neu zu laden ist: beim Wechsel auf „Woche“,
+    /// bei anderem Mensa- oder Wochenwechsel. `nil` in der Tagesansicht -
+    /// ohne Ziel ruft `.task(id:)` die Arbeit nicht auf.
+    private var weekReloadKey: String? {
+        guard mode == .week else { return nil }
+        return "\(canteen?.id ?? 0)|\(MensaSource.iso(week.first ?? selectedDay))"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
+            SegmentedHeader(title: "Ansicht", options: Mode.allCases,
+                            selection: $mode) { $0.rawValue }
             DayStrip(selection: $selectedDay, markedDays: [], length: 7)
             Divider()
-            mealList
+            switch mode {
+            case .day: mealList
+            case .week: weekList
+            }
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle(canteen?.name ?? "Mensa")
@@ -54,7 +101,11 @@ struct MensaView: View {
                           systemImage: "point.3.connected.trianglepath.dotted")
                         .font(.footnote)
                 }
+                .accessibilityLabel("Mensa wählen")
             }
+        }
+        .sheet(item: $selectedMeal) { meal in
+            MensaMealDetail(meal: meal)
         }
         .sheet(item: $webTarget) { target in
             WebSheet(url: target.url)
@@ -76,9 +127,13 @@ struct MensaView: View {
             guard canteen?.id != nil else { return }
             await loadMeals(fresh: false)
         }
+        .task(id: weekReloadKey) {
+            guard weekReloadKey != nil else { return }
+            await loadWeekMeals()
+        }
     }
 
-    // MARK: - Liste
+    // MARK: - Tagesansicht
 
     private var mealList: some View {
         List {
@@ -86,7 +141,7 @@ struct MensaView: View {
                 ForEach(grouped, id: \.category) { group in
                     Section(group.category) {
                         ForEach(group.meals) { meal in
-                            MensaMealRow(meal: meal)
+                            mealButton(meal)
                         }
                     }
                 }
@@ -127,6 +182,65 @@ struct MensaView: View {
         return order.map { (category: $0, meals: groups[$0] ?? []) }
     }
 
+    // MARK: - Wochenansicht
+
+    /// Die Woche in Abschnitten - ein Tag, ein Abschnitt. Der Wochentag
+    /// steht in der Überschrift; hier ist das Blättern von der Leiste.
+    private var weekList: some View {
+        List {
+            ForEach(week, id: \.timeIntervalSince1970) { day in
+                let key = MensaSource.iso(day)
+                Section(Format.dayHeader(day)) {
+                    if isClosed(day) {
+                        Label("Geschlossen", systemImage: "storefront")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Am \(Format.dayHeader(day)) geschlossen")
+                    } else {
+                        let dayMeals = weekMeals[key] ?? []
+                        if dayMeals.isEmpty {
+                            if weekMeals[key] == nil {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .padding(.vertical, 4)
+                                    Spacer()
+                                }
+                            } else {
+                                Text("Kein Speiseplan für diesen Tag")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            ForEach(dayMeals) { meal in
+                                mealButton(meal)
+                            }
+                        }
+                    }
+                }
+            }
+            Section {
+                Text("Speiseplan über OpenMensa. Angaben ohne Gewähr; maßgeblich ist die Kennzeichnung in der Mensa.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
+    // MARK: - Gericht
+
+    /// Eine Gerichtzeile - antippbar, dahinter das Blatt mit allen Details.
+    private func mealButton(_ meal: MensaMeal) -> some View {
+        Button {
+            selectedMeal = meal
+        } label: {
+            MensaMealRow(meal: meal)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Details und Preise öffnen")
+    }
+
     /// Die Mensa-Wahl als Bindung - sie schreibt in die Einstellungen und
     /// lädt den Plan danach neu.
     private var canteenBinding: Binding<Int> {
@@ -141,6 +255,7 @@ struct MensaView: View {
             await canteens.load { try await source.canteens() }
         }
         await loadDaysAndMeals(fresh: fresh)
+        if mode == .week { await loadWeekMeals() }
     }
 
     private func loadDaysAndMeals(fresh: Bool) async {
@@ -154,9 +269,33 @@ struct MensaView: View {
         let day = selectedDay
         await meals.load { try await source.meals(of: id, on: day) }
     }
+
+    /// Sieben Tage parallel statt nacheinander: Jeder Einzeltag bleibt
+    /// ohnehin fünf Minuten im Zwischenspeicher, aber das erste Öffnen
+    /// der Wochenansicht wäre sonst siebenmal eine Anfrage lang.
+    private func loadWeekMeals() async {
+        guard let id = canteen?.id else { return }
+        let source = source
+        let targets = week
+        var result: [String: [MensaMeal]] = [:]
+        await withTaskGroup(of: (String, [MensaMeal]).self) { group in
+            for day in targets {
+                let key = MensaSource.iso(day)
+                group.addTask {
+                    let meals = (try? await source.meals(of: id, on: day)) ?? []
+                    return (key, meals)
+                }
+            }
+            for await pair in group {
+                result[pair.0] = pair.1
+            }
+        }
+        weekMeals = result
+    }
 }
 
-/// Ein Gericht: Name, Studierendenpreis, Kennzeichnungen.
+/// Ein Gericht: Name, Studierendenpreis, Kennzeichnungen. Alles Weitere -
+/// alle Preigruppen, die vollständige Kennzeichnung - steht im Blatt.
 struct MensaMealRow: View {
     let meal: MensaMeal
 
@@ -191,5 +330,84 @@ struct MensaMealRow: View {
         }
         .padding(.vertical, 3)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Das Blatt zu einem Gericht: alle Preise, alle Kennzeichnungen - die
+/// Liste zeigt bewusst nur den Studierendenpreis als Zeile, hier steht der
+/// Rest. Wer wissen will, was „K7“ bedeutet oder was Gäste zahlen, tippt
+/// auf das Gericht.
+struct MensaMealDetail: View {
+    let meal: MensaMeal
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(meal.name)
+                            .font(.headline)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(meal.category)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+
+                let prices = meal.priceRows
+                if !prices.isEmpty {
+                    Section("Preise") {
+                        ForEach(Array(prices.indices), id: \.self) { index in
+                            HStack {
+                                Text(prices[index].label)
+                                Spacer(minLength: 8)
+                                Text(String(format: "%.2f €", prices[index].price))
+                                    .monospacedDigit()
+                                    .fontWeight(.medium)
+                            }
+                            .font(.subheadline)
+                            .accessibilityElement(children: .combine)
+                        }
+                    }
+                }
+
+                Section("Kennzeichnungen") {
+                    if meal.isVegan {
+                        Label("Vegan", systemImage: "leaf.fill")
+                            .foregroundStyle(.green)
+                    } else if meal.isVegetarian {
+                        Label("Vegetarisch", systemImage: "leaf")
+                            .foregroundStyle(.green)
+                    }
+                    if !meal.additives.isEmpty {
+                        ForEach(meal.additives, id: \.self) { note in
+                            Label(note, systemImage: "tag")
+                                .font(.subheadline)
+                        }
+                    }
+                    if meal.notes.isEmpty {
+                        Text("Keine Kennzeichnungen angegeben")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section {
+                    Text("Speiseplan über OpenMensa. Angaben ohne Gewähr; maßgeblich ist die Kennzeichnung in der Mensa.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Gericht")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+        }
     }
 }

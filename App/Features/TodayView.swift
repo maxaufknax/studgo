@@ -15,11 +15,18 @@ struct TodayView: View {
     @State private var courses: [Course] = []
     @State private var isShowingSettings = false
 
-    /// Persönliche Termine plus die aus dem Stundenplan abgeleiteten
-    /// Sitzungen - warum das nötig ist, steht in `EventMerge`.
     private var context: SemesterContext { SemesterContext(semesters.value ?? []) }
 
-    private var allEvents: [CourseEvent] {
+    /// Persönliche Termine plus die aus dem Stundenplan abgeleiteten
+    /// Sitzungen - warum das nötig ist, steht in `EventMerge`.
+    ///
+    /// **Einmal je Bildaufbau statt je Ableitung.** Bis 1.8.0 rief jede der
+    /// drei Ableitungen unten diese Zusammenführung eigenständig auf -
+    /// dreimal `EventMerge.combine` je Rendern, dreimal dasselbe Ergebnis.
+    /// Beim Ausblenden eines Termins lief jede davon über die volle Liste
+    /// wieder von vorn; die kurzen Ruckler beim Ein- und Ausblenden kamen
+    /// genau daher. `body` holt das Ergebnis einmal und reicht es weiter.
+    private var visibleEvents: [CourseEvent] {
         let merged = EventMerge.combine(dated: events.value ?? [],
                                         plans: [EventMerge.PlanWindow(entries: plan.value ?? [],
                                                                       semester: context.current())],
@@ -31,7 +38,9 @@ struct TodayView: View {
             : merged.filter { !hiddenEvents.isHidden($0) }
     }
 
-    private var current: CourseEvent? {
+    /// Was gerade läuft oder als Nächstes ansteht - die Karte ganz oben und
+    /// dieselbe Auswahl, die das Widget zeigt.
+    private func current(of allEvents: [CourseEvent]) -> CourseEvent? {
         let now = Date()
         if let running = allEvents.first(where: { $0.start <= now && $0.end >= now && !$0.isCancelled }) {
             return running
@@ -39,17 +48,14 @@ struct TodayView: View {
         return allEvents.first { $0.start > now && !$0.isCancelled }
     }
 
-    private var todaysRemaining: [CourseEvent] {
-        allEvents.filter {
-            Calendar.current.isDateInToday($0.start) && $0.end >= Date() && $0.id != current?.id
+    /// Was heute noch kommt - der gefeaturete Termin gehört nicht dazu, der
+    /// steht bereits in der Karte darüber.
+    private func todaysRemaining(of allEvents: [CourseEvent],
+                                 excluding next: CourseEvent?) -> [CourseEvent] {
+        let now = Date()
+        return allEvents.filter {
+            Calendar.current.isDateInToday($0.start) && $0.end >= now && $0.id != next?.id
         }
-    }
-
-    private var laterEvents: [CourseEvent] {
-        allEvents
-            .filter { !Calendar.current.isDateInToday($0.start) && $0.start > Date() && $0.id != current?.id }
-            .prefix(4)
-            .map { $0 }
     }
 
     private var unread: [Message] {
@@ -62,6 +68,13 @@ struct TodayView: View {
 
     var body: some View {
         StudGoStack(user: user) {
+            // Eine Zusammenführung je Bildaufbau - alles darunter greift auf
+            // dieses eine Ergebnis zurück (siehe `visibleEvents`).
+            let allEvents = visibleEvents
+            let next = current(of: allEvents)
+            let remaining = todaysRemaining(of: allEvents, excluding: next)
+            let upcoming = UpcomingEvents.select(allEvents, now: Date())
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     greeting
@@ -73,27 +86,25 @@ struct TodayView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.top, 60)
                     } else {
-                        if let current {
-                            PushButton(value: current) { NextUpCard(event: current) }
+                        if let next {
+                            PushButton(value: next) { NextUpCard(event: next) }
                         } else if allEvents.isEmpty, let message = events.errorMessage {
                             problemCard(message)
                         } else {
                             freeCard
                         }
 
-                        if !todaysRemaining.isEmpty {
+                        if !remaining.isEmpty {
                             SectionCard(title: "Heute noch", symbol: "clock") {
-                                rows(todaysRemaining) { event in
+                                rows(remaining) { event in
                                     eventRow(event)
                                 }
                             }
                         }
 
-                        if !laterEvents.isEmpty {
+                        if !upcoming.isEmpty {
                             SectionCard(title: "Demnächst", symbol: "calendar") {
-                                rows(laterEvents) { event in
-                                    eventRow(event, showDay: true)
-                                }
+                                upcomingGroups(UpcomingEvents.group(upcoming))
                             }
                         }
 
@@ -150,12 +161,25 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(salutation)
                 .font(.title2.bold())
-            Text(Date.now, format: .dateTime.weekday(.wide).day().month(.wide))
+            dateLine
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 4)
+    }
+
+    /// Das Datum der Begrüßung - mit dem Feiertag, falls heute einer ist.
+    ///
+    /// „Tag der Deutschen Einheit“ ist die Antwort auf die Frage, warum
+    /// heute nichts ansteht; sie gehört in die Zeile, die ohnehin das
+    /// Datum nennt, nicht in einen Hinweis weiter unten.
+    private var dateLine: Text {
+        var line = Text(Date.now, format: .dateTime.weekday(.wide).day().month(.wide))
+        if let holiday = HolidayCalendar.holiday(on: Date.now) {
+            line = line + Text("  ·  ") + Text(holiday.name).fontWeight(.semibold)
+        }
+        return line
     }
 
     /// Der Streifen, der im Demo-Modus auf dem Startbildschirm steht.
@@ -260,13 +284,40 @@ struct TodayView: View {
         }
     }
 
-    /// Inhalt einer antippbaren Karte samt Winkel am Rand.
+    /// „Demnächst“: die ausgewählten Termine, nach Tagen gruppiert. Die
+    /// Auswahl selbst trifft `UpcomingEvents` - dort steht auch, warum sie
+    /// nicht mehr „je einer je Tag“ wirkt.
+    @ViewBuilder
+    private func upcomingGroups(_ groups: [(day: Date, events: [CourseEvent])]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(groups.indices), id: \.self) { index in
+                let group = groups[index]
+                if index > 0 {
+                    Divider().padding(.vertical, 6)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Format.dayHeader(group.day))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, index == 0 ? 0 : 10)
+                        .padding(.bottom, 2)
+                    ForEach(group.events) { event in
+                        eventRow(event)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Inhalt einer antippbaren Karte samt Winkel am Rand. Der Winkel ist
+    /// Zier - VoiceOver liest die Zeile, nicht den Pfeil.
     private func linkRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         HStack(spacing: 8) {
             content()
             Image(systemName: "chevron.right")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
         .contentShape(Rectangle())
     }
@@ -291,7 +342,7 @@ struct TodayView: View {
     /// wiederholen.
     private func rescheduleReminders() async {
         guard preferences.eventReminders else { return }
-        await Notifications.scheduleEventReminders(allEvents,
+        await Notifications.scheduleEventReminders(visibleEvents,
                                                    leadMinutes: preferences.leadMinutes,
                                                    quietWeekend: preferences.quietWeekend)
     }
@@ -314,13 +365,19 @@ struct TodayView: View {
         async let loadMessages: Void = messages.load { try await client.inbox(for: user.id) }
         async let loadNews: Void = news.load { try await client.news(for: user.id) }
         _ = await (loadEvents, loadPlan, loadSemesters, loadMessages, loadNews)
-        auth.noteUnread((messages.value ?? []).filter { !$0.isRead }.count)
+        let unreadCount = (messages.value ?? []).filter { !$0.isRead }.count
+        auth.noteUnread(unreadCount)
         // Für die Kursfarben im Kalender: Der ICS-Strom nennt nur den
         // Veranstaltungsnamen, nicht die Kennung.
         if courses.isEmpty, let loaded = try? await client.courses(for: user.id) {
             courses = loaded
         }
         await rescheduleReminders()
+
+        // Was die Widgets zeigen: denselben nächsten Termin und dieselbe
+        // Zahl ungelesener Nachrichten wie hier. Das gehört zu diesem Laden -
+        // „Heute“ läuft bei jedem App-Start, egal ob jemand das Widget nutzt.
+        WidgetBridge.publish(next: current(of: visibleEvents), unread: unreadCount)
     }
 }
 

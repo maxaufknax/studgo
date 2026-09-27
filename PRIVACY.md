@@ -1,6 +1,6 @@
 # Datenschutzerklärung für StudGo
 
-**Stand: 25. September 2026**
+**Stand: 27. September 2026**
 
 > **In short (English):** StudGo signs you in to `studip.uni-hannover.de` with
 > your own account and talks to it directly. Access tokens stay in the iOS
@@ -13,7 +13,9 @@
 > not record who you are. And if *you* open the canteen menu, the day's meals
 > are fetched from the open-data service OpenMensa (`openmensa.org`); it is
 > contacted only then, and it does not record who you are either. A built-in
-> demo mode uses fictional sample data and contacts no server at all.
+> demo mode uses fictional sample data and contacts no server at all. The
+> home-screen widgets read a small local snapshot (next event, unread count)
+> that never leaves the device.
 > Contact: <maximilian.elias.paasch@gmail.com>.
 
 ## Wer ist verantwortlich?
@@ -56,6 +58,7 @@ unter *Melden und Blockieren*.
 | Eine von dir abgeschickte Meldung | Meldestelle des Entwicklers | nur der Entwickler |
 | Speisepläne, die du dir ansiehst | OpenMensa (`openmensa.org`), beim Öffnen der Mensa-Ansicht | der Anbieter, nur die Anfrage selbst |
 | Deine Mensa-Wahl | `UserDefaults` auf dem Gerät | nur die App |
+| Widget-Schnappschuss (nächster Termin, Zahl ungelesener Nachrichten) | App-Group auf dem Gerät, geteilt mit der Widget-Erweiterung | nur die App und ihre Widgets - nichts verlässt das Gerät |
 | Eine von dir vorbereitete ZQS-Mail | Mail-App deines Geräts, erst nach deinem Senden | die ZQS-elsa |
 
 Bis auf die Meldung an die Meldestelle und die Speiseplan-Anfrage an
@@ -159,6 +162,15 @@ Verlassen der Demo verschwunden.
 Eine Ausnahme gibt es auch hier: Wer in der Demo etwas **meldet**, dessen
 Meldung geht wirklich an die Meldestelle - sonst wäre der Melde-Knopf eine
 Attrappe. Die erfundenen Beispieldaten stehen dann darin, keine echten.
+
+## Widgets
+
+Die beiden Widgets (nächster Termin, ungelesene Nachrichten) lesen einen
+Schnappschuss, den die App selbst auf dem Gerät hinterlegt - über eine
+**App-Group**, den einzigen gemeinsam nutzbaren Ablageort von App und
+Widget-Erweiterung. Die Widgets fragen **nie** selbst einen Server an; im
+Schnappschuss stehen nur Titel, Uhrzeit und Raum des nächsten Termins sowie
+eine Zahl. Beim Abmelden wird er gelöscht.
 
 ## Benachrichtigungen
 

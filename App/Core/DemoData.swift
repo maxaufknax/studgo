@@ -838,6 +838,11 @@ enum DemoData {
                             type: "text", typeTitle: "Text",
                             payload: ["text": "Die Folien stehen zusätzlich im Dateibereich der Veranstaltung."],
                             position: 1),
+        DemoCoursewareBlock(id: "demo-cw-b4", sectionID: "demo-cw-s2",
+                            type: "download", typeTitle: "Datei",
+                            payload: ["file_id": "demo-file-1",
+                                      "title": "Folien zur ersten Vorlesung"],
+                            position: 2),
     ]
 
     // MARK: - Lizenzen

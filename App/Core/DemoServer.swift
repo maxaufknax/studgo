@@ -207,6 +207,16 @@ enum DemoServer {
                             description: attributes["description"] as? String)
             return Data()
 
+        case ("file-refs", "GET"):
+            // Show-Route - so holen die Courseware-Dateiblöcke ihre Datei.
+            guard segments.count == 2 else { throw notFound(path) }
+            let wanted = segments[1]
+            let all = DemoData.folders.flatMap(\.files)
+                + DemoData.folders.flatMap { store.extraFiles(folderID: $0.id) }
+            guard let file = all.first(where: { $0.id == wanted }),
+                  !store.isDeleted(fileID: file.id) else { throw notFound(path) }
+            return try document(fileResource(file))
+
         case ("file-refs", "PATCH"):
             guard segments.count == 2 else { throw notFound(path) }
             let attributes = ((body?["data"] as? [String: Any])?["attributes"] as? [String: Any]) ?? [:]

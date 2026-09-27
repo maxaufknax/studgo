@@ -67,7 +67,9 @@ struct NewsRow: View {
                 if let date = item.publishedAt { Text(Format.listDate(date)) }
             }
             .font(.caption2)
-            .foregroundStyle(.tertiary)
+            // Kontrast (WCAG 1.4.3): Autor und Datum tragen Information,
+            // `.tertiary` bleibt den Zierstücken vorbehalten.
+            .foregroundStyle(.secondary)
 
             Text(item.preview)
                 .font(.caption)

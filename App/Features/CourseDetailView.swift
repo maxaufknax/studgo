@@ -287,7 +287,7 @@ struct CourseDetailView: View {
             // zum Ein- oder Austragen, auch keine übersehene.
             Text("Öffnet Stud.IP: Das Ein- und Austragen bietet die Schnittstelle nicht an. Danach hier nach unten ziehen.")
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
@@ -333,6 +333,7 @@ struct CourseDetailView: View {
                 Image(systemName: "arrow.up.right.square")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             .contentShape(Rectangle())
         }

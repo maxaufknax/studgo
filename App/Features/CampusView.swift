@@ -128,6 +128,7 @@ struct CampusPlaceholderRow: View {
                 ProgressView()
             } else {
                 Image(systemName: symbol).foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             Text(isLoading ? "Wird geladen…" : message)
                 .font(.footnote)
@@ -200,14 +201,14 @@ struct ActivityRow: View {
             if let created = item.createdAt {
                 Text(Format.listDate(created))
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
         }
         let course = Group {
             if let course = item.courseName {
                 Text(course)
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }
@@ -349,6 +350,7 @@ struct ContactsView: View {
                     Image(systemName: "chevron.right")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
                 }
             }
             .buttonStyle(.plain)
@@ -424,12 +426,12 @@ struct InstitutesView: View {
                 if let address = institute.address {
                     Label(address, systemImage: "mappin.and.ellipse")
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
                 if let phone = institute.phone {
                     Label(phone, systemImage: "phone")
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding(.vertical, 2)

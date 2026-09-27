@@ -156,7 +156,7 @@ struct OwnScheduleEntryRow: View {
                 if let note = entry.description {
                     Text(StudipMarkup.plain(from: note))
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
             }
@@ -166,6 +166,7 @@ struct OwnScheduleEntryRow: View {
             Image(systemName: "pencil.circle")
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())

@@ -44,6 +44,12 @@ struct StudGoApp: App {
                 // Oberfläche - deshalb ganz oben und nicht je Ansicht.
                 .tint(theme.theme.accent)
                 .preferredColorScheme(theme.appearance.colorScheme)
+                // Ein Antipp auf dem Widget führt in den passenden Reiter -
+                // dieselbe Adressform wie der OAuth-Rückruf („studgo://…“),
+                // ausgewertet über den gemeinsamen Router.
+                .onOpenURL { url in
+                    NotificationRouter.shared.route(url: url)
+                }
                 .task { await auth.restore() }
                 .task {
                     guard preferences.mailboxAlerts else { return }

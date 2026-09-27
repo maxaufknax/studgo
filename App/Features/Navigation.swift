@@ -231,6 +231,7 @@ struct PushLink<Value: Hashable, Label: View>: View {
                 Image(systemName: "chevron.forward")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             .contentShape(Rectangle())
         }

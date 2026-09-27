@@ -101,7 +101,7 @@ struct StatisticsView: View {
     private var footnote: some View {
         Text("Diese Zahlen entstehen auf dem Gerät aus deinem Stundenplan, dem Semesterkalender und deinem eigenen Verlauf in Stud.IP. Sie werden nirgends hochgeladen, und niemand sonst sieht sie.")
             .font(.caption2)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(.secondary)
             .padding(.horizontal, 4)
             .padding(.top, 4)
     }
@@ -454,7 +454,7 @@ struct ActivityCard: View {
                                 .frame(height: max(3, 56 * CGFloat(week.count) / CGFloat(maximum)))
                             Text(week.start.formatted(.dateTime.day().month(.narrow)))
                                 .font(.system(size: 8))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)
                     }

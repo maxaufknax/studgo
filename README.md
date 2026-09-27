@@ -10,12 +10,13 @@ Quelloffenes Studierendenprojekt, keine offizielle App der Universität.
 
 | Bereich | Inhalt |
 | --- | --- |
-| **Heute** | Was gerade läuft oder als Nächstes ansteht, mit Countdown; der restliche Tag, die nächsten Termine, ungelesene Nachrichten, neue Ankündigungen |
-| **Plan** | Tag, Woche und Liste: Wochenraster mit Kursfarben und Überschneidungen, Tagesansicht mit Datumsleiste, datierte Terminliste. Eigene Termine gelten ganzjährig; anlegen und ändern führt an die richtige Stelle in Stud.IP. Einzelne Turnusfenster - etwa die Übungsgruppe, die nicht die eigene ist - lassen sich überall ausblenden und in den Einstellungen wiederfinden |
+| **Heute** | Was gerade läuft oder als Nächstes ansteht, mit Countdown; der restliche Tag, die wirklich nächsten Termine - nach Tagen gruppiert, auch mehrere am selben Tag -, ungelesene Nachrichten, neue Ankündigungen; Feiertage stehen am Datum |
+| **Plan** | Tag, Woche und Liste: Wochenraster mit Kursfarben und Überschneidungen, Tagesansicht mit Datumsleiste, datierte Terminliste; Feiertage (Niedersachsen) stehen in Tages- und Listenansicht. Eigene Termine gelten ganzjährig; anlegen und ändern führt an die richtige Stelle in Stud.IP. Einzelne Turnusfenster - etwa die Übungsgruppe, die nicht die eigene ist - lassen sich überall ausblenden und in den Einstellungen wiederfinden |
 | **Kurse** | Veranstaltungen des laufenden Semesters (umschaltbar) mit Suche; je Kurs Info, Termine, Aushang, Dateien, Teilnehmende und Courseware |
 | **Dateien** | Ordner durchblättern, herunterladen, in der Systemvorschau öffnen und teilen |
 | **Postfach** | Nachrichten (Posteingang, Gesendet, Suche, Antworten, Verfassen mit Personensuche, Löschen) und **Blubber**: globaler Strom, Direktnachrichten und die Ströme der Veranstaltungen und Studiengruppen in einer Liste; Antippen einer Person öffnet ihr Profil |
-| **Campus** | Eigene Zahlen, Aktivitätenstrom, Verzeichnis: Veranstaltungs- und Personensuche, Kontakte, Studiengruppen, Einrichtungen, Ankündigungen, Mensa & Speisepläne (über OpenMensa) |
+| **Campus** | Eigene Zahlen, Aktivitätenstrom, Verzeichnis: Veranstaltungs- und Personensuche, Kontakte, Studiengruppen, Einrichtungen, Ankündigungen, Mensa & Speisepläne (über OpenMensa) - mit Tag- und Wochenansicht und einem Detailblatt je Gericht |
+| **Widgets** | Nächster Termin und ungelesene Nachrichten auf dem Sperrbildschirm; antippen führt in den Reiter |
 | **Profil** | Darstellung, Benachrichtigungen, Semesterübersicht, Uni-Mail, Zwischenspeicher, Datenschutzhinweise, Abmelden |
 
 Anmeldung über **OAuth2 Authorization Code Flow mit PKCE** in einer
@@ -42,8 +43,11 @@ Stundenplan, Terminliste und Kursliste dieselbe ist.
 Antworten der API landen in einem Zwischenspeicher auf dem Gerät
 (`App/Core/ResponseCache.swift`). Die App startet damit sofort mit dem letzten
 Stand statt mit fünf Ladekreiseln, und in der Bahn ohne Netz bleibt sie
-benutzbar. „Nach unten ziehen" fragt immer den Server. Beim Abmelden wird der
-Zwischenspeicher mit den Tokens zusammen gelöscht.
+benutzbar - gilt seit 1.8.0 auch für den Speiseplan: Ohne Empfang zählt dort
+jetzt derselbe alte Stand wie beim Stud.IP-Zugriff, statt mit „nicht geladen“
+abzubrechen. „Nach unten ziehen" fragt immer den Server. Beim Abmelden wird der
+Zwischenspeicher mit den Tokens zusammen gelöscht - und die Widgets verlieren
+ihren Schnappschuss, denn der könnte Termine des alten Kontos tragen.
 
 ## Aufbau
 
@@ -53,6 +57,7 @@ App/Core        OAuth2, Keychain, JSON:API-Transport, Zwischenspeicher,
 App/Models      Domänenmodelle (Attributnamen aus den Stud.IP-6.0-Schemas)
 App/Features    SwiftUI-Ansichten
 App/Resources   Assets, Datenschutzmanifest
+Widgets/        WidgetKit-Erweiterung (Sperrbildschirm)
 docs/           API-Befunde, Funktionsumfang, Codemagic-Anleitung
 tools/          Swift-Toolchain im Container, Lint, Codemagic-CLI, Secrets
 Tests/          Tests der Logikschicht (swift-testing)
@@ -65,8 +70,8 @@ die Logikschicht dagegen kommt ohne Apple-Frameworks aus und lässt sich deshalb
 lokal übersetzen und testen - die Swift-Toolchain läuft dafür im Container.
 
 ```bash
-./tools/swift-lint.sh     # ~8 s - Syntax aller Quellen, auch der Ansichten
-./tools/swift.sh test     # ~10 s - 91 Tests gegen App/Core und App/Models
+./tools/swift-lint.sh     # ~8 s - Syntax aller Quellen, auch der Ansichten und Widgets
+./tools/swift.sh test     # ~10 s - 164 Tests gegen App/Core und App/Models
 ```
 
 Beides zusammen fängt ab, was sonst erst nach Minuten bei Codemagic auffiele.

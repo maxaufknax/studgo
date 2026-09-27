@@ -223,6 +223,15 @@ definitions:
           --type IOS_APP_STORE \
           --certificate-key @file:/tmp/cert_key.pem \
           --create
+        # Dasselbe für die Widget-Erweiterung (seit 1.8.0): eigene Bundle-ID,
+        # eigenes Provisioning-Profil. Voraussetzung, einmal im
+        # Entwicklerportal angelegt (siehe docs/CODEMAGIC.md):
+        #   • App-ID de.maxaufknax.studgo.widgets
+        #   • App-Group de.maxaufknax.studgo.shared, beiden App-IDs zugeordnet
+        app-store-connect fetch-signing-files "$BUNDLE_ID.widgets" \
+          --type IOS_APP_STORE \
+          --certificate-key @file:/tmp/cert_key.pem \
+          --create
         keychain add-certificates
         # Muss nach xcodegen laufen, sonst gibt es kein Projekt zum Anpassen.
         xcode-project use-profiles

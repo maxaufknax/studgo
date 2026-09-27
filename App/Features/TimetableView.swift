@@ -178,7 +178,7 @@ struct TimetableView: View {
                 Text(Format.clock(minutes: minute))
                     .font(.system(size: 10))
                     .monospacedDigit()
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .frame(width: layout.rulerWidth - 7, alignment: .trailing)
                     // Um die halbe Zeilenhöhe nach oben, damit die
                     // Beschriftung auf der Linie sitzt und nicht darunter.

@@ -206,6 +206,7 @@ struct PersonSearchView: View {
                                 Image(systemName: "chevron.right")
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
+                                    .accessibilityHidden(true)
                             }
                         }
                         .buttonStyle(.plain)
@@ -470,6 +471,7 @@ struct ConsultationsView: View {
                             Image(systemName: expanded == block.id ? "chevron.up" : "chevron.down")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
+                                .accessibilityHidden(true)
                         }
                     }
                     .buttonStyle(.plain)

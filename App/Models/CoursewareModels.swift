@@ -72,9 +72,9 @@ struct CoursewareBlock: Identifiable, Equatable {
     let html: String?
     /// Ziel eines verweisenden Blocks (Verweis, eingebettete Quelle).
     let url: String?
-    /// Datei-Bezug - Video, Audio, PDF, Download. Über die Beziehung
-    /// `file-refs` ließe sich die Datei öffnen; dafür ist hier nur die
-    /// Kennung, die Anzeige verweist auf Stud.IP.
+    /// Datei-Bezug - Video, Audio, PDF, Download. Die Kennung ist dieselbe
+    /// wie im Dateibereich; `StudIPClient.fileRef(id:)` löst sie zu Name,
+    /// Größe und Vorschau auf.
     let fileID: String?
     let position: Int
 

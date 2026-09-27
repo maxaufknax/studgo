@@ -7,11 +7,10 @@ import UIKit
 /// **Was hier lesend integriert ist und was nicht:** Die JSON:API liefert den
 /// ganzen Baum (`/v1/courses/{id}/courseware` → Kapitel → Abschnitte →
 /// Blöcke). Textnahe Blöcke setzt die App selbst; verweisende Blöcke öffnen
-/// ihr Ziel; Datei- und Video-Blöcke sagen, dass sie in Stud.IP stehen -
-/// ihre Inhalte hängen an Dateien, die sich über die Beziehung `file-refs`
-/// einzeln auflösen ließen, aber nicht an einer Route, die StudGo schon
-/// benutzt. Das **Bearbeiten** ist ein eigener Editor mit Zustand je
-/// Blocktyp; der Knopf oben rechts führt in die Weboberfläche.
+/// ihr Ziel; dateibasierte Blöcke lösen ihre Datei über `file-refs` auf und
+/// öffnen sie in der Systemvorschau. Das **Bearbeiten** ist ein eigener
+/// Editor mit Zustand je Blocktyp; der Knopf oben rechts führt in die
+/// Weboberfläche.
 struct CoursewareView: View {
     let course: Course
     @EnvironmentObject private var auth: AuthStore
@@ -20,6 +19,8 @@ struct CoursewareView: View {
     @StateObject private var children = Loadable<[CoursewareChapter]>()
     @StateObject private var sections = Loadable<[CoursewareSection]>()
     @State private var blocksBySection: [String: [CoursewareBlock]] = [:]
+    /// Dateiblöcke nach Kennung aufgelöst - Name und Größe stehen erst hier.
+    @State private var fileRefs: [String: FileRef] = [:]
     @State private var webTarget: WebTarget?
 
     var body: some View {
@@ -101,6 +102,7 @@ struct CoursewareView: View {
                 Section(section.title) {
                     ForEach(blocksBySection[section.id] ?? []) { block in
                         CoursewareBlockRow(block: block,
+                                           file: fileRefs[block.fileID ?? ""],
                                            courseID: course.id,
                                            openWeb: { webTarget = WebTarget(url: $0) })
                     }
@@ -147,6 +149,7 @@ struct CoursewareView: View {
             collected[section.id] = try? await client.coursewareBlocks(of: section.id)
         }
         blocksBySection = collected
+        fileRefs = await resolveFiles(in: collected, client: client)
     }
 }
 
@@ -160,6 +163,7 @@ struct CoursewareChapterView: View {
     @StateObject private var children = Loadable<[CoursewareChapter]>()
     @StateObject private var sections = Loadable<[CoursewareSection]>()
     @State private var blocksBySection: [String: [CoursewareBlock]] = [:]
+    @State private var fileRefs: [String: FileRef] = [:]
     @State private var webTarget: WebTarget?
 
     var body: some View {
@@ -226,6 +230,7 @@ struct CoursewareChapterView: View {
                 Section(section.title) {
                     ForEach(blocksBySection[section.id] ?? []) { block in
                         CoursewareBlockRow(block: block,
+                                           file: fileRefs[block.fileID ?? ""],
                                            courseID: course.id,
                                            openWeb: { webTarget = WebTarget(url: $0) })
                     }
@@ -244,12 +249,16 @@ struct CoursewareChapterView: View {
             collected[section.id] = try? await client.coursewareBlocks(of: section.id)
         }
         blocksBySection = collected
+        fileRefs = await resolveFiles(in: collected, client: client)
     }
 }
 
 /// Ein Block, so gut es die Sorte hergibt.
 struct CoursewareBlockRow: View {
     let block: CoursewareBlock
+    /// Die aufgelöste Datei des Blocks - oder nichts, wenn sie nicht zu
+    /// holen war; dann verweist die Zeile auf die Weboberfläche.
+    var file: FileRef? = nil
     let courseID: String
     var openWeb: (URL) -> Void
 
@@ -273,15 +282,21 @@ struct CoursewareBlockRow: View {
                     Image(systemName: "arrow.up.right.square")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
                 }
             }
             .buttonStyle(.plain)
 
         case .file:
-            RowLabel(symbol: "paperclip",
-                     title: block.title ?? block.typeTitle,
-                     subtitle: "Datei in der Courseware",
-                     detail: "In Stud.IP öffnen")
+            if let file {
+                CoursewareFileBlock(file: file,
+                                    fallbackTitle: block.title ?? block.typeTitle)
+            } else {
+                RowLabel(symbol: "paperclip",
+                         title: block.title ?? block.typeTitle,
+                         subtitle: "Datei in der Courseware",
+                         detail: "In Stud.IP öffnen")
+            }
 
         case .unsupported:
             RowLabel(symbol: "square.dashed",
@@ -301,5 +316,118 @@ struct CoursewareBlockRow: View {
 
     private func openExternally(_ url: URL) {
         UIApplication.shared.open(url)
+    }
+}
+
+
+/// Dateiblöcke zu Dateien auflösen - einmal je Kennung, auch wenn dieselbe
+/// Datei in mehreren Abschnitten steht. Fehlt eine Datei (gelöscht, Rechte,
+/// kaputte Kennung), bleibt sie einfach weg; der Block zeigt dann seinen
+/// Stud.IP-Verweis.
+private func resolveFiles(in blocks: [String: [CoursewareBlock]],
+                          client: StudIPClient) async -> [String: FileRef] {
+    let wanted = Set(blocks.values.flatMap { $0 }.compactMap(\.fileID))
+    var refs: [String: FileRef] = [:]
+    for id in wanted {
+        if let ref = try? await client.fileRef(id: id) { refs[id] = ref }
+    }
+    return refs
+}
+
+/// Ein dateibasierter Block - die Datei steckt hinter einer eigenen Kennung,
+/// StudGo holt sie auf Antippen in den temporären Ordner und zeigt sie in
+/// der Systemvorschau. Derselbe Ablauf wie im Dateibereich
+/// (siehe `FolderBrowserView`), nur ohne Ordner drumherum.
+struct CoursewareFileBlock: View {
+    let file: FileRef
+    /// Name des Blocks, solange die Datei noch lädt - die Zeile soll nie
+    /// leer dastehen, auch nicht zwischen den Anfragen.
+    var fallbackTitle: String
+
+    @EnvironmentObject private var auth: AuthStore
+    @State private var localURL: URL?
+    @State private var showsPreview = false
+    @State private var showsShareSheet = false
+    @State private var errorMessage: String?
+    @State private var isDownloading = false
+
+    var body: some View {
+        Button {
+            Task { await open() }
+        } label: {
+            RowLabel(symbol: file.symbolName,
+                     title: file.name.isEmpty ? fallbackTitle : file.name,
+                     subtitle: "Datei in der Courseware",
+                     detail: file.formattedSize) {
+                if isDownloading {
+                    ProgressView()
+                } else {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.caption)
+                        .foregroundStyle(.tint)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                Task { await share() }
+            } label: {
+                Label("Teilen / In Dateien sichern", systemImage: "square.and.arrow.up")
+            }
+        }
+        .sheet(isPresented: $showsPreview) {
+            if let localURL {
+                NavigationStack {
+                    QuickLookPreview(url: localURL)
+                        .ignoresSafeArea()
+                        .navigationTitle(file.name)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button {
+                                    showsShareSheet = true
+                                } label: {
+                                    Image(systemName: "square.and.arrow.up")
+                                }
+                                .accessibilityLabel("Teilen")
+                            }
+                        }
+                }
+            }
+        }
+        .sheet(isPresented: $showsShareSheet) {
+            if let localURL { ShareSheet(items: [localURL]) }
+        }
+        .alert("Download fehlgeschlagen",
+               isPresented: .init(get: { errorMessage != nil },
+                                  set: { if !$0 { errorMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private func open() async {
+        guard await ensureDownloaded() else { return }
+        showsPreview = true
+    }
+
+    private func share() async {
+        guard await ensureDownloaded() else { return }
+        showsShareSheet = true
+    }
+
+    private func ensureDownloaded() async -> Bool {
+        if let localURL, FileManager.default.fileExists(atPath: localURL.path) { return true }
+        isDownloading = true
+        defer { isDownloading = false }
+        do {
+            localURL = try await auth.client.download(file)
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
     }
 }

@@ -175,6 +175,9 @@ final class AuthStore: ObservableObject {
         semTypes = [:]
         studygroupKinds = .unknown
         unreadCount = 0
+        // Widgets zeigen Beispieldaten im Demo-Modus - aber erst, wenn „Heute“
+        // sie geschrieben hat. Der Stand des vorigen echten Kontos weg damit.
+        WidgetBridge.clear()
         do {
             state = .signedIn(try await client.currentUser())
         } catch {
@@ -227,6 +230,9 @@ final class AuthStore: ObservableObject {
         studygroupKinds = .unknown
         unreadCount = 0
         mailboxRevision = 0
+        // Was auf dem Sperrbildschirm steht, darf das nächste Konto nicht
+        // sehen: Widgets zeigen Termine und Nachrichten des bisherigen.
+        WidgetBridge.clear()
         state = .signedOut
     }
 

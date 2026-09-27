@@ -6,10 +6,17 @@ hochgeladen. Ein eigener Mac ist dafür nicht nötig.
 ## Einmalige Vorbereitung bei Apple
 
 1. **Apple Developer Program** - Mitgliedschaft muss aktiv sein (99 €/Jahr).
-2. **Bundle-ID registrieren**: `de.maxaufknax.studgo`
-   (Developer Portal → Identifiers → App IDs → App).
-   Keine besonderen Capabilities nötig - StudGo braucht weder Push noch
-   App Groups noch iCloud.
+2. **Bundle-IDs registrieren** (Developer Portal → Identifiers → App IDs
+   → App):
+   - `de.maxaufknax.studgo` - die App
+   - `de.maxaufknax.studgo.widgets` - die Widget-Erweiterung (seit 1.8.0)
+
+   Beide brauchen die Capability **App Groups** mit derselben Gruppe
+   `de.maxaufknax.studgo.shared`: Darüber legt die App den Schnappschuss
+   ab, den die Widgets auf dem Sperrbildschirm zeigen
+   (siehe `App/Core/WidgetSnapshot.swift`). Der Gruppe ist nichts weiter
+   zu entnehmen, und ohne sie baut der Build zwar - die Widgets blieben
+   aber leer. Push und iCloud braucht StudGo weiterhin nicht.
 3. **App in App Store Connect anlegen**: Plattform iOS, Name „StudGo",
    Sprache Deutsch, Bundle-ID von oben, SKU frei wählbar.
 4. **App Store Connect API-Key erzeugen**: Users and Access → Integrations →

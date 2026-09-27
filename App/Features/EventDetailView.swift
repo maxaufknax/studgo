@@ -93,6 +93,7 @@ struct EventDetailView: View {
                 Image(systemName: "arrow.up.right.square")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             .card()
         }
@@ -190,6 +191,7 @@ struct EventDetailView: View {
                 Image(systemName: "chevron.right")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             .card()
         }
@@ -269,6 +271,7 @@ struct ScheduleEntryDetailView: View {
                             Image(systemName: "chevron.right")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
+                                .accessibilityHidden(true)
                         }
                         .card()
                     }
@@ -290,13 +293,14 @@ struct ScheduleEntryDetailView: View {
                                 Image(systemName: "arrow.up.right.square")
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
+                                    .accessibilityHidden(true)
                             }
                         }
                         .buttonStyle(.plain)
 
                         Text("Eigene Termine lassen sich über die Stud.IP-Schnittstelle nur lesen; geschrieben wird in der Weboberfläche.")
                             .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .card()

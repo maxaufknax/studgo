@@ -11,20 +11,28 @@
 #
 # Läuft überall: auf macOS mit dem systemeigenen swiftc, sonst im Container.
 #
-#   ./tools/swift-lint.sh            # App/ prüfen
+#   ./tools/swift-lint.sh            # App/ und Widgets/ prüfen
 #   ./tools/swift-lint.sh App/Core   # nur einen Teil
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-TARGET="${1:-App}"
+# Ohne Angabe: die App und die Widget-Erweiterung - seit es die gibt,
+# gehört ihr Code zur selben Prüfpflicht.
+if [ $# -eq 0 ]; then
+    TARGETS=(App Widgets)
+else
+    TARGETS=("$@")
+fi
 
 # Kein `mapfile`: macOS liefert bis heute bash 3.2 aus, und dort gibt es das
 # nicht - auf Codemagic scheiterte der Schritt daran mit Status 127.
 FILES=()
-while IFS= read -r datei; do
-    FILES+=("$datei")
-done < <(find "$TARGET" -name '*.swift' | sort)
+for TARGET in "${TARGETS[@]}"; do
+    while IFS= read -r datei; do
+        FILES+=("$datei")
+    done < <(find "$TARGET" -name '*.swift' | sort)
+done
 if [ ${#FILES[@]} -eq 0 ]; then
     echo "Keine Swift-Dateien unter $TARGET" >&2
     exit 1

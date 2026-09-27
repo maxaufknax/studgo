@@ -58,11 +58,13 @@ enum EventMerge {
     ///
     /// **Warum erst in Slots vorsortiert wird:** Der Vergleich selbst ist
     /// teuer (Titel normalisieren, Wortfolgen prüfen). Über die volle
-    /// Terminliste paarweise gegerechnet - und `combine` läuft dreimal je
-    /// Bildschirmaufbau direkt auf dem Hauptthread - blockierte das die App
-    /// beim Start so lange, dass iOS sie über den Wachhund abschoss
-    /// (Testflug-Bericht zu 1.7.0: „lädt nichts, stürzt ab"). Termine mit
-    /// verschiedenem Slot können ohnehin nie dasselbe Ereignis sein; der
+    /// Terminliste paarweise gegerechnet - und `combine` lief bis 1.7.0
+    /// dreimal je Bildschirmaufbau direkt auf dem Hauptthread - blockierte
+    /// das die App beim Start so lange, dass iOS sie über den Wachhund
+    /// abschoss (Testflug-Bericht zu 1.7.0: „lädt nichts, stürzt ab"). Seit
+    /// 1.8.0 ruft jede Ansicht die Zusammenführung einmal je Bildaufbau auf
+    /// (siehe `TodayView.visibleEvents` und `ScheduleView.events`). Termine
+    /// mit verschiedenem Slot können ohnehin nie dasselbe Ereignis sein; der
     /// Blick in den Slot-Eimer genügt.
     static func combine(dated: [CourseEvent],
                         plans: [PlanWindow],

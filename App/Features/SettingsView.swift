@@ -62,6 +62,7 @@ struct SettingsView: View {
                 Image(systemName: "arrow.up.right.square")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
         }
         .buttonStyle(.plain)
@@ -135,6 +136,7 @@ struct SettingsView: View {
                             Image(systemName: "arrow.up.right.square")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
+                                .accessibilityHidden(true)
                         }
                     }
                     .buttonStyle(.plain)

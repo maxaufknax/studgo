@@ -30,16 +30,26 @@ enum BackgroundSync {
         guard case .signedIn(let user) = auth.state else { return }
 
         let client = auth.freshClient
-        await notifyNewMessages(client: client, userID: user.id, preferences: preferences)
+        let unread = await notifyNewMessages(client: client, userID: user.id,
+                                             preferences: preferences)
         await notifyNewThreads(client: client, userID: user.id, preferences: preferences)
+
+        // Was das Nachrichten-Widget zeigt - aus dem Posteingang, der hier
+        // ohnehin geholt wird; der nächste Termin bleibt dem Startbildschirm
+        // überlassen (siehe `WidgetBridge.publish(unread:)`).
+        WidgetBridge.publish(unread: unread)
     }
 
     // MARK: - Nachrichten
 
+    /// Sagt zurück, wie viele Nachrichten im Posteingang ungelesen sind -
+    /// das Widget zeigt dieselbe Zahl wie das App-Symbol.
+    @discardableResult
     private static func notifyNewMessages(client: StudIPClient,
                                           userID: String,
-                                          preferences: Preferences) async {
-        guard let inbox = try? await client.inbox(for: userID) else { return }
+                                          preferences: Preferences) async -> Int {
+        guard let inbox = try? await client.inbox(for: userID) else { return 0 }
+        let unread = inbox.filter { !$0.isRead }.count
 
         let since = preferences.lastNotifiedMessage
         let fresh = inbox
@@ -47,7 +57,7 @@ enum BackgroundSync {
             .filter { ($0.sentAt ?? .distantPast) > since }
             .sorted { ($0.sentAt ?? .distantPast) > ($1.sentAt ?? .distantPast) }
 
-        guard !fresh.isEmpty else { return }
+        guard !fresh.isEmpty else { return unread }
 
         if fresh.count > maxAlerts {
             // Gesammelt statt einzeln - sonst wäre der Sperrbildschirm voll.
@@ -68,6 +78,7 @@ enum BackgroundSync {
         if let newest = fresh.first?.sentAt {
             preferences.lastNotifiedMessage = newest
         }
+        return unread
     }
 
     // MARK: - Blubber
