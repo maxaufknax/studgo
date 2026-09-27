@@ -27,12 +27,15 @@ struct WidgetSnapshot: Codable, Equatable {
 /// denn App und Widget-Erweiterung teilen sich keinen Ablageort von selbst.
 ///
 /// Die Kennung muss in `project.yml`, im Entwicklerportal und in App Store
-/// Connect übereinstimmen (einmalig, siehe docs/CODEMAGIC.md). Fehlt die
+/// Connect übereinstimmen (einmalig, siehe docs/CODEMAGIC.md). Im Portal ist
+/// die Gruppe **ohne** Präfix angemeldet, in den Entitlements und im Code
+/// trägt sie das übliche `group.` davor - Apple ergänzt das Präfix selbst,
+/// wenn es die Provisioning-Profile schreibt. Fehlt die
 /// Gruppe - etwa in einem unsignierten Schnellbau -, greift der Zweitweg
 /// über die normalen Benutzerdaten: Das Widget sieht dann nichts, die App
 /// bleibt aber benutzbar; ein Defekt im Widget darf nie die App kosten.
 enum WidgetSnapshotStore {
-    static let appGroupID = "de.maxaufknax.studgo.shared"
+    static let appGroupID = "group.de.maxaufknax.studgo.shared"
     private static let key = "studgo.widget.snapshot"
 
     private static let defaults = UserDefaults(suiteName: appGroupID) ?? .standard

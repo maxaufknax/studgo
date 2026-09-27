@@ -36,7 +36,7 @@ targets:
       path: App/StudGo.entitlements
       properties:
         com.apple.security.application-groups:
-          - de.maxaufknax.studgo.shared
+          - group.de.maxaufknax.studgo.shared
     # Bindet die Widget-Erweiterung ein und bettet sie in die App.
     dependencies:
       - target: StudGoWidgets
@@ -117,7 +117,7 @@ targets:
       path: Widgets/StudGoWidgets.entitlements
       properties:
         com.apple.security.application-groups:
-          - de.maxaufknax.studgo.shared
+          - group.de.maxaufknax.studgo.shared
     configFiles:
       Debug: Config/Secrets.xcconfig
       Release: Config/Secrets.xcconfig

@@ -17,6 +17,13 @@ hochgeladen. Ein eigener Mac ist dafür nicht nötig.
    (siehe `App/Core/WidgetSnapshot.swift`). Der Gruppe ist nichts weiter
    zu entnehmen, und ohne sie baut der Build zwar - die Widgets blieben
    aber leer. Push und iCloud braucht StudGo weiterhin nicht.
+
+   **Das `group.`-Präfix:** Im Portal heißt die Gruppe wie oben - Apple
+   schreibt sie aber in die Provisioning-Profile als
+   `group.de.maxaufknax.studgo.shared`. Deshalb tragen die Entitlements in
+   `project.yml` und der Code in `WidgetSnapshot.swift` denselben Wert mit
+   `group.` davor. Ohne das Präfix meldet Xcode „doesn't match the
+   entitlements file's value“ und der Archivlauf bricht ab.
 3. **App in App Store Connect anlegen**: Plattform iOS, Name „StudGo",
    Sprache Deutsch, Bundle-ID von oben, SKU frei wählbar.
 4. **App Store Connect API-Key erzeugen**: Users and Access → Integrations →
