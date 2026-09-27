@@ -222,7 +222,9 @@ header.scrolled { border-bottom-color: var(--line); box-shadow: 0 6px 24px rgba(
 }
 @media (max-width: 920px) {
   .hero .wrap { grid-template-columns: 1fr; }
-  .stage { display: none; }
+  /* Auf dem Handy steht die Bühne unter dem Text, verkleinert und mittig:
+     dieselbe Szene, dieselben Proportionen. */
+  .stage { display: block; width: min(76vw, 320px); margin: 30px auto 0; }
 }
 
 /* ---------- Laufband ---------- */
@@ -380,6 +382,32 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
   .js .reveal { opacity: 1; }
   .js .reveal.in { animation: none; }
 }
+
+/* ---------- Mobil ---------- */
+@media (max-width: 640px) {
+  .hero { padding: 56px 0 26px; }
+  .hero .sub { font-size: 1.06rem; margin-bottom: 26px; }
+  section { padding: 48px 0; }
+  .sec-head { margin-bottom: 26px; }
+  .nav .store-mini { padding: 10px 18px; font-size: .92rem; }
+  .gallery { grid-auto-columns: 232px; }
+  .gallery img { width: 232px; }
+  .final { padding: 46px 20px; border-radius: 24px; }
+  .foot { gap: 30px 20px; }
+}
+@media (max-width: 540px) {
+  .hero h1 { font-size: clamp(2.15rem, 9vw, 2.6rem); }
+  .hero .cta .btn { flex: 1 1 100%; }
+  .badge { font-size: .8rem; }
+  .bento { grid-template-columns: 1fr; }
+  .card { padding: 20px; }
+  .roadmap .step { padding: 18px 18px 16px 18px; }
+}
+@media (max-width: 380px) {
+  .wrap { padding: 0 18px; }
+  .widget .w-big { font-size: .9rem; }
+  .widget .w-sub { font-size: .72rem; }
+}
 </style>
 </head>
 <body>
@@ -501,11 +529,6 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
       <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
       <h3>Demo-Modus</h3>
       <p>Die ganze App ohne Anmeldung ausprobieren, mit erfundenen Daten, die keinen Uni-Server berühren.</p>
-    </div>
-    <div class="card c-2 reveal">
-      <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
-      <h3>Dunkel &amp; farbig</h3>
-      <p>Dunkle Oberfläche für den späten Abend, acht Farbwelten und ein Stundenplan, der sich nicht verrechnet.</p>
     </div>
   </div>
 </section>
