@@ -9,13 +9,30 @@
 <meta property="og:description" content="Stundenplan, Kurse, Mensa, Dateien, Nachrichten und Widgets für den Sperrbildschirm: schnell, privat und kostenlos.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://studgo.de/">
-<meta property="og:image" content="https://studgo.de/assets/icon-512.png">
+<meta property="og:image" content="https://studgo.de/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="StudGo: Dein Stud.IP. In deiner Tasche. Drei iPhones mit Kalender und Kursseite.">
+<meta property="og:site_name" content="StudGo">
+<meta property="og:locale" content="de_DE">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://studgo.de/assets/og-image.png">
+<meta name="apple-itunes-app" content="app-id=6804845342">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"MobileApplication","name":"StudGo",
+ "operatingSystem":"iOS 16 oder neuer","applicationCategory":"EducationalApplication",
+ "description":"Native iOS-App für Stud.IP: Stundenplan, Kurse, Dateien, Mensa, Nachrichten und Widgets.",
+ "url":"https://studgo.de/","downloadUrl":"https://apps.apple.com/de/app/studgo/id6804845342",
+ "image":"https://studgo.de/assets/og-image.png","inLanguage":"de",
+ "offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"},
+ "author":{"@type":"Person","name":"Maximilian Paasch"}}
+</script>
 <link rel="canonical" href="https://studgo.de/">
 <link rel="icon" href="assets/icon-180.png" type="image/png">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <meta name="theme-color" content="#f5f7fa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#070c12" media="(prefers-color-scheme: dark)">
-<script>document.documentElement.classList.add("js");</script>
+<script src="assets/early.js?v=1.8.2"></script>
 <style>
 :root {
   --accent: #0e6ea6;
@@ -229,7 +246,9 @@ header.scrolled { border-bottom-color: var(--line); box-shadow: 0 6px 24px rgba(
 
 /* ---------- Laufband ---------- */
 .marquee {
-  overflow: hidden; margin: 22px 0 8px;
+  /* auto links/rechts: sonst überschreibt der Kurz-Margin das "margin: 0 auto"
+     von .wrap und das Band hängt am linken Rand statt mittig zu stehen. */
+  overflow: hidden; margin: 22px auto 8px;
   mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
 }
@@ -662,63 +681,7 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
   </div>
 </footer>
 
-<script>
-(function () {
-  "use strict";
-  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  /* Laufband: Inhalt genau einmal duplizieren und die Laufzeit an die
-     Breite koppeln. Ohne JavaScript stehen die Chips still, mit reduzierter
-     Bewegung ebenfalls. */
-  var track = document.getElementById("chips");
-  if (track && !reduce) {
-    var base = track.innerHTML;
-    track.innerHTML = base + base;
-    var width = track.scrollWidth / 2;
-    track.style.setProperty("--marquee-s", Math.max(18, width / 55) + "s");
-  }
-
-  /* Kopfzeile: Rand erst, wenn tatsächlich gescrollt wird. */
-  var header = document.querySelector("header");
-  var onScroll = function () {
-    header.classList.toggle("scrolled", window.scrollY > 8);
-  };
-  window.addEventListener("scroll", onScroll, { passive: true });
-  onScroll();
-
-  /* Aurora folgt dem Scrollen ein wenig: Fixiert, aber nicht starr. */
-  var aurora = document.querySelector(".aurora");
-  if (aurora && !reduce) {
-    var ticking = false;
-    window.addEventListener("scroll", function () {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(function () {
-        var y = window.scrollY;
-        aurora.style.transform = "translateY(" + (-y * 0.06) + "px)";
-        ticking = false;
-      });
-    }, { passive: true });
-  }
-
-  /* Einblenden: sichtbar, sobald ein Abschnitt ins Bild kommt.
-     Ohne JavaScript bleibt alles sichtbar (siehe .js-Schalter oben). */
-  var items = Array.prototype.slice.call(document.querySelectorAll(".reveal"));
-  if (!reduce && "IntersectionObserver" in window) {
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("in");
-          io.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.1, rootMargin: "0px 0px -8% 0px" });
-    items.forEach(function (el) { io.observe(el); });
-  } else {
-    items.forEach(function (el) { el.classList.add("in"); });
-  }
-})();
-</script>
+<script src="assets/site.js?v=1.8.2"></script>
 
 </body>
 </html>
