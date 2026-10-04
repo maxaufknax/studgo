@@ -76,6 +76,7 @@ shoot_device() {
                 -studgo.demo.active YES \
                 -studgo.moderation.termsVersion 1 \
                 -studgo.onboarding.seen.v1 YES \
+                -studgo.scheduleMode woche \
                 -studgo.initialTab "$tab" >/dev/null
             # Die Demo lädt aus der App selbst, braucht aber einen Augenblick
             # für Zusammenführung und erste Darstellung.

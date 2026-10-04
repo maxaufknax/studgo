@@ -42,7 +42,23 @@ struct ScheduleView: View {
         }
     }
 
-    @State private var mode: Mode = .day
+    @State private var mode: Mode = ScheduleView.initialMode
+
+    /// Die Lesart beim Öffnen - immer „Tag“, außer in Debug-Bauten mit dem
+    /// Startargument `-studgo.scheduleMode woche|liste`. Nur für die
+    /// Bildschirmfotos (tools/screenshots.sh): An einem Sonntag aufgenommen,
+    /// zeigte die Tagesansicht sonst einen leeren Tag.
+    private static var initialMode: Mode {
+        #if DEBUG
+        switch UserDefaults.standard.string(forKey: "studgo.scheduleMode") {
+        case "woche": return .grid
+        case "liste": return .list
+        default: return .day
+        }
+        #else
+        return .day
+        #endif
+    }
     /// Der gewählte Tag in der Tagesansicht und der erste im Dreitageraster.
     @State private var anchor = Calendar.current.startOfDay(for: Date())
     @State private var span: GridSpan = .workWeek
