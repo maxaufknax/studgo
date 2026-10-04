@@ -42,6 +42,9 @@ final class NotificationRouter: ObservableObject {
         case "heute": target = .today
         case "postfach": target = .postfach
         case "plan": target = .schedule
+        // Ein Termin im iOS-Kalender trägt `studgo://termin/…` als Adresse
+        // (siehe `CalendarSyncPlan`) - angetippt führt er in den Plan.
+        case "termin": target = .schedule
         default: break
         }
     }

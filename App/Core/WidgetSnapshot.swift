@@ -18,9 +18,88 @@ struct WidgetSnapshot: Codable, Equatable {
         var location: String?
     }
 
+    /// Bis 1.8.1 der **einzige** Termin im Schnappschuss. Bleibt stehen, damit
+    /// ein Stand, den eine ältere Fassung geschrieben hat, nach dem Update
+    /// lesbar bleibt - bis die App ihn beim nächsten Öffnen ersetzt.
     var nextEvent: NextEvent?
+    /// Die kommenden Termine samt dem laufenden, chronologisch - seit 1.8.2.
+    ///
+    /// **Warum eine Liste:** Mit nur einem Termin stand nach dessen Ende ein
+    /// vergangener „Nächster Termin" auf dem Sperrbildschirm, bis die App
+    /// wieder geöffnet wurde. Mit der Liste rechnet die Timeline im Voraus,
+    /// wann welcher Termin dran ist, und springt von selbst weiter.
+    /// Optional, weil ältere Schnappschüsse das Feld nicht kennen.
+    var upcoming: [NextEvent]?
     var unreadMessages: Int
     var updatedAt: Date
+
+    init(nextEvent: NextEvent? = nil,
+         upcoming: [NextEvent]? = nil,
+         unreadMessages: Int,
+         updatedAt: Date) {
+        self.nextEvent = nextEvent
+        self.upcoming = upcoming
+        self.unreadMessages = unreadMessages
+        self.updatedAt = updatedAt
+    }
+
+    /// Alle bekannten Termine, chronologisch: die Liste, oder bei einem
+    /// Schnappschuss aus 1.8.1 der eine.
+    var events: [NextEvent] {
+        (upcoming ?? nextEvent.map { [$0] } ?? []).sorted { $0.start < $1.start }
+    }
+
+    /// Was zum Zeitpunkt `date` gezeigt wird: der laufende Termin, sonst der
+    /// nächste - dieselbe Regel wie die Karte auf „Heute“.
+    ///
+    /// Ein Termin gilt bis **vor** seinem Ende als laufend. Zum Endzeitpunkt
+    /// legt die Timeline einen Eintrag an; dort soll schon der nächste stehen,
+    /// nicht der eben beendete mit „endet in 0 Min.“.
+    func current(at date: Date) -> NextEvent? {
+        let all = events
+        if let running = all.first(where: { $0.start <= date && date < $0.end }) {
+            return running
+        }
+        return all.first { $0.start > date }
+    }
+
+    /// Läuft der gezeigte Termin zum Zeitpunkt `date` schon?
+    func isRunning(_ event: NextEvent, at date: Date) -> Bool {
+        event.start <= date && date < event.end
+    }
+
+    /// Was nach dem gezeigten Termin kommt - für „Danach“ im mittleren Widget.
+    func following(at date: Date, limit: Int) -> [NextEvent] {
+        let shown = current(at: date)
+        return Array(events
+            .filter { $0.start > date && $0 != shown }
+            .prefix(limit))
+    }
+
+    /// Wann sich die Anzeige ändert: Beginn und Ende jedes Termins nach
+    /// `date`. Genau dort legt die Timeline Einträge an.
+    func changeDates(after date: Date, limit: Int = 40) -> [Date] {
+        Array(Set(events.flatMap { [$0.start, $0.end] })
+            .filter { $0 > date }
+            .sorted()
+            .prefix(limit))
+    }
+
+    /// Wählt aus, was in den Schnappschuss wandert: Termine, die noch nicht
+    /// vorbei sind, höchstens `horizon` voraus und höchstens `limit` Stück.
+    ///
+    /// Sieben Tage tragen über ein Wochenende ohne Öffnen der App hinweg; mehr
+    /// bläht nur den Schnappschuss auf, den die Erweiterung bei jedem Eintrag
+    /// liest.
+    static func upcoming(_ candidates: [NextEvent],
+                         now: Date,
+                         horizon: TimeInterval = 7 * 24 * 3600,
+                         limit: Int = 16) -> [NextEvent] {
+        Array(candidates
+            .filter { $0.end > now && $0.start < now.addingTimeInterval(horizon) }
+            .sorted { $0.start < $1.start }
+            .prefix(limit))
+    }
 }
 
 /// Lesen und Schreiben des Schnappschusses - über eine App-Group geteilt,

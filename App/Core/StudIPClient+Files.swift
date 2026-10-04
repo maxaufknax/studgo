@@ -84,16 +84,27 @@ extension StudIPClient {
             request.setValue(encoded, forHTTPHeaderField: "Slug")
         }
 
-        let (data, response) = try await Self.session.upload(for: request, fromFile: bodyFile)
+        try await sendUpload(request, bodyFile: bodyFile)
+        return true
+    }
+
+    /// Schickt den Multipart-Körper ab - bei einem 401 wie `perform` genau
+    /// einmal mit dem Token, den der `AuthStore` stattdessen anbietet.
+    private func sendUpload(_ request: URLRequest, bodyFile: URL, isRetry: Bool = false) async throws {
+        let (data, response) = try await transport.upload(for: request, fromFile: bodyFile)
         guard let http = response as? HTTPURLResponse else {
-            throw APIError.decoding("Keine HTTP-Antwort")
+            throw APIError.decoding(String(localized: "Keine HTTP-Antwort"))
         }
         // 201 mit `Location`, kein Inhalt - die Ansicht lädt danach neu.
         guard (200..<300).contains(http.statusCode) else {
-            if http.statusCode == 401 { await onUnauthorized?() }
+            if http.statusCode == 401,
+               let token = try await replacementToken(for: request, isRetry: isRetry) {
+                var retry = request
+                retry.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                return try await sendUpload(retry, bodyFile: bodyFile, isRetry: true)
+            }
             throw APIError.http(http.statusCode, Self.uploadFailureDetail(data))
         }
-        return true
     }
 
     private static func uploadFailureDetail(_ body: Data) -> String? {

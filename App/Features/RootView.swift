@@ -34,6 +34,8 @@ struct MainTabView: View {
     @ObservedObject private var palette = Palette.shared
 
     @State private var selection: AppTab = .today
+    /// Die Einführung - einmal je Gerät, gleich nach der ersten Anmeldung.
+    @State private var showsOnboarding = false
 
     /// Fünf Reiter, benannt nach dem, was dahinter liegt, nicht nach dem
     /// Stud.IP-Fachbegriff: „Postfach" statt „Nachrichten", weil dort auch
@@ -84,6 +86,12 @@ struct MainTabView: View {
             let scene = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }.first
             ReviewPrompt.registerLaunch(scene: scene)
+        }
+        .task {
+            if !OnboardingView.hasBeenSeen { showsOnboarding = true }
+        }
+        .sheet(isPresented: $showsOnboarding) {
+            OnboardingView()
         }
     }
 }

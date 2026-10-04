@@ -20,6 +20,7 @@ final class Preferences: ObservableObject {
         static let lastMessageDate = "studgo.notify.lastMessage"
         static let lastActivityDate = "studgo.notify.lastActivity"
         static let mensaCanteen = "studgo.mensa.canteen"
+        static let calendarSync = "studgo.calendar.sync"
     }
 
     // MARK: - Weboberfläche
@@ -76,6 +77,15 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(lastNotifiedActivity.timeIntervalSince1970, forKey: Key.lastActivityDate) }
     }
 
+    // MARK: - Kalender
+
+    /// Den Stundenplan in den iOS-Kalender „StudGo“ übertragen und aktuell
+    /// halten (siehe `CalendarSync`). Vorgabe aus: Der Kalender eines Geräts
+    /// ist privat, dorthin schreibt StudGo nur auf ausdrücklichen Wunsch.
+    @Published var calendarSync: Bool {
+        didSet { defaults.set(calendarSync, forKey: Key.calendarSync) }
+    }
+
     // MARK: - Mensa
 
     /// Welche Mensa der Speiseplan zeigt. Kennungen nach OpenMensa; die
@@ -104,6 +114,7 @@ final class Preferences: ObservableObject {
         lastNotifiedActivity = Date(timeIntervalSince1970:
             defaults.double(forKey: Key.lastActivityDate))
         mensaCanteenID = defaults.object(forKey: Key.mensaCanteen) as? Int ?? 6
+        calendarSync = defaults.object(forKey: Key.calendarSync) as? Bool ?? false
     }
 
     /// Mögliche Vorlaufzeiten für die Auswahl.

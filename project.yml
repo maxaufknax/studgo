@@ -73,6 +73,12 @@ targets:
           - de.maxaufknax.studgo.refresh
         UIBackgroundModes:
           - fetch
+        # Der Abgleich mit dem iOS-Kalender (seit 1.8.2). Fehlt der Text,
+        # beendet iOS die App in dem Moment, in dem sie nach dem Zugriff
+        # fragt. Ab iOS 17 gilt der erste Schlüssel, davor der zweite; die
+        # englische Fassung steht in App/Resources/en.lproj/InfoPlist.strings.
+        NSCalendarsFullAccessUsageDescription: "StudGo trägt deinen Stundenplan in einen eigenen Kalender „StudGo“ ein und hält ihn aktuell. Deine übrigen Termine liest StudGo nicht."
+        NSCalendarsUsageDescription: "StudGo trägt deinen Stundenplan in einen eigenen Kalender „StudGo“ ein und hält ihn aktuell. Deine übrigen Termine liest StudGo nicht."
         STUDIP_CLIENT_ID: $(STUDIP_CLIENT_ID)
         CFBundleURLTypes:
           - CFBundleURLName: de.maxaufknax.studgo.oauth

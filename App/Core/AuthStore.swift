@@ -47,8 +47,39 @@ final class AuthStore: ObservableObject {
 
     private let oauth = OAuthService()
     private var tokens: TokenSet?
-    /// Verhindert, dass mehrere parallele Requests gleichzeitig refreshen.
-    private var refreshTask: Task<TokenSet, Error>?
+
+    /// **Passiv** heißt: Diese Instanz liest und erneuert Tokens, beendet aber
+    /// nie eine Sitzung - kein Leeren der Keychain, kein Abmelden.
+    ///
+    /// So läuft der Hintergrundlauf (`BackgroundSync`). Er baut sich eine
+    /// eigene Instanz, weil iOS die App dafür auch kalt starten kann. Bis
+    /// 1.8.1 durfte diese Instanz abmelden: Antwortete Stud.IP nachts mit 503,
+    /// stand morgens die Anmeldung da. Ob eine Sitzung vorbei ist, entscheidet
+    /// jetzt allein die Oberfläche - mit der Person davor, die es erfährt.
+    let isPassive: Bool
+
+    init(passive: Bool = false) {
+        isPassive = passive
+    }
+
+    // MARK: - Gemeinsamer Stand aller Instanzen
+
+    /// Die laufende Erneuerung - **für alle Instanzen gemeinsam**, nicht je
+    /// Instanz.
+    ///
+    /// Stud.IP rotiert Refresh-Tokens: Wer erneuert, macht den alten Token
+    /// (und den alten Access-Token) ungültig. Erneuerten Oberfläche und
+    /// Hintergrundlauf unabhängig voneinander, verbrauchte der eine den
+    /// Token des anderen - und der Verlierer hielt eine Ablehnung für das
+    /// Ende der Sitzung. Beide laufen auf dem Hauptaktor; ein gemeinsamer
+    /// Merker genügt, damit pro Refresh-Token nur eine Anfrage hinausgeht.
+    private static var runningRefresh: (refreshToken: String, task: Task<TokenSet, Error>)?
+
+    /// Zählt jede beendete Sitzung. Eine Erneuerung, die über ein Abmelden
+    /// hinweg lief, darf ihr Ergebnis nicht mehr in die Keychain schreiben -
+    /// sonst wäre nach dem Abmelden beim nächsten Start wieder jemand
+    /// angemeldet.
+    private static var sessionGeneration = 0
 
     /// Liest bevorzugt aus dem Zwischenspeicher - für den ersten Aufbau
     /// einer Ansicht.
@@ -58,11 +89,9 @@ final class AuthStore: ObservableObject {
                 guard let self else { throw AuthError.notAuthenticated }
                 return try await self.validAccessToken()
             },
-            onUnauthorized: { [weak self] in
-                // Kein `await`: Die Closure entsteht im MainActor-Kontext
-                // dieser Klasse und ist damit selbst schon isoliert - ein
-                // Sprung findet gar nicht statt.
-                self?.sessionExpired()
+            onUnauthorized: { [weak self] rejected, isRetry in
+                guard let self else { return nil }
+                return try await self.recoverAuthorization(rejected: rejected, isRetry: isRetry)
             }
         )
         client.isDemo = isDemo
@@ -106,6 +135,13 @@ final class AuthStore: ObservableObject {
     /// Beim App-Start: gespeichertes Token laden und den Nutzer holen.
     func restore() async {
         if UserDefaults.standard.bool(forKey: Self.demoKey) {
+            // Der Hintergrundlauf hat in der Demo nichts zu tun - und
+            // `enterDemo` räumt Zwischenspeicher und Demo-Stand ab, was er
+            // der offenen Oberfläche nicht antun darf.
+            if isPassive {
+                state = .signedOut
+                return
+            }
             await enterDemo()
             return
         }
@@ -117,14 +153,17 @@ final class AuthStore: ObservableObject {
         do {
             state = .signedIn(try await client.currentUser())
         } catch let error as APIError where error.isUnauthorized {
-            // Nur hier ist die Sitzung wirklich hinüber.
-            discardSession()
-        } catch is AuthError {
-            // Refresh-Token abgelaufen oder zurückgezogen.
-            discardSession()
+            // Auch der Wiederholungsversuch des Clients (siehe
+            // `recoverAuthorization`) wurde abgewiesen - die Sitzung ist hin.
+            endSession()
+        } catch let error as AuthError where error.endsSession {
+            // Der Refresh-Token wurde ausdrücklich abgelehnt.
+            endSession()
         } catch {
-            // Netzproblem: Sitzung behalten, sonst wirft ein Funkloch den
-            // Nutzer aus der App und er müsste sich neu anmelden.
+            // Funkloch, Wartung, Überlast (auch ein 503 beim Erneuern): Die
+            // Sitzung bleibt. Abmelden hieße, dass jede Störung auf Seiten von
+            // Stud.IP die Person aus der App wirft - genau das passierte bis
+            // 1.8.1 am Semesterstart.
             state = .unavailable(error.localizedDescription)
         }
     }
@@ -216,7 +255,23 @@ final class AuthStore: ObservableObject {
 
     // MARK: - Sitzung
 
+    /// Beendet die Sitzung, weil Stud.IP sie nicht mehr anerkennt.
+    ///
+    /// Eine passive Instanz (der Hintergrundlauf) vergisst nur ihren eigenen
+    /// Stand: Ob wirklich abgemeldet wird, entscheidet die Oberfläche beim
+    /// nächsten Start - sie fragt dann selbst bei Stud.IP nach.
+    private func endSession(message: String? = nil) {
+        guard !isPassive else {
+            tokens = nil
+            state = .signedOut
+            return
+        }
+        discardSession()
+        if let message { errorMessage = message }
+    }
+
     private func discardSession() {
+        Self.sessionGeneration &+= 1
         KeychainStore.clear()
         ResponseCache.clear()
         if isDemo {
@@ -225,7 +280,6 @@ final class AuthStore: ObservableObject {
             UserDefaults.standard.set(false, forKey: Self.demoKey)
         }
         tokens = nil
-        refreshTask = nil
         semTypes = [:]
         studygroupKinds = .unknown
         unreadCount = 0
@@ -233,17 +287,13 @@ final class AuthStore: ObservableObject {
         // Was auf dem Sperrbildschirm steht, darf das nächste Konto nicht
         // sehen: Widgets zeigen Termine und Nachrichten des bisherigen.
         WidgetBridge.clear()
+        // Dasselbe gilt für den Kalender „StudGo“ im Systemkalender.
+        CalendarSync.removeCalendar()
         state = .signedOut
     }
 
-    /// Der Server hat ein 401 geschickt, obwohl der Token frisch schien -
-    /// er wurde also serverseitig zurückgezogen. Ohne diesen Schritt bliebe
-    /// die App in jedem Tab mit derselben Fehlermeldung stehen, ohne dass
-    /// der Weg zurück zur Anmeldung erkennbar wäre.
-    private func sessionExpired() {
-        guard case .signedIn = state else { return }
-        discardSession()
-        errorMessage = "Die Sitzung ist abgelaufen. Bitte melde dich erneut an."
+    private static var expiredMessage: String {
+        String(localized: "Die Sitzung ist abgelaufen. Bitte melde dich erneut an.")
     }
 
     // MARK: - Token-Lebenszyklus
@@ -254,19 +304,105 @@ final class AuthStore: ObservableObject {
         if isDemo { return "demo" }
         guard let current = tokens else { throw AuthError.notAuthenticated }
         guard current.isExpired else { return current.accessToken }
+        // Bevor erneuert wird: Hat das ein anderer Lauf schon getan?
+        adoptStoredTokens()
+        guard let latest = tokens else { throw AuthError.notAuthenticated }
+        guard latest.isExpired else { return latest.accessToken }
+        return try await refreshed(from: latest).accessToken
+    }
 
-        if let running = refreshTask {
-            return try await running.value.accessToken
+    /// Die Keychain ist die gemeinsame Wahrheit aller Instanzen.
+    ///
+    /// Hat der Hintergrundlauf inzwischen erneuert, liegt dort ein neuerer
+    /// Stand als im Speicher dieser Instanz - und der alte ist bei Stud.IP
+    /// schon zurückgezogen. Gelesen wird nur an den zwei Stellen, an denen
+    /// das zählt: vor einem Erneuern und nach einem 401. Jede Anfrage einzeln
+    /// abzugleichen kostete einen Keychain-Zugriff auf dem Hauptthread, ohne
+    /// einen Fall mehr abzudecken. Nach dem Abmelden ist `tokens` leer; dann
+    /// wird nichts übernommen.
+    private func adoptStoredTokens() {
+        guard tokens != nil, let stored = KeychainStore.load(), stored != tokens else { return }
+        tokens = stored
+    }
+
+    /// Erneuert den Token - höchstens eine Anfrage je Refresh-Token, egal wie
+    /// viele Instanzen und Anfragen gleichzeitig danach verlangen.
+    private func refreshed(from current: TokenSet) async throws -> TokenSet {
+        guard let refreshToken = current.refreshToken else {
+            if !isPassive { endSession(message: Self.expiredMessage) }
+            throw AuthError.notAuthenticated
         }
-        guard let refreshToken = current.refreshToken else { throw AuthError.notAuthenticated }
 
-        let task = Task { try await oauth.refresh(using: refreshToken) }
-        refreshTask = task
-        defer { refreshTask = nil }
+        let task: Task<TokenSet, Error>
+        let startedHere: Bool
+        if let running = Self.runningRefresh, running.refreshToken == refreshToken {
+            task = running.task
+            startedHere = false
+        } else {
+            let oauth = self.oauth
+            task = Task { try await oauth.refresh(using: refreshToken) }
+            Self.runningRefresh = (refreshToken, task)
+            startedHere = true
+        }
+        let generation = Self.sessionGeneration
 
-        let refreshed = try await task.value
-        try KeychainStore.save(refreshed)
-        tokens = refreshed
-        return refreshed.accessToken
+        do {
+            let result = try await task.value
+            if startedHere, Self.runningRefresh?.refreshToken == refreshToken {
+                Self.runningRefresh = nil
+            }
+            // Zwischendurch abgemeldet? Dann gehört das Ergebnis niemandem mehr.
+            guard generation == Self.sessionGeneration else { throw AuthError.notAuthenticated }
+            if startedHere { try KeychainStore.save(result) }
+            tokens = result
+            return result
+        } catch let error as AuthError where error.endsSession {
+            if startedHere, Self.runningRefresh?.refreshToken == refreshToken {
+                Self.runningRefresh = nil
+            }
+            // Hat ein anderer Lauf schon erneuert, ist dieser Refresh-Token zu
+            // Recht verbraucht - dann gilt dessen Ergebnis, nicht die Ablehnung.
+            if generation == Self.sessionGeneration,
+               let stored = KeychainStore.load(), stored.refreshToken != refreshToken {
+                tokens = stored
+                if stored.isExpired { return try await refreshed(from: stored) }
+                return stored
+            }
+            if case .rejected = error { endSession(message: Self.expiredMessage) }
+            throw error
+        } catch {
+            if startedHere, Self.runningRefresh?.refreshToken == refreshToken {
+                Self.runningRefresh = nil
+            }
+            // Vorübergehend (Netz, Wartung): Die Sitzung bleibt bestehen.
+            throw error
+        }
+    }
+
+    /// Stud.IP hat eine Anfrage mit 401 abgewiesen. Gibt es einen anderen
+    /// Token, mit dem sich ein zweiter Versuch lohnt?
+    ///
+    /// * Liegt inzwischen ein anderer vor - erneuert vom Hintergrundlauf oder
+    ///   einer parallelen Anfrage -, gilt der.
+    /// * Sonst wurde genau dieser Token zurückgezogen, obwohl er noch frisch
+    ///   schien (etwa weil die Uhr des Geräts falsch geht): einmal erneuern.
+    /// * Scheitert auch der zweite Versuch, ist die Sitzung vorbei.
+    private func recoverAuthorization(rejected: String, isRetry: Bool) async throws -> String? {
+        if isDemo { return nil }
+        guard !isRetry else {
+            endSession(message: Self.expiredMessage)
+            return nil
+        }
+        adoptStoredTokens()
+        guard let current = tokens else { return nil }
+        if current.accessToken != rejected {
+            return try await validAccessToken()
+        }
+        do {
+            return try await refreshed(from: current).accessToken
+        } catch let error as AuthError where error.endsSession {
+            // `refreshed` hat die Sitzung bereits beendet.
+            return nil
+        }
     }
 }

@@ -56,4 +56,33 @@ extension AttributeDynamicLookup {
         dynamicMember keyPath: KeyPath<AttributeScopes.StudGoLinuxAttributes, T>
     ) -> T { self[T.self] }
 }
+
+// MARK: - String(localized:)
+
+// Die App übersetzt ihre Oberflächentexte über `String(localized:)`. Linux-
+// Foundation kennt das nicht - ohne Ersatz liesse sich keine Datei mehr unter
+// Linux prüfen, die einen übersetzbaren Text enthält. Der Ersatz gibt den
+// deutschen Wortlaut zurück: Geprüft wird hier die Logik, nicht die
+// Übersetzung.
+//
+// Eingesetzt werden dürfen nur `String` und `Int` - wie bei Apples Vorbild,
+// das für beliebige Typen keinen Platzhalter kennt. So fällt schon unter
+// Linux auf, was in Xcode nicht übersetzen würde.
+extension String {
+    public struct LocalizationValue: ExpressibleByStringInterpolation, Sendable {
+        public struct StringInterpolation: StringInterpolationProtocol {
+            var text = ""
+            public init(literalCapacity: Int, interpolationCount: Int) {}
+            public mutating func appendLiteral(_ literal: String) { text += literal }
+            public mutating func appendInterpolation(_ value: String) { text += value }
+            public mutating func appendInterpolation(_ value: Int) { text += String(value) }
+        }
+
+        let text: String
+        public init(stringLiteral value: String) { text = value }
+        public init(stringInterpolation: StringInterpolation) { text = stringInterpolation.text }
+    }
+
+    public init(localized value: LocalizationValue) { self = value.text }
+}
 #endif

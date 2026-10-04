@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var showsSignOutConfirmation = false
     @State private var didClearCache = false
     @State private var webTarget: WebTarget?
+    @State private var showsOnboarding = false
     /// Der Pfad dieses Blatts - siehe Kommentar an `NavigationStack` unten.
     @StateObject private var navigator = Navigator()
 
@@ -166,6 +167,11 @@ struct SettingsView: View {
                     Text("Langes Drücken auf einen Termin blendet ihn aus. Nützlich bei Übungen, die an mehreren Wochentagen liegen, von denen nur einer der eigene ist. Ausgeblendete Termine verschwinden aus Kalender, Stundenplan und Heute-Ansicht; mit diesem Schalter erscheinen sie wieder, etwa um sie dauerhaft zurückzuholen.")
                 }
 
+                // Der Stundenplan im Systemkalender (seit 1.8.2) - direkt
+                // unter dem Kalender-Abschnitt, weil beide dieselben Termine
+                // betreffen: Ausgeblendetes wandert nie mit.
+                CalendarSyncSection()
+
                 quickLinks
 
                 Section {
@@ -265,6 +271,13 @@ struct SettingsView: View {
                         RowLabel(symbol: "info.circle", title: "Über StudGo")
                     }
                     Button {
+                        showsOnboarding = true
+                    } label: {
+                        RowLabel(symbol: "sparkles", title: "Einführung ansehen",
+                                 subtitle: "Reiter, Widgets, Erinnerungen")
+                    }
+                    .buttonStyle(.plain)
+                    Button {
                         webTarget = WebTarget(url: WebLinks.studipHome)
                     } label: {
                         RowLabel(symbol: "safari", title: "Stud.IP im Browser öffnen")
@@ -294,6 +307,9 @@ struct SettingsView: View {
             .sheet(item: $webTarget) { target in
                 WebSheet(url: target.url).ignoresSafeArea()
             }
+            .sheet(isPresented: $showsOnboarding) {
+                OnboardingView()
+            }
             .confirmationDialog(auth.isDemo ? "Demo verlassen?" : "Wirklich abmelden?",
                                 isPresented: $showsSignOutConfirmation,
                                 titleVisibility: .visible) {
@@ -301,6 +317,10 @@ struct SettingsView: View {
                     Task {
                         await Notifications.clearAll()
                         Notifications.cancelBackgroundRefresh()
+                        // Wer sich ausdrücklich abmeldet, will auch keinen
+                        // Kalender-Abgleich für das nächste Konto auf diesem
+                        // Gerät. Den Kalender selbst räumt `AuthStore` weg.
+                        preferences.calendarSync = false
                         auth.signOut()
                     }
                 }

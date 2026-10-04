@@ -12,17 +12,28 @@ import WidgetKit
 /// weg. Die Widgets selbst lesen nur (siehe `WidgetSnapshotStore`).
 enum WidgetBridge {
     /// Neuen Stand hinterlegen und die Widgets anstoßen.
-    static func publish(next: CourseEvent?, unread: Int) {
-        WidgetSnapshotStore.save(WidgetSnapshot(
-            nextEvent: next.map { event in
+    ///
+    /// `events` sind die Termine, die „Heute“ ohnehin zeigt - ausgeblendete
+    /// sind dort schon heraus. Ausgefallene wandern nicht mit: Auf dem
+    /// Sperrbildschirm wäre „Nächster Termin“ für eine abgesagte Sitzung
+    /// schlicht falsch.
+    static func publish(events: [CourseEvent], unread: Int, now: Date = Date()) {
+        let candidates = events
+            .filter { !$0.isCancelled }
+            .map { event in
                 WidgetSnapshot.NextEvent(title: event.displayTitle,
                                          start: event.start,
                                          end: event.end,
                                          location: event.location)
-            },
-            unreadMessages: max(0, unread),
-            updatedAt: Date()
-        ))
+            }
+        let upcoming = WidgetSnapshot.upcoming(candidates, now: now)
+        var snapshot = WidgetSnapshot(upcoming: upcoming,
+                                      unreadMessages: max(0, unread),
+                                      updatedAt: now)
+        // Für eine Erweiterung, die noch den alten Stand liest - etwa bis iOS
+        // die Widgets nach dem Update neu geladen hat.
+        snapshot.nextEvent = snapshot.current(at: now)
+        WidgetSnapshotStore.save(snapshot)
         reload()
     }
 
@@ -32,7 +43,7 @@ enum WidgetBridge {
     /// zuletzt hinterlegt hat.
     static func publish(unread: Int) {
         var snapshot = WidgetSnapshotStore.load()
-            ?? WidgetSnapshot(nextEvent: nil, unreadMessages: 0, updatedAt: Date())
+            ?? WidgetSnapshot(unreadMessages: 0, updatedAt: Date())
         snapshot.unreadMessages = max(0, unread)
         snapshot.updatedAt = Date()
         WidgetSnapshotStore.save(snapshot)

@@ -10,10 +10,17 @@ import FoundationNetworking
 struct StudIPClient {
     let tokenProvider: () async throws -> String
 
-    /// Wird gerufen, wenn der Server 401 meldet. Der `AuthStore` beendet
-    /// daraufhin die Sitzung - ohne das bliebe die App in jedem Tab mit
-    /// "Sitzung abgelaufen" stehen, ohne Weg zurück zur Anmeldung.
-    var onUnauthorized: (() async -> Void)? = nil
+    /// Wird gerufen, wenn der Server eine Anfrage mit 401 abweist - mit dem
+    /// Token, den sie trug, und ob es schon der zweite Versuch war.
+    ///
+    /// Der `AuthStore` antwortet mit einem **anderen** Token, wenn es einen
+    /// gibt: Der Hintergrundlauf hat vielleicht inzwischen erneuert (Stud.IP
+    /// zieht dabei den alten Token zurück), oder ein einmaliges Erneuern hilft.
+    /// Dann wiederholt `perform` die Anfrage genau einmal. Erst wenn auch das
+    /// nichts nützt, ist die Sitzung wirklich vorbei - ohne diesen Schritt
+    /// bliebe die App in jedem Tab mit „Sitzung abgelaufen" stehen, ohne Weg
+    /// zurück zur Anmeldung.
+    var onUnauthorized: ((_ rejectedToken: String, _ isRetry: Bool) async throws -> String?)? = nil
 
     /// Steuert, ob eine gespeicherte Antwort genügt. Beim ersten Aufbau einer
     /// Ansicht ja - dann steht der letzte Stand sofort da. Beim Herunterziehen
@@ -30,6 +37,11 @@ struct StudIPClient {
     /// `ResponseCache` liegt auf der Platte und soll von erfundenen Daten
     /// nichts wissen.
     var isDemo = false
+
+    /// Die Leitung, über die alle Anfragen laufen. Vorgabe ist `session`;
+    /// austauschbar nur, damit die Tests den Weg 401 → zweiter Versuch und
+    /// den Rückfall bei Überlast ohne Server prüfen können.
+    var transport: URLSession = Self.session
 
     var fresh: StudIPClient {
         var copy = self
@@ -347,20 +359,33 @@ struct StudIPClient {
                                           + "/v1/file-refs/\(file.id)/content")!)
         request.setValue("Bearer \(try await tokenProvider())", forHTTPHeaderField: "Authorization")
 
-        let (temporaryURL, response) = try await Self.session.download(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.decoding("Keine HTTP-Antwort")
-        }
-        guard (200..<300).contains(http.statusCode) else {
-            try? FileManager.default.removeItem(at: temporaryURL)
-            throw APIError.http(http.statusCode, nil)
-        }
+        let temporaryURL = try await fetchDownload(request)
 
         // Der Download landet unter einem Zufallsnamen - für die Vorschau und
         // das Teilen zählt aber der echte Dateiname samt Endung.
         let destination = try Self.downloadLocation(for: file.name)
         try FileManager.default.moveItem(at: temporaryURL, to: destination)
         return destination
+    }
+
+    /// Holt den Dateiinhalt - bei einem 401 wie `perform` genau einmal mit
+    /// dem Token, den der `AuthStore` stattdessen anbietet.
+    private func fetchDownload(_ request: URLRequest, isRetry: Bool = false) async throws -> URL {
+        let (temporaryURL, response) = try await transport.download(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.decoding(String(localized: "Keine HTTP-Antwort"))
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            try? FileManager.default.removeItem(at: temporaryURL)
+            if http.statusCode == 401,
+               let token = try await replacementToken(for: request, isRetry: isRetry) {
+                var retry = request
+                retry.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                return try await fetchDownload(retry, isRetry: true)
+            }
+            throw APIError.http(http.statusCode, nil)
+        }
+        return temporaryURL
     }
 
     /// Der Platz im temporären Ordner, unter dem eine geladene Datei landet.
@@ -445,13 +470,16 @@ struct StudIPClient {
             guard !data.isEmpty else { return JSONAPIDocument.empty }
             return try JSONAPIDocument(data: data)
         } catch {
-            // Ohne Verbindung zählt jeder gespeicherte Stand, auch ein alter.
-            if error.isConnectivityFailure {
+            // Ohne Verbindung zählt jeder gespeicherte Stand, auch ein alter -
+            // und ebenso, wenn Stud.IP selbst gerade nicht kann: Am
+            // Semesterstart ist der Server überlastet, und der Stundenplan von
+            // gestern hilft dann mehr als eine Fehlermeldung.
+            if error.isConnectivityFailure || error.isServerUnavailable {
                 if let hit = ResponseCache.load(for: key),
                    let document = try? JSONAPIDocument(data: hit.data) {
                     return document
                 }
-                throw APIError.offline
+                if error.isConnectivityFailure { throw APIError.offline }
             }
             throw error
         }
@@ -486,12 +514,12 @@ struct StudIPClient {
             ResponseCache.store(data, for: key)
             return String(data: data, encoding: .utf8) ?? ""
         } catch {
-            if error.isConnectivityFailure {
+            if error.isConnectivityFailure || error.isServerUnavailable {
                 if let hit = ResponseCache.load(for: key),
                    let cached = String(data: hit.data, encoding: .utf8) {
                     return cached
                 }
-                throw APIError.offline
+                if error.isConnectivityFailure { throw APIError.offline }
             }
             throw error
         }
@@ -565,16 +593,37 @@ struct StudIPClient {
     /// Nicht `private`: `StudIPClient+Files.swift` schickt einen
     /// Multipart-Body und braucht dieselbe Fehlerbehandlung samt
     /// 401-Meldung. `private` gilt in Swift nur innerhalb einer Datei.
-    func perform(_ request: URLRequest) async throws -> Data {
-        let (data, response) = try await Self.session.data(for: request)
+    func perform(_ request: URLRequest, isRetry: Bool = false) async throws -> Data {
+        let (data, response) = try await transport.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw APIError.decoding("Keine HTTP-Antwort")
+            throw APIError.decoding(String(localized: "Keine HTTP-Antwort"))
         }
         guard (200..<300).contains(http.statusCode) else {
-            if http.statusCode == 401 { await onUnauthorized?() }
+            if http.statusCode == 401,
+               let token = try await replacementToken(for: request, isRetry: isRetry) {
+                var retry = request
+                retry.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                return try await perform(retry, isRetry: true)
+            }
             throw error(status: http.statusCode, body: data)
         }
         return data
+    }
+
+    /// Nach einem 401: Gibt es einen anderen Token, mit dem sich die Anfrage
+    /// lohnt zu wiederholen? `nil` heißt nein - dann bleibt es beim 401.
+    ///
+    /// Beim zweiten Versuch fragt die Methode trotzdem nach, liefert aber nie
+    /// einen Token: Der `AuthStore` erfährt so, dass auch der frische Token
+    /// abgewiesen wurde, und beendet die Sitzung.
+    func replacementToken(for request: URLRequest, isRetry: Bool) async throws -> String? {
+        guard let onUnauthorized,
+              let header = request.value(forHTTPHeaderField: "Authorization"),
+              header.hasPrefix("Bearer ") else { return nil }
+        let rejected = String(header.dropFirst("Bearer ".count))
+        let replacement = try await onUnauthorized(rejected, isRetry)
+        guard !isRetry, let replacement, replacement != rejected else { return nil }
+        return replacement
     }
 
     /// Die JSON:API meldet Fehler strukturiert im Body; am OAuth-nahen Rand
@@ -603,6 +652,22 @@ extension Error {
         default:
             return false
         }
+    }
+
+    /// Stud.IP selbst kann gerade nicht: überlastet (429, 502-504) oder der
+    /// Anmeldeserver antwortet beim Erneuern nicht mit Tokens. Für die App
+    /// dasselbe wie ein Funkloch - der gespeicherte Stand gilt, die Sitzung
+    /// bleibt.
+    ///
+    /// Ein 500 gehört bewusst **nicht** dazu: Er trifft bei Stud.IP meist eine
+    /// einzelne Route dauerhaft (etwa der verwaiste Blubber-Faden, siehe
+    /// `personalBlubberThreads`), und ein alter Stand verdeckte das für immer.
+    var isServerUnavailable: Bool {
+        if let api = self as? APIError, case .http(let code, _) = api {
+            return [429, 502, 503, 504].contains(code)
+        }
+        if let auth = self as? AuthError { return auth.isTransient }
+        return false
     }
 }
 

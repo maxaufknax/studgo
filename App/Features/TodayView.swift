@@ -152,6 +152,12 @@ struct TodayView: View {
             }
             .refreshable { await reload(fresh: true) }
             .task { if !events.hasValue || !plan.hasValue { await reload(fresh: false) } }
+            // Eingeschaltet in der Einführung oder den Einstellungen: gleich
+            // planen, nicht erst beim nächsten Laden.
+            .onChange(of: preferences.eventReminders) { isOn in
+                guard isOn else { return }
+                Task { await rescheduleReminders() }
+            }
         }
     }
 
@@ -347,6 +353,27 @@ struct TodayView: View {
                                                    quietWeekend: preferences.quietWeekend)
     }
 
+    /// Gleicht den Kalender „StudGo“ ab, wenn das eingeschaltet ist.
+    ///
+    /// **Hier, aus demselben Grund wie die Erinnerungen:** „Heute“ lädt bei
+    /// jedem Start. Das Fenster ist länger als das der Ansicht (acht Wochen
+    /// statt drei), deshalb eine eigene Zusammenführung aus denselben Daten.
+    /// Ausgeblendete Termine wandern nie in den Kalender, auch wenn sie hier
+    /// gerade sichtbar geschaltet sind.
+    ///
+    /// **Nur mit geladenen Terminen:** Ohne sie sähe der Abgleich eine leere
+    /// Liste und räumte jeden künftigen Eintrag aus dem Kalender - ein
+    /// Funkloch darf den Kalender nicht leeren.
+    private func syncCalendar() {
+        guard preferences.calendarSync, !auth.isDemo, events.hasValue,
+              CalendarSync.access == .granted else { return }
+        let merged = EventMerge.combine(dated: events.value ?? [],
+                                        plans: [EventMerge.PlanWindow(entries: plan.value ?? [],
+                                                                      semester: context.current())],
+                                        days: CalendarSync.horizonDays)
+        try? CalendarSync.sync(merged.filter { !hiddenEvents.isHidden($0) })
+    }
+
     private func reload(fresh: Bool) async {
         let client = fresh ? auth.freshClient : auth.client
         // Die Abschnitte sind voneinander unabhängig - parallel laden.
@@ -373,11 +400,14 @@ struct TodayView: View {
             courses = loaded
         }
         await rescheduleReminders()
+        syncCalendar()
 
-        // Was die Widgets zeigen: denselben nächsten Termin und dieselbe
-        // Zahl ungelesener Nachrichten wie hier. Das gehört zu diesem Laden -
+        // Was die Widgets zeigen: dieselben Termine und dieselbe Zahl
+        // ungelesener Nachrichten wie hier. Das gehört zu diesem Laden -
         // „Heute“ läuft bei jedem App-Start, egal ob jemand das Widget nutzt.
-        WidgetBridge.publish(next: current(of: visibleEvents), unread: unreadCount)
+        // Mitgegeben wird die ganze Liste, nicht nur der nächste Termin: Die
+        // Widgets springen damit nach jedem Ende selbst weiter.
+        WidgetBridge.publish(events: visibleEvents, unread: unreadCount)
     }
 }
 

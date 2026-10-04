@@ -43,6 +43,7 @@ let package = Package(
                 "StudGoApp.swift",
                 "Core/AuthStore.swift",
                 "Core/BackgroundSync.swift",
+                "Core/CalendarSync.swift",
                 "Core/DesignSystem.swift",
                 "Core/KeychainStore.swift",
                 "Core/Notifications.swift",
@@ -54,6 +55,7 @@ let package = Package(
             ],
             sources: [
                 "Core/AppConfig.swift",
+                "Core/CalendarSyncPlan.swift",
                 "Core/DemoData.swift",
                 "Core/DemoServer.swift",
                 "Core/DemoStore.swift",

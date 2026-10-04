@@ -107,8 +107,11 @@ final class OAuthService: NSObject {
         guard let http = response as? HTTPURLResponse else { throw AuthError.malformedResponse }
 
         guard (200..<300).contains(http.statusCode) else {
-            // Stud.IP liefert OAuth-Fehler als HTML-Fehlerseite statt als JSON aus.
-            throw AuthError.server("HTTP \(http.statusCode)", StudIPErrorPage.message(from: data))
+            // Stud.IP liefert OAuth-Fehler als HTML-Fehlerseite statt als JSON
+            // aus. Ob die Antwort die Sitzung beendet, entscheidet allein der
+            // Statuscode - siehe `AuthError.tokenEndpointFailure`.
+            throw AuthError.tokenEndpointFailure(status: http.statusCode,
+                                                 detail: StudIPErrorPage.message(from: data))
         }
         guard let token = try? JSONDecoder().decode(TokenResponse.self, from: data) else {
             throw AuthError.malformedResponse
@@ -126,35 +129,6 @@ extension OAuthService: ASWebAuthenticationPresentationContextProviding {
                 .compactMap { $0 as? UIWindowScene }
                 .first { $0.activationState == .foregroundActive }
             return scene?.keyWindow ?? ASPresentationAnchor()
-        }
-    }
-}
-
-enum AuthError: LocalizedError {
-    case cancelled
-    case invalidAuthorizationURL
-    case stateMismatch
-    case missingCode
-    case malformedResponse
-    case notAuthenticated
-    case server(String, String?)
-
-    var errorDescription: String? {
-        switch self {
-        case .cancelled:
-            return "Anmeldung abgebrochen."
-        case .invalidAuthorizationURL:
-            return "Die Anmelde-Adresse konnte nicht gebildet werden."
-        case .stateMismatch:
-            return "Die Antwort des Servers gehört nicht zu dieser Anmeldung."
-        case .missingCode:
-            return "Stud.IP hat keinen Autorisierungscode zurückgegeben."
-        case .malformedResponse:
-            return "Unerwartete Antwort des Anmeldeservers."
-        case .notAuthenticated:
-            return "Nicht angemeldet."
-        case .server(let code, let detail):
-            return [code, detail].compactMap { $0 }.joined(separator: " – ")
         }
     }
 }

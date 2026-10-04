@@ -61,6 +61,8 @@ struct ScheduleView: View {
     @State private var courses: [Course] = []
     @State private var exportURL: URL?
     @State private var isExporting = false
+    /// Der Stundenplan als Bild (seit 1.8.2) - siehe `TimetableShareSheet`.
+    @State private var isSharingTimetable = false
     /// Stud.IP-Seite im Blatt - für das Anlegen eigener Termine, das die
     /// JSON:API nicht anbietet.
     @State private var webTarget: WebTarget?
@@ -162,6 +164,9 @@ struct ScheduleView: View {
             .sheet(item: exportTarget) { target in
                 ShareSheet(items: [target.url])
             }
+            .sheet(isPresented: $isSharingTimetable) {
+                TimetableShareSheet(entries: plan.entries, semesterTitle: planSemester?.title)
+            }
             .sheet(item: $webTarget, onDismiss: {
                 // Was in Stud.IP angelegt wurde, soll danach hier stehen.
                 Task { await load(fresh: true) }
@@ -245,6 +250,12 @@ struct ScheduleView: View {
                           systemImage: "plus.circle")
                 }
                 Divider()
+                Button {
+                    isSharingTimetable = true
+                } label: {
+                    Label("Stundenplan als Bild teilen", systemImage: "photo.on.rectangle")
+                }
+                .disabled(plan.entries.isEmpty)
                 Button {
                     Task { await exportCalendar() }
                 } label: {
