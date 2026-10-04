@@ -1,6 +1,6 @@
 # Datenschutzerklärung für StudGo
 
-**Stand: 27. September 2026**
+**Stand: 4. Oktober 2026**
 
 > **In short (English):** StudGo signs you in to `studip.uni-hannover.de` with
 > your own account and talks to it directly. Access tokens stay in the iOS
@@ -14,8 +14,12 @@
 > are fetched from the open-data service OpenMensa (`openmensa.org`); it is
 > contacted only then, and it does not record who you are either. A built-in
 > demo mode uses fictional sample data and contacts no server at all. The
-> home-screen widgets read a small local snapshot (next event, unread count)
-> that never leaves the device.
+> widgets read a small local snapshot (the events of the next seven days,
+> unread count) that never leaves the device. If *you* turn on calendar sync,
+> StudGo writes the next eight weeks of your timetable into a separate
+> “StudGo” calendar on your device and reads nothing but that calendar; the
+> calendar syncs wherever your calendars sync (for example iCloud), and turning
+> the option off or signing out deletes it.
 > Contact: <maximilian.elias.paasch@gmail.com>.
 
 ## Wer ist verantwortlich?
@@ -58,7 +62,10 @@ unter *Melden und Blockieren*.
 | Eine von dir abgeschickte Meldung | Meldestelle des Entwicklers | nur der Entwickler |
 | Speisepläne, die du dir ansiehst | OpenMensa (`openmensa.org`), beim Öffnen der Mensa-Ansicht | der Anbieter, nur die Anfrage selbst |
 | Deine Mensa-Wahl | `UserDefaults` auf dem Gerät | nur die App |
-| Widget-Schnappschuss (nächster Termin, Zahl ungelesener Nachrichten) | App-Group auf dem Gerät, geteilt mit der Widget-Erweiterung | nur die App und ihre Widgets - nichts verlässt das Gerät |
+| Widget-Schnappschuss (Termine der nächsten sieben Tage, Zahl ungelesener Nachrichten) | App-Group auf dem Gerät, geteilt mit der Widget-Erweiterung | nur die App und ihre Widgets - nichts verlässt das Gerät |
+| Dein Stundenplan im Kalender „StudGo“ - nur, wenn du den Kalender-Abgleich einschaltest | Kalender des Geräts, dort, wo iOS neue Kalender anlegt (bei eingeschaltetem iCloud-Kalender also auch in iCloud) | du, auf den Geräten deines Kalenderkontos |
+| Ob du die Einführung gesehen hast | `UserDefaults` auf dem Gerät | nur die App |
+| Ein Stundenplan-Bild, das du teilst | entsteht auf dem Gerät, geht nur dorthin, wohin du es teilst | wer es von dir bekommt |
 | Eine von dir vorbereitete ZQS-Mail | Mail-App deines Geräts, erst nach deinem Senden | die ZQS-elsa |
 
 Bis auf die Meldung an die Meldestelle und die Speiseplan-Anfrage an
@@ -106,7 +113,8 @@ einen Hinweis aus, damit sie **binnen 24 Stunden** bearbeitet wird.
 Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO - das berechtigte Interesse daran,
 Missbrauch in der App zu unterbinden; dazu ist der Anbieter einer App mit
 fremden Inhalten auch gegenüber Apple verpflichtet. Meldungen werden
-gelöscht, sobald sie bearbeitet sind, spätestens nach zwölf Monaten.
+gelöscht, sobald sie bearbeitet sind, spätestens nach zwölf Monaten; die
+Zwölf-Monats-Frist setzt die Meldestelle selbsttätig durch.
 
 Löschen kann der Entwickler einen Beitrag **nicht** - er steht in Stud.IP,
 und dort entscheidet die Hochschule. Was er tut: den Fall prüfen und, wenn er
@@ -169,8 +177,35 @@ Die beiden Widgets (nächster Termin, ungelesene Nachrichten) lesen einen
 Schnappschuss, den die App selbst auf dem Gerät hinterlegt - über eine
 **App-Group**, den einzigen gemeinsam nutzbaren Ablageort von App und
 Widget-Erweiterung. Die Widgets fragen **nie** selbst einen Server an; im
-Schnappschuss stehen nur Titel, Uhrzeit und Raum des nächsten Termins sowie
-eine Zahl. Beim Abmelden wird er gelöscht.
+Schnappschuss stehen nur Titel, Uhrzeit und Raum der Termine der nächsten
+sieben Tage sowie eine Zahl. Beim Abmelden wird er gelöscht.
+
+Widgets auf dem **Sperrbildschirm** sind auch bei gesperrtem Gerät zu sehen.
+Wer das für den nächsten Termin nicht möchte, legt das Widget nur auf den
+Home-Bildschirm.
+
+## Kalender-Abgleich
+
+Auf Wunsch trägt StudGo die Termine der nächsten acht Wochen in einen
+**eigenen Kalender „StudGo“** im Kalender des Geräts ein und hält ihn bei
+jedem Öffnen der App aktuell. Der Abgleich ist **ausgeschaltet**, bis du ihn
+in den Einstellungen oder in der Einführung einschaltest; erst dann fragt
+iOS nach dem Zugriff auf den Kalender.
+
+- Eingetragen werden Titel, Beginn, Ende, Raum und - falls vorhanden - das
+  Thema einer Sitzung. Ausgeblendete und ausgefallene Termine nicht.
+- Gelesen wird **nur der eigene Kalender „StudGo“**, um ihn aktuell zu
+  halten. Deine übrigen Termine liest StudGo nicht.
+- Der Kalender liegt dort, wo iOS neue Kalender anlegt. Ist der
+  iCloud-Kalender eingeschaltet, synchronisiert iOS ihn deshalb wie jeden
+  anderen Kalender über iCloud; StudGo selbst überträgt dafür nichts.
+- Ausschalten des Abgleichs oder Abmelden **löscht den Kalender samt
+  Einträgen**. Im Demo-Modus ist der Abgleich nicht verfügbar.
+
+## Stundenplan als Bild
+
+Das Bild des Wochenrasters entsteht auf dem Gerät. Es verlässt das Gerät nur,
+wenn du es selbst über das Teilen-Menü weitergibst.
 
 ## Benachrichtigungen
 

@@ -26,6 +26,18 @@
                 <string>C617.1</string>
             </array>
         </dict>
+        <!-- Einstellungen, Blockliste und Merker liegen in UserDefaults
+             (CA92.1: nur für die App selbst), der Widget-Schnappschuss in den
+             UserDefaults der App-Group, die App und Widgets teilen (1C8F.1). -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+                <string>1C8F.1</string>
+            </array>
+        </dict>
     </array>
 </dict>
 </plist>

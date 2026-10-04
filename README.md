@@ -5,6 +5,7 @@ Native iOS-App für **Stud.IP**, eingerichtet auf die Installation unter
 diesem Server, Zugangstoken liegen ausschließlich in der Keychain des Geräts.
 
 Quelloffenes Studierendenprojekt, keine offizielle App der Universität.
+Website: [studgo.de](https://studgo.de) · [App Store](https://apps.apple.com/de/app/studgo/id6804845342)
 
 ## Funktionen
 
@@ -16,8 +17,13 @@ Quelloffenes Studierendenprojekt, keine offizielle App der Universität.
 | **Dateien** | Ordner durchblättern, herunterladen, in der Systemvorschau öffnen und teilen |
 | **Postfach** | Nachrichten (Posteingang, Gesendet, Suche, Antworten, Verfassen mit Personensuche, Löschen) und **Blubber**: globaler Strom, Direktnachrichten und die Ströme der Veranstaltungen und Studiengruppen in einer Liste; Antippen einer Person öffnet ihr Profil |
 | **Campus** | Eigene Zahlen, Aktivitätenstrom, Verzeichnis: Veranstaltungs- und Personensuche, Kontakte, Studiengruppen, Einrichtungen, Ankündigungen, Mensa & Speisepläne (über OpenMensa) - mit Tag- und Wochenansicht und einem Detailblatt je Gericht |
-| **Widgets** | Nächster Termin und ungelesene Nachrichten auf dem Sperrbildschirm; antippen führt in den Reiter |
-| **Profil** | Darstellung, Benachrichtigungen, Semesterübersicht, Uni-Mail, Zwischenspeicher, Datenschutzhinweise, Abmelden |
+| **Widgets** | Nächster Termin und ungelesene Nachrichten auf Home- und Sperrbildschirm (klein, mittel mit „Danach“, rechteckig, rund, in der Zeile); nach dem Ende eines Termins springt das Widget selbst zum nächsten; antippen führt in den Reiter |
+| **Kalender** | Auf Wunsch die nächsten acht Wochen in einem eigenen iOS-Kalender „StudGo“ - damit auch auf Apple Watch, in CarPlay und bei Siri; Stundenplan als Bild teilen |
+| **Profil** | Darstellung, Benachrichtigungen, Kalender-Abgleich, Semesterübersicht, Uni-Mail, Zwischenspeicher, Einführung, Datenschutzhinweise, Abmelden |
+
+Die Oberfläche gibt es auf **Deutsch und Englisch** (Gerätesprache); die
+Schrift folgt der eingestellten Textgröße. Nach der ersten Anmeldung führt
+eine kurze Einführung durch Reiter, Widgets und Erinnerungen.
 
 Anmeldung über **OAuth2 Authorization Code Flow mit PKCE** in einer
 `ASWebAuthenticationSession` - das Passwort sieht die App nie.
@@ -45,7 +51,10 @@ Antworten der API landen in einem Zwischenspeicher auf dem Gerät
 Stand statt mit fünf Ladekreiseln, und in der Bahn ohne Netz bleibt sie
 benutzbar - gilt seit 1.8.0 auch für den Speiseplan: Ohne Empfang zählt dort
 jetzt derselbe alte Stand wie beim Stud.IP-Zugriff, statt mit „nicht geladen“
-abzubrechen. „Nach unten ziehen" fragt immer den Server. Beim Abmelden wird der
+abzubrechen. Seit 1.8.2 gilt dasselbe, wenn Stud.IP selbst nicht kann
+(Überlast, Wartung: 429, 502-504): Der gespeicherte Stand steht da, und die
+Sitzung bleibt bestehen. Abgemeldet wird nur, wenn Stud.IP den Token
+ausdrücklich zurückweist. „Nach unten ziehen" fragt immer den Server. Beim Abmelden wird der
 Zwischenspeicher mit den Tokens zusammen gelöscht - und die Widgets verlieren
 ihren Schnappschuss, denn der könnte Termine des alten Kontos tragen.
 
@@ -56,8 +65,8 @@ App/Core        OAuth2, Keychain, JSON:API-Transport, Zwischenspeicher,
                 Farb- und Formsprache, Formatierung
 App/Models      Domänenmodelle (Attributnamen aus den Stud.IP-6.0-Schemas)
 App/Features    SwiftUI-Ansichten
-App/Resources   Assets, Datenschutzmanifest
-Widgets/        WidgetKit-Erweiterung (Sperrbildschirm)
+App/Resources   Assets, Datenschutzmanifest, Übersetzungen (de.lproj, en.lproj)
+Widgets/        WidgetKit-Erweiterung (Home- und Sperrbildschirm)
 docs/           API-Befunde, Funktionsumfang, Codemagic-Anleitung
 tools/          Swift-Toolchain im Container, Lint, Codemagic-CLI, Secrets
 Tests/          Tests der Logikschicht (swift-testing)
@@ -71,7 +80,7 @@ lokal übersetzen und testen - die Swift-Toolchain läuft dafür im Container.
 
 ```bash
 ./tools/swift-lint.sh     # ~8 s - Syntax aller Quellen, auch der Ansichten und Widgets
-./tools/swift.sh test     # ~10 s - 164 Tests gegen App/Core und App/Models
+./tools/swift.sh test     # ~10 s - 194 Tests gegen App/Core, App/Models und die Übersetzungen
 ```
 
 Beides zusammen fängt ab, was sonst erst nach Minuten bei Codemagic auffiele.

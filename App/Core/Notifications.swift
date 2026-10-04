@@ -36,12 +36,16 @@ final class NotificationRouter: ObservableObject {
 
     /// Wohin ein Antipp der Widgets führt - „studgo://heute“ und
     /// „studgo://postfach“, dieselben Adressen, die das Widget anlegt
-    /// (siehe `Widgets/StudGoWidgets.swift`).
+    /// (siehe `Widgets/StudGoWidgets.swift`). Jeder Reiter hat seine
+    /// Adresse; „kurse“ und „campus“ (seit 1.8.2) braucht auch die
+    /// Pipeline, die die Bildschirmfotos für den App Store aufnimmt.
     func route(url: URL) {
         switch url.host {
         case "heute": target = .today
         case "postfach": target = .postfach
         case "plan": target = .schedule
+        case "kurse": target = .courses
+        case "campus": target = .campus
         // Ein Termin im iOS-Kalender trägt `studgo://termin/…` als Adresse
         // (siehe `CalendarSyncPlan`) - angetippt führt er in den Plan.
         case "termin": target = .schedule

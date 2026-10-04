@@ -82,7 +82,8 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Tagesansicht | abgeleitet | ✅ Datumsleiste mit Punkten an belegten Tagen; **eigene Termine gelten ganzjährig**, Kurssitzungen nur in der Vorlesungszeit |
 | Eigene Termine ansehen | `GET /users/{id}/schedule` | ✅ eigener Bereich „Eigene Termine", nach Wochentag gruppiert |
 | Termin **anlegen, ändern, löschen** | – | 🚫 Zu `schedule-entries` gibt es **nur** `GET` (Befund 18). StudGo führt an Ort und Stelle in die Weboberfläche - beim Anlegen aus dem Kalender heraus mit vorbelegtem Wochentag und Uhrzeit. |
-| Kalender abonnieren (iCal) | `GET /users/{id}/events.ics` | ⬜ Möglichkeit, den Plan in die Kalender-App zu legen |
+| Kalender abonnieren (iCal) | `GET /users/{id}/events.ics` | ✅ seit 1.8.2 als **Abgleich mit dem iOS-Kalender**: die nächsten acht Wochen in einem eigenen Kalender „StudGo“, bei jedem Öffnen aktualisiert (`CalendarSync`, Entscheidung in `CalendarSyncPlan`, geprüft). Ein echtes `webcal://`-Abo geht nicht - die Route verlangt den OAuth-Token im Kopf, den die Kalender-App nicht mitschicken kann. Daneben bleibt der einmalige Export als `.ics` |
+| Stundenplan teilen | – | ✅ seit 1.8.2 als Bild (eigene Fassung des Rasters, auf dem Gerät gerendert) |
 | Feiertage | `GET /holidays` | ✅ seit 1.8.0 - **lokal berechnet** für Niedersachsen (feste Tage plus die osterabhängigen), mit Anzeige in Heute, Tagesansicht und Liste. Die API-Route bliebe eine deutschlandweite Quelle; für den Hochschulort genügt der Landesstand, und die Rechnung funktioniert auch offline |
 
 ## Nachrichten und Community
