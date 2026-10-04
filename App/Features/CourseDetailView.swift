@@ -328,7 +328,7 @@ struct CourseDetailView: View {
                     .font(.footnote)
                     .foregroundStyle(.tint)
                     .frame(width: 20)
-                Text(title).font(.callout)
+                Text(title.localizedUI).font(.callout)
                 Spacer(minLength: 0)
                 Image(systemName: "arrow.up.right.square")
                     .font(.caption)
@@ -391,7 +391,7 @@ struct CourseTile: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top) {
                 Image(systemName: symbol)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.title3.weight(.medium))
                     .foregroundStyle(Tint.color(seed))
                 Spacer(minLength: 0)
                 if let count {
@@ -401,7 +401,7 @@ struct CourseTile: View {
                         .foregroundStyle(Tint.color(seed))
                 }
             }
-            Text(title)
+            Text(title.localizedUI)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
         }
@@ -419,7 +419,7 @@ struct CourseTile: View {
                 .padding(.bottom, 6)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(count.map { "\(title), \($0) Einträge" } ?? title)
+        .accessibilityLabel(count.map { String(localized: "\(title.localizedUI), \($0) Einträge") } ?? title.localizedUI)
     }
 }
 
@@ -436,7 +436,7 @@ struct FactRow: View {
                 .foregroundStyle(.tint)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
-                Text(title)
+                Text(title.localizedUI)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Text(value)

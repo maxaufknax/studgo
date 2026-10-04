@@ -33,8 +33,8 @@ struct CourseSearchView: View {
     }
 
     private var semesterLabel: String {
-        guard let semesterChoice else { return "Alle Semester" }
-        return sortedSemesters.first { $0.id == semesterChoice }?.title ?? "Semester"
+        guard let semesterChoice else { return String(localized: "Alle Semester") }
+        return sortedSemesters.first { $0.id == semesterChoice }?.title ?? String(localized: "Semester")
     }
 
     private var isTermTooShort: Bool {

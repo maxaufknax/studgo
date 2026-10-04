@@ -1,0 +1,4 @@
+/* StudGo – englische Fassung der Texte aus Info.plist. */
+
+"NSCalendarsFullAccessUsageDescription" = "StudGo adds your timetable to a separate “StudGo” calendar and keeps it up to date. StudGo doesn't read your other events.";
+"NSCalendarsUsageDescription" = "StudGo adds your timetable to a separate “StudGo” calendar and keeps it up to date. StudGo doesn't read your other events.";

@@ -146,7 +146,7 @@ enum ICSParser {
             ?? start.addingTimeInterval(isAllDay ? 24 * 3600 : 3600)
 
         return Event(uid: unescape(fields["UID"]?.value ?? UUID().uuidString),
-                     summary: unescape(fields["SUMMARY"]?.value ?? "Termin"),
+                     summary: unescape(fields["SUMMARY"]?.value ?? String(localized: "Termin")),
                      description: unescape(fields["DESCRIPTION"]?.value ?? "").nilIfEmpty,
                      location: unescape(fields["LOCATION"]?.value ?? "").nilIfEmpty,
                      categories: unescape(fields["CATEGORIES"]?.value ?? "").nilIfEmpty,

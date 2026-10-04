@@ -14,6 +14,7 @@ import SwiftUI
 struct TimetableView: View {
     let entries: [ScheduleEntry]
     @EnvironmentObject private var hiddenEvents: HiddenEventsStore
+    @Environment(\.dynamicTypeSize) private var typeSize
     /// Welche Wochentage nebeneinander stehen (1 = Montag … 7 = Sonntag).
     /// `nil` heißt: Montag bis Freitag plus alles, worauf ein Termin fällt.
     ///
@@ -39,6 +40,21 @@ struct TimetableView: View {
     var onSelect: (ScheduleEntry) -> Void = { _ in }
 
     // MARK: - Maße
+
+    /// Die Schrift im Raster wächst mit der eingestellten Textgröße mit - bis
+    /// „xxLarge“ und dann nicht weiter. In einer Spalte, die auf dem Telefon
+    /// rund 60 Punkte breit ist, stünde bei Bedienungshilfen-Größen sonst kein
+    /// einziges Wort mehr. Wer es größer braucht, findet denselben Plan in
+    /// Tag und Liste, die ohne Grenze mitwachsen.
+    private var fontScale: CGFloat {
+        switch typeSize {
+        case .xSmall, .small: return 0.9
+        case .medium, .large: return 1.0
+        case .xLarge: return 1.1
+        case .xxLarge: return 1.2
+        default: return 1.3
+        }
+    }
 
     private let rulerWidth: CGFloat = 44
     private let headerHeight: CGFloat = 32
@@ -176,7 +192,7 @@ struct TimetableView: View {
         ZStack(alignment: .topLeading) {
             ForEach(layout.hours, id: \.self) { minute in
                 Text(Format.clock(minutes: minute))
-                    .font(.system(size: 10))
+                    .font(.system(size: 10 * fontScale))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                     .frame(width: layout.rulerWidth - 7, alignment: .trailing)
@@ -255,11 +271,11 @@ struct TimetableView: View {
         } label: {
             VStack(alignment: .leading, spacing: 1) {
                 Text(entry.displayTitle)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 10 * fontScale, weight: .semibold))
                     .lineLimit(height > 46 ? 3 : 1)
                 if let location = entry.location, height > 54 {
                     Text(location)
-                        .font(.system(size: 9))
+                        .font(.system(size: 9 * fontScale))
                         .lineLimit(1)
                         .opacity(0.75)
                 }

@@ -41,10 +41,10 @@ struct MensaMeal: Identifiable, Equatable, Codable {
     /// gruppiert. Das Gericht-Blatt zeigt alle, die Zeile in der Liste nur
     /// den Studierendenpreis.
     private static let priceGroups: [(key: String, label: String)] = [
-        ("students", "Studierende"),
-        ("employees", "Beschäftigte"),
-        ("pupils", "Schüler:innen"),
-        ("others", "Gäste"),
+        ("students", String(localized: "Studierende")),
+        ("employees", String(localized: "Beschäftigte")),
+        ("pupils", String(localized: "Schüler:innen")),
+        ("others", String(localized: "Gäste")),
     ]
 
     /// Alle Preise, die der Plan nennt - „Studierende 2,30 €, Gäste 4,10 €".
@@ -62,9 +62,12 @@ struct MensaMeal: Identifiable, Equatable, Codable {
         notes.filter { $0.lowercased() != "vegan" && !$0.lowercased().contains("vegetar") }
     }
 
-    /// Der Studierendenpreis als Zeile - „2,00 €".
+    /// Der Studierendenpreis als Zeile - „2,00 €“, auf Englisch „€2.00“.
+    ///
+    /// Bis 1.8.1 stand hier `String(format: "%.2f €")`: Das kennt kein
+    /// Gebietsschema und schrieb auch auf Deutsch „2.00 €“.
     var priceLabel: String? {
-        studentPrice.map { String(format: "%.2f €", $0) }
+        studentPrice.map { $0.formatted(.currency(code: "EUR")) }
     }
 }
 
@@ -189,7 +192,7 @@ struct MensaSource {
     private static func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw APIError.decoding("Keine HTTP-Antwort")
+            throw APIError.decoding(String(localized: "Keine HTTP-Antwort"))
         }
         return (data, http)
     }

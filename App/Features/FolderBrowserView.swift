@@ -73,8 +73,8 @@ struct FolderContentView: View {
 
         var text: String {
             switch self {
-            case .uploading(let name): return "\(name) wird hochgeladen…"
-            case .downloading(let done, let total): return "Lädt \(done) von \(total)…"
+            case .uploading(let name): return String(localized: "\(name) wird hochgeladen…")
+            case .downloading(let done, let total): return String(localized: "Lädt \(done) von \(total)…")
             }
         }
     }
@@ -280,7 +280,7 @@ struct FolderContentView: View {
             }
             transfer = nil
             message = failed.isEmpty
-                ? (urls.count == 1 ? "Hochgeladen." : "\(urls.count) Dateien hochgeladen.")
+                ? (urls.count == 1 ? String(localized: "Hochgeladen.") : String(localized: "\(urls.count) Dateien hochgeladen."))
                 : failed.joined(separator: "\n")
             await reload(fresh: true)
         }
@@ -348,7 +348,7 @@ struct FolderContentView: View {
         transfer = nil
 
         if !failed.isEmpty {
-            message = "Nicht geladen: \(failed.joined(separator: ", "))"
+            message = String(localized: "Nicht geladen: \(failed.joined(separator: ", "))")
         }
         guard !urls.isEmpty else { return }
         shareItems = urls

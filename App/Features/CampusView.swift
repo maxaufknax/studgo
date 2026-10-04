@@ -130,7 +130,7 @@ struct CampusPlaceholderRow: View {
                 Image(systemName: symbol).foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
-            Text(isLoading ? "Wird geladen…" : message)
+            Text(isLoading ? String(localized: "Wird geladen…") : message.localizedUI)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
@@ -158,7 +158,8 @@ struct ActivityRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 11) {
             Image(systemName: item.symbol)
-                .font(.system(size: 14))
+                .font(.subheadline)
+                .dynamicTypeSize(...DynamicTypeSize.xxLarge)
                 .foregroundStyle(Tint.color(item.tintSeed))
                 .frame(width: 28, height: 28)
                 .background(
@@ -295,13 +296,13 @@ struct ActivityStreamView: View {
 
     private func label(for value: String) -> String {
         switch value {
-        case "documents": return "Dateien"
-        case "forum": return "Forum"
-        case "news": return "Ankündigungen"
-        case "wiki": return "Wiki"
-        case "schedule": return "Termine"
-        case "participants": return "Teilnahme"
-        case "message": return "Nachrichten"
+        case "documents": return String(localized: "Dateien")
+        case "forum": return String(localized: "Forum")
+        case "news": return String(localized: "Ankündigungen")
+        case "wiki": return String(localized: "Wiki")
+        case "schedule": return String(localized: "Termine")
+        case "participants": return String(localized: "Teilnahme")
+        case "message": return String(localized: "Nachrichten")
         default: return value.capitalized
         }
     }

@@ -138,9 +138,9 @@ struct Chip: View {
     var body: some View {
         HStack(spacing: 3) {
             if let symbol {
-                Image(systemName: symbol).font(.system(size: 9, weight: .semibold))
+                Image(systemName: symbol).font(.caption2.weight(.semibold)).imageScale(.small)
             }
-            Text(text)
+            Text(text.localizedUI)
         }
         .font(.caption2.weight(.medium))
         .foregroundStyle(color)
@@ -159,19 +159,21 @@ enum Countdown {
     static func text(start: Date, end: Date, now: Date = Date()) -> String {
         if now >= start && now <= end {
             let remaining = Int(end.timeIntervalSince(now) / 60)
-            return remaining <= 1 ? "endet gleich" : "läuft, noch \(remaining) Min"
+            return remaining <= 1 ? String(localized: "endet gleich")
+                                  : String(localized: "läuft, noch \(remaining) Min")
         }
         let minutes = Int(start.timeIntervalSince(now) / 60)
-        if minutes < 0 { return "vorbei" }
-        if minutes < 1 { return "jetzt gleich" }
-        if minutes < 60 { return "in \(minutes) Min" }
+        if minutes < 0 { return String(localized: "vorbei") }
+        if minutes < 1 { return String(localized: "jetzt gleich") }
+        if minutes < 60 { return String(localized: "in \(minutes) Min") }
 
         let hours = minutes / 60
         if hours < 24 {
             let rest = minutes % 60
-            return rest == 0 ? "in \(hours) Std" : "in \(hours) Std \(rest) Min"
+            return rest == 0 ? String(localized: "in \(hours) Std")
+                             : String(localized: "in \(hours) Std \(rest) Min")
         }
         let days = hours / 24
-        return days == 1 ? "morgen" : "in \(days) Tagen"
+        return days == 1 ? String(localized: "morgen") : String(localized: "in \(days) Tagen")
     }
 }

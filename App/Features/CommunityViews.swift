@@ -156,7 +156,8 @@ struct PersonSheet: View {
                 try await auth.client.addContact(personID, for: me)
             }
             contactState = !wasContact
-            message = wasContact ? "Aus den Kontakten entfernt." : "Zu den Kontakten hinzugefügt."
+            message = wasContact ? String(localized: "Aus den Kontakten entfernt.")
+                                 : String(localized: "Zu den Kontakten hinzugefügt.")
         } catch {
             message = error.localizedDescription
         }
@@ -385,7 +386,7 @@ struct StudygroupsView: View {
                 }
             }
         } header: {
-            Text(found.value.map { "\($0.count) Treffer" } ?? "Suche")
+            Text(found.value.map { String(localized: "\($0.count) Treffer") } ?? String(localized: "Suche"))
         } footer: {
             if !auth.studygroupKinds.isKnown {
                 // Ehrlich bleiben statt still nichts zu tun: Ohne bekannte
@@ -538,7 +539,7 @@ struct ConsultationsView: View {
     }
 
     private func blockTitle(_ block: ConsultationBlock) -> String {
-        guard let start = block.start else { return "Sprechstunde" }
+        guard let start = block.start else { return String(localized: "Sprechstunde") }
         guard let end = block.end else { return Format.eventTime(start) }
         return "\(Format.dayShort(start)) · \(Format.timeRange(start, end))"
     }

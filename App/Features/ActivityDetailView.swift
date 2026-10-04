@@ -38,7 +38,10 @@ struct ActivityDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: item.symbol)
-                    .font(.system(size: 15))
+                    .font(.subheadline)
+                    // Im festen Kreis darf das Symbol mitwachsen, aber nicht
+                    // über den Rand hinaus.
+                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
                     .foregroundStyle(.white)
                     .frame(width: 30, height: 30)
                     .background(Circle().fill(.white.opacity(0.22)))
@@ -122,12 +125,12 @@ struct ActivityDetailView: View {
 
     private var destinationTitle: String {
         switch item.activityType {
-        case "documents": return "Dateien der Veranstaltung"
-        case "forum": return "Forum der Veranstaltung"
-        case "news": return "Aushang der Veranstaltung"
-        case "wiki": return "Wiki der Veranstaltung"
-        case "schedule": return "Termine der Veranstaltung"
-        default: return "Zur Veranstaltung"
+        case "documents": return String(localized: "Dateien der Veranstaltung")
+        case "forum": return String(localized: "Forum der Veranstaltung")
+        case "news": return String(localized: "Aushang der Veranstaltung")
+        case "wiki": return String(localized: "Wiki der Veranstaltung")
+        case "schedule": return String(localized: "Termine der Veranstaltung")
+        default: return String(localized: "Zur Veranstaltung")
         }
     }
 

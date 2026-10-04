@@ -187,8 +187,10 @@ struct SemesterStats {
 
     var weeklyHoursLabel: String {
         let hours = Double(weeklyMinutes) / 60
+        // Mit Komma auf Deutsch, mit Punkt auf Englisch - das Format folgt der
+        // Sprache, statt den Punkt von Hand zu ersetzen.
         return hours < 10
-            ? String(format: "%.1f", hours).replacingOccurrences(of: ".", with: ",")
+            ? hours.formatted(.number.precision(.fractionLength(1)))
             : String(Int(hours.rounded()))
     }
 
@@ -286,7 +288,7 @@ struct SemesterStats {
             guard let id = item.courseID else { continue }
             let name = item.courseName
                 ?? courses.first { $0.id == id }?.shortTitle
-                ?? "Veranstaltung"
+                ?? String(localized: "Veranstaltung")
             tally[id, default: (name: name, count: 0)].count += 1
         }
         return tally
@@ -314,7 +316,7 @@ struct StatTile: View {
                 .monospacedDigit()
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
-            Text(label)
+            Text(label.localizedUI)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -326,7 +328,7 @@ struct StatTile: View {
                 .fill(Color(.secondarySystemGroupedBackground))
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(value) \(label)")
+        .accessibilityLabel("\(value) \(label.localizedUI)")
     }
 }
 
@@ -334,9 +336,9 @@ struct SemesterProgressCard: View {
     let progress: SemesterStats.Progress
 
     private var headline: String {
-        guard progress.hasStarted else { return "Die Vorlesungszeit hat noch nicht begonnen" }
-        if progress.daysRemaining == 0 { return "Die Vorlesungszeit ist vorbei" }
-        return "Noch \(progress.daysRemaining) Tage Vorlesungszeit"
+        guard progress.hasStarted else { return String(localized: "Die Vorlesungszeit hat noch nicht begonnen") }
+        if progress.daysRemaining == 0 { return String(localized: "Die Vorlesungszeit ist vorbei") }
+        return String(localized: "Noch \(progress.daysRemaining) Tage Vorlesungszeit")
     }
 
     var body: some View {
@@ -380,14 +382,14 @@ struct WeekLoadCard: View {
     }
 
     private var subtitle: String {
-        if stats.weeklyMinutes == 0 { return "Kein Stundenplan hinterlegt" }
+        if stats.weeklyMinutes == 0 { return String(localized: "Kein Stundenplan hinterlegt") }
         var parts: [String] = []
         if let busiest = stats.busiestDay, busiest.minutes > 0 {
-            parts.append("Vollster Tag: \(Weekday.full(busiest.weekday))")
+            parts.append(String(localized: "Vollster Tag: \(Weekday.full(busiest.weekday))"))
         }
         let free = stats.freeDays
         if !free.isEmpty {
-            parts.append(free.count == 1 ? "\(free[0]) ist frei" : "Frei: \(free.joined(separator: ", "))")
+            parts.append(free.count == 1 ? String(localized: "\(free[0]) ist frei") : String(localized: "Frei: \(free.joined(separator: ", "))"))
         }
         return parts.joined(separator: " · ")
     }
@@ -436,9 +438,9 @@ struct ActivityCard: View {
 
     private var streakText: String {
         switch stats.streak {
-        case 0: return "Zuletzt war es ruhig."
-        case 1: return "Heute war etwas los."
-        default: return "\(stats.streak) Tage in Folge etwas los."
+        case 0: return String(localized: "Zuletzt war es ruhig.")
+        case 1: return String(localized: "Heute war etwas los.")
+        default: return String(localized: "\(stats.streak) Tage in Folge etwas los.")
         }
     }
 
@@ -453,7 +455,9 @@ struct ActivityCard: View {
                                                      : Color(.tertiarySystemFill))
                                 .frame(height: max(3, 56 * CGFloat(week.count) / CGFloat(maximum)))
                             Text(week.start.formatted(.dateTime.day().month(.narrow)))
-                                .font(.system(size: 8))
+                                .font(.caption2)
+                                .minimumScaleFactor(0.6)
+                                .lineLimit(1)
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)

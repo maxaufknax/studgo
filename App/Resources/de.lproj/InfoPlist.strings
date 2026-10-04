@@ -1,0 +1,4 @@
+/* StudGo – deutsche Fassung der Texte aus Info.plist (wortgleich mit project.yml). */
+
+"NSCalendarsFullAccessUsageDescription" = "StudGo trägt deinen Stundenplan in einen eigenen Kalender „StudGo“ ein und hält ihn aktuell. Deine übrigen Termine liest StudGo nicht.";
+"NSCalendarsUsageDescription" = "StudGo trägt deinen Stundenplan in einen eigenen Kalender „StudGo“ ein und hält ihn aktuell. Deine übrigen Termine liest StudGo nicht.";

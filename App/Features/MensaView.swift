@@ -363,7 +363,7 @@ struct MensaMealDetail: View {
                             HStack {
                                 Text(prices[index].label)
                                 Spacer(minLength: 8)
-                                Text(String(format: "%.2f €", prices[index].price))
+                                Text(prices[index].price, format: .currency(code: "EUR"))
                                     .monospacedDigit()
                                     .fontWeight(.medium)
                             }

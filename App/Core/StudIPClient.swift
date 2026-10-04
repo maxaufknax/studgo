@@ -67,7 +67,7 @@ struct StudIPClient {
     func currentUser() async throws -> StudIPUser {
         let document = try await get("/v1/users/me")
         guard let resource = document.first, let user = StudIPUser(resource) else {
-            throw APIError.decoding("Profil konnte nicht gelesen werden")
+            throw APIError.decoding(String(localized: "Profil konnte nicht gelesen werden"))
         }
         return user
     }
@@ -75,7 +75,7 @@ struct StudIPClient {
     func user(id: String) async throws -> StudIPUser {
         let document = try await get("/v1/users/\(id)")
         guard let resource = document.first, let user = StudIPUser(resource) else {
-            throw APIError.decoding("Person konnte nicht gelesen werden")
+            throw APIError.decoding(String(localized: "Person konnte nicht gelesen werden"))
         }
         return user
     }
@@ -97,7 +97,7 @@ struct StudIPClient {
     func course(id: String) async throws -> Course {
         let document = try await get("/v1/courses/\(id)")
         guard let resource = document.first, let course = Course(resource) else {
-            throw APIError.decoding("Veranstaltung konnte nicht gelesen werden")
+            throw APIError.decoding(String(localized: "Veranstaltung konnte nicht gelesen werden"))
         }
         return course
     }
@@ -677,7 +677,7 @@ private extension String {
         let cleaned = components(separatedBy: CharacterSet(charactersIn: "/\\:*?\"<>|"))
             .joined(separator: "-")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return cleaned.isEmpty ? "Datei" : cleaned
+        return cleaned.isEmpty ? String(localized: "Datei") : cleaned
     }
 }
 

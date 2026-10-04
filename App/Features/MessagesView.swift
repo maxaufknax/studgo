@@ -129,11 +129,11 @@ struct MailboxView: View {
                 Menu {
                     Picker("Postfach", selection: $box) {
                         ForEach(Box.allCases) { option in
-                            Label(option.rawValue, systemImage: option.symbol).tag(option)
+                            Label(option.rawValue.localizedUI, systemImage: option.symbol).tag(option)
                         }
                     }
                 } label: {
-                    Label(box.rawValue, systemImage: "line.3.horizontal.decrease.circle")
+                    Label(box.rawValue.localizedUI, systemImage: "line.3.horizontal.decrease.circle")
                         .font(.footnote)
                 }
             }
@@ -244,11 +244,11 @@ struct BlubberInboxView: View {
         var hint: String {
             switch self {
             case .mine:
-                return "Der globale Blubber, deine Direktnachrichten und die Ströme deiner Veranstaltungen und Studiengruppen, dieselbe Auswahl wie unter „Blubber“ in Stud.IP."
+                return String(localized: "Der globale Blubber, deine Direktnachrichten und die Ströme deiner Veranstaltungen und Studiengruppen, dieselbe Auswahl wie unter „Blubber“ in Stud.IP.")
             case .courses:
-                return "Nur, was in belegten Veranstaltungen und Studiengruppen geschrieben wurde."
+                return String(localized: "Nur, was in belegten Veranstaltungen und Studiengruppen geschrieben wurde.")
             case .openStream:
-                return "Der offene Strom der ganzen Universität. Alle Angemeldeten können mitlesen."
+                return String(localized: "Der offene Strom der ganzen Universität. Alle Angemeldeten können mitlesen.")
             }
         }
     }
@@ -329,7 +329,7 @@ struct BlubberInboxView: View {
                         }
                     }
                 } header: {
-                    Text(group.title)
+                    Text(group.title.localizedUI)
                 } footer: {
                     if group.title == grouped.last?.title {
                         Text(scope.hint)
@@ -359,11 +359,11 @@ struct BlubberInboxView: View {
                 Menu {
                     Picker("Bereich", selection: $scope) {
                         ForEach(Scope.allCases) { option in
-                            Label(option.rawValue, systemImage: option.symbol).tag(option)
+                            Label(option.rawValue.localizedUI, systemImage: option.symbol).tag(option)
                         }
                     }
                 } label: {
-                    Label(scope.rawValue, systemImage: "line.3.horizontal.decrease.circle")
+                    Label(scope.rawValue.localizedUI, systemImage: "line.3.horizontal.decrease.circle")
                         .font(.footnote)
                 }
             }
@@ -431,8 +431,8 @@ struct BlubberThreadRow: View {
         let preview = thread.preview
         if !preview.isEmpty { return preview }
         return thread.isGlobal
-            ? "Der offene Strom der ganzen Universität"
-            : "Unterhaltung öffnen"
+            ? String(localized: "Der offene Strom der ganzen Universität")
+            : String(localized: "Unterhaltung öffnen")
     }
 
     var body: some View {
@@ -440,7 +440,8 @@ struct BlubberThreadRow: View {
             ZStack(alignment: .topTrailing) {
                 if thread.isGlobal {
                     Image(systemName: "globe.europe.africa.fill")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.body.weight(.semibold))
+                        .dynamicTypeSize(...DynamicTypeSize.xLarge)
                         .foregroundStyle(.white)
                         .frame(width: 38, height: 38)
                         .background(Circle().fill(Color.accentColor))
@@ -471,7 +472,7 @@ struct BlubberThreadRow: View {
                          symbol: thread.isGlobal ? "globe.europe.africa.fill" : thread.context.symbol,
                          color: Tint.color(thread.tintSeed))
                     if thread.unseenComments > 0 {
-                        Chip(text: "\(thread.unseenComments) neu", color: .accentColor)
+                        Chip(text: String(localized: "\(thread.unseenComments) neu"), color: .accentColor)
                     }
                 }
             }
@@ -762,7 +763,7 @@ struct BlubberThreadView: View {
                         ProgressView().frame(width: 30, height: 30)
                     } else {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 30))
+                            .font(.title)
                     }
                 }
                 .disabled(!canSend)
@@ -850,7 +851,7 @@ struct BlubberCommentBubble: View {
                 InitialsBadge(initials: comment.initials, size: 28)
                     .onTapGesture { onAuthorTap?() }
                     .accessibilityAddTraits(.isButton)
-                    .accessibilityLabel("Profil von \(comment.authorName ?? "dieser Person")")
+                    .accessibilityLabel("Profil von \(comment.authorName ?? String(localized: "dieser Person"))")
             }
 
             VStack(alignment: isOwn ? .trailing : .leading, spacing: 3) {
@@ -919,7 +920,7 @@ struct MessageRow: View {
                         .lineLimit(1)
                 }
                 if let person = message.counterpart(outgoing: outgoing) {
-                    Text(outgoing ? "An: \(person)" : person)
+                    Text(outgoing ? String(localized: "An: \(person)") : person)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -942,7 +943,7 @@ struct MessageRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(message.isRead || outgoing
                             ? message.subject
-                            : "Ungelesen, \(message.subject)")
+                            : String(localized: "Ungelesen, \(message.subject)"))
     }
 }
 
@@ -965,7 +966,7 @@ struct MessageDetailView: View {
         return sender == me
     }
 
-    private var person: String { message.counterpart(outgoing: outgoing) ?? "Unbekannt" }
+    private var person: String { message.counterpart(outgoing: outgoing) ?? String(localized: "Unbekannt") }
 
     var body: some View {
         ScrollView {
@@ -975,7 +976,7 @@ struct MessageDetailView: View {
                 HStack(spacing: 10) {
                     InitialsBadge(initials: initials, size: 36)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(outgoing ? "An: \(person)" : person).font(.subheadline)
+                        Text(outgoing ? String(localized: "An: \(person)") : person).font(.subheadline)
                         if let sentAt = message.sentAt {
                             Text(sentAt, format: .dateTime.day().month(.wide).year().hour().minute())
                                 .font(.caption)

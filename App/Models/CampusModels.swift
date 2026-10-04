@@ -21,11 +21,11 @@ struct BlubberThread: Identifiable, Equatable, Hashable {
 
         var label: String {
             switch self {
-            case .privateChat: return "Direktnachricht"
-            case .course: return "Veranstaltung"
-            case .institute: return "Einrichtung"
-            case .publicStream: return "Öffentlich"
-            case .unknown: return "Faden"
+            case .privateChat: return String(localized: "Direktnachricht")
+            case .course: return String(localized: "Veranstaltung")
+            case .institute: return String(localized: "Einrichtung")
+            case .publicStream: return String(localized: "Öffentlich")
+            case .unknown: return String(localized: "Faden")
             }
         }
 
@@ -88,7 +88,7 @@ struct BlubberThread: Identifiable, Equatable, Hashable {
         // `name` ist bei privaten Fäden gelegentlich leer - dann trägt der
         // Anfangsbeitrag die Überschrift, sonst stünde dort nichts.
         let given = resource.string("name")?.nilIfEmpty
-        name = given ?? StudipMarkup.plain(from: content).firstLine.nilIfEmpty ?? "Ohne Titel"
+        name = given ?? StudipMarkup.plain(from: content).firstLine.nilIfEmpty ?? String(localized: "Ohne Titel")
     }
 
     /// Der **globale Blubber** der Installation.
@@ -105,7 +105,7 @@ struct BlubberThread: Identifiable, Equatable, Hashable {
     /// bei leerem Aufschlag vorkommt -, stünde dort sonst „Ohne Titel".
     var displayName: String {
         guard isGlobal else { return name }
-        return name == "Ohne Titel" ? "Globaler Blubber" : name
+        return name == String(localized: "Ohne Titel") ? String(localized: "Globaler Blubber") : name
     }
 
     /// Faden mit ungelesenen Kommentaren oder neuer als der letzte Besuch.
@@ -190,7 +190,7 @@ struct ActivityItem: Identifiable, Equatable {
         // **roh** behalten: Was davon Auszeichnung ist, entscheidet erst die
         // Anzeige - in der Liste eine Zeile, in der Detailansicht alles.
         rawTitle = resource.string("title") ?? ""
-        title = StudipMarkup.plain(from: rawTitle).nilIfEmpty ?? "Aktivität"
+        title = StudipMarkup.plain(from: rawTitle).nilIfEmpty ?? String(localized: "Aktivität")
         rawContent = resource.string("content") ?? ""
         content = StudipMarkup.plain(from: rawContent)
         verb = resource.string("verb") ?? ""
@@ -225,14 +225,14 @@ struct ActivityItem: Identifiable, Equatable {
 
     var kindLabel: String {
         switch activityType {
-        case "documents": return "Datei"
-        case "forum": return "Forum"
-        case "news": return "Ankündigung"
-        case "wiki": return "Wiki"
-        case "schedule": return "Termin"
-        case "participants": return "Teilnahme"
-        case "message": return "Nachricht"
-        default: return "Neu"
+        case "documents": return String(localized: "Datei")
+        case "forum": return String(localized: "Forum")
+        case "news": return String(localized: "Ankündigung")
+        case "wiki": return String(localized: "Wiki")
+        case "schedule": return String(localized: "Termin")
+        case "participants": return String(localized: "Teilnahme")
+        case "message": return String(localized: "Nachricht")
+        default: return String(localized: "Neu")
         }
     }
 
@@ -249,7 +249,7 @@ struct ForumCategory: Identifiable, Equatable, Hashable {
     init?(_ resource: Resource) {
         guard resource.type == "forum-categories" else { return nil }
         id = resource.id
-        title = resource.string("title")?.nilIfEmpty ?? "Bereich"
+        title = resource.string("title")?.nilIfEmpty ?? String(localized: "Bereich")
         position = resource.int("position") ?? 0
     }
 }
@@ -270,7 +270,7 @@ struct ForumEntry: Identifiable, Equatable, Hashable {
     init?(_ resource: Resource, author: Resource? = nil) {
         guard resource.type == "forum-entries" else { return nil }
         id = resource.id
-        title = resource.string("title")?.nilIfEmpty ?? "Beitrag"
+        title = resource.string("title")?.nilIfEmpty ?? String(localized: "Beitrag")
         content = resource.string("content") ?? ""
         authorID = author?.id ?? resource.relatedID("author") ?? resource.relatedID("user")
         authorName = author.flatMap { $0.string("formatted-name") ?? $0.string("username") }
@@ -320,7 +320,7 @@ struct Institute: Identifiable, Equatable, Hashable {
     init?(_ resource: Resource) {
         guard resource.type == "institutes" else { return nil }
         id = resource.id
-        name = resource.string("name")?.nilIfEmpty ?? "Einrichtung"
+        name = resource.string("name")?.nilIfEmpty ?? String(localized: "Einrichtung")
         street = resource.string("street")?.nilIfEmpty
         city = resource.string("city")?.nilIfEmpty
         phone = resource.string("phone")?.nilIfEmpty
@@ -362,10 +362,10 @@ struct CourseMembership: Identifiable, Equatable {
 
     var roleLabel: String {
         switch permission {
-        case "dozent": return "Lehrende:r"
-        case "tutor": return "Tutor:in"
-        case "autor": return "Teilnehmend"
-        case "user": return "Lesend"
+        case "dozent": return String(localized: "Lehrende:r")
+        case "tutor": return String(localized: "Tutor:in")
+        case "autor": return String(localized: "Teilnehmend")
+        case "user": return String(localized: "Lesend")
         default: return permission
         }
     }
@@ -384,7 +384,7 @@ struct Contact: Identifiable, Equatable, Hashable {
         guard resource.type == "users" else { return nil }
         id = resource.id
         name = resource.string("formatted-name")?.nilIfEmpty
-            ?? resource.string("username")?.nilIfEmpty ?? "Unbekannt"
+            ?? resource.string("username")?.nilIfEmpty ?? String(localized: "Unbekannt")
         username = resource.string("username")?.nilIfEmpty
         email = resource.string("email")?.nilIfEmpty
     }
@@ -427,7 +427,7 @@ struct ConsultationBlock: Identifiable, Equatable, Hashable {
     }
 
     var dayLabel: String {
-        guard let start else { return "Sprechstunde" }
+        guard let start else { return String(localized: "Sprechstunde") }
         return Format.dayShort(start)
     }
 }

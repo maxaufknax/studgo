@@ -8,16 +8,21 @@ import Foundation
 /// SwiftUI-Ansicht zu. Hier steht sie unabhängig und lässt sich damit auch
 /// ausserhalb von Xcode übersetzen und prüfen.
 enum Weekday {
-    static let shortNames = ["", "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-    static let fullNames = ["", "Montag", "Dienstag", "Mittwoch",
-                            "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+    static let shortNames = ["", String(localized: "Mo"), String(localized: "Di"),
+                             String(localized: "Mi"), String(localized: "Do"),
+                             String(localized: "Fr"), String(localized: "Sa"),
+                             String(localized: "So")]
+    static let fullNames = ["", String(localized: "Montag"), String(localized: "Dienstag"),
+                            String(localized: "Mittwoch"), String(localized: "Donnerstag"),
+                            String(localized: "Freitag"), String(localized: "Samstag"),
+                            String(localized: "Sonntag")]
 
     static func short(_ day: Int) -> String {
         shortNames.indices.contains(day) ? shortNames[day] : "?"
     }
 
     static func full(_ day: Int) -> String {
-        fullNames.indices.contains(day) ? fullNames[day] : "Unbekannt"
+        fullNames.indices.contains(day) ? fullNames[day] : String(localized: "Unbekannt")
     }
 
     /// `Calendar` zählt 1 = Sonntag, Stud.IP 1 = Montag.

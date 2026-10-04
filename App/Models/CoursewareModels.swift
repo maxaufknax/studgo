@@ -27,7 +27,7 @@ struct CoursewareChapter: Identifiable, Equatable, Hashable {
     init?(_ resource: Resource) {
         guard resource.type == "courseware-structural-elements" else { return nil }
         id = resource.id
-        title = resource.string("title")?.nilIfEmpty ?? "Kapitel"
+        title = resource.string("title")?.nilIfEmpty ?? String(localized: "Kapitel")
         let payload = resource.attributes["payload"] as? [String: Any]
         summary = (payload?["description"] as? String).map(StudipMarkup.plain)?.nilIfEmpty
         canVisit = resource.bool("can-visit")
@@ -50,7 +50,7 @@ struct CoursewareSection: Identifiable, Equatable, Hashable {
         kind = resource.string("container-type") ?? ""
         let payload = resource.attributes["payload"] as? [String: Any]
         let name = (payload?["title"] as? String).map(StudipMarkup.plain)?.nilIfEmpty
-        title = name ?? resource.string("title")?.nilIfEmpty ?? "Abschnitt"
+        title = name ?? resource.string("title")?.nilIfEmpty ?? String(localized: "Abschnitt")
         position = resource.int("position") ?? 0
     }
 }

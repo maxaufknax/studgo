@@ -162,7 +162,7 @@ final class ModerationStore {
             return .sent
         } catch {
             guard let url = Self.mailFallback(for: report) else {
-                return .failed("Die Meldung liess sich nicht zustellen. Bitte schreib an \(AppConfig.moderationMail).")
+                return .failed(String(localized: "Die Meldung liess sich nicht zustellen. Bitte schreib an \(AppConfig.moderationMail)."))
             }
             return .needsMail(url)
         }

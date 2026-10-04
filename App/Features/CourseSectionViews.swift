@@ -363,7 +363,7 @@ struct ForumEntryView: View {
                     if isSending {
                         ProgressView().frame(width: 30, height: 30)
                     } else {
-                        Image(systemName: "arrow.up.circle.fill").font(.system(size: 30))
+                        Image(systemName: "arrow.up.circle.fill").font(.title)
                     }
                 }
                 .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
@@ -413,7 +413,7 @@ struct CourseWikiView: View {
             PushLink(value: Route.wikiPage(page)) {
                 RowLabel(symbol: "doc.text",
                          title: page.name,
-                         subtitle: page.changedAt.map { "Geändert \(Format.listDate($0))" },
+                         subtitle: page.changedAt.map { String(localized: "Geändert \(Format.listDate($0))") },
                          detail: "v\(page.version)")
             }
         }

@@ -65,7 +65,7 @@ enum BackgroundSync {
 
         if fresh.count > maxAlerts {
             // Gesammelt statt einzeln - sonst wäre der Sperrbildschirm voll.
-            await Notifications.post(title: "\(fresh.count) neue Nachrichten",
+            await Notifications.post(title: String(localized: "\(fresh.count) neue Nachrichten"),
                                      body: fresh.prefix(3)
                                         .map { $0.counterpart(outgoing: false) ?? $0.subject }
                                         .joined(separator: ", "),
@@ -73,7 +73,7 @@ enum BackgroundSync {
         } else {
             for message in fresh.reversed() {
                 await Notifications.post(title: message.counterpart(outgoing: false)
-                                            ?? "Neue Nachricht",
+                                            ?? String(localized: "Neue Nachricht"),
                                          body: "\(message.subject)\n\(message.preview.firstLine)",
                                          thread: "studgo.inbox")
             }
@@ -102,7 +102,7 @@ enum BackgroundSync {
         guard !fresh.isEmpty else { return }
 
         if fresh.count > maxAlerts {
-            await Notifications.post(title: "Neues in \(fresh.count) Unterhaltungen",
+            await Notifications.post(title: String(localized: "Neues in \(fresh.count) Unterhaltungen"),
                                      body: fresh.prefix(3).map(\.name).joined(separator: ", "),
                                      thread: "studgo.blubber")
         } else {
@@ -111,7 +111,7 @@ enum BackgroundSync {
                 await Notifications.post(
                     title: thread.name,
                     body: count > 0
-                        ? (count == 1 ? "1 neuer Beitrag" : "\(count) neue Beiträge")
+                        ? (count == 1 ? String(localized: "1 neuer Beitrag") : String(localized: "\(count) neue Beiträge"))
                         : thread.preview.firstLine,
                     thread: "studgo.blubber")
             }

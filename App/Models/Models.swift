@@ -44,7 +44,7 @@ struct Course: Identifiable, Equatable {
     init?(_ resource: Resource) {
         guard resource.type == "courses" else { return nil }
         id = resource.id
-        title = resource.string("title") ?? "Ohne Titel"
+        title = resource.string("title") ?? String(localized: "Ohne Titel")
         subtitle = resource.string("subtitle")?.nilIfEmpty
         courseNumber = resource.string("course-number")?.nilIfEmpty
         typeID = resource.int("course-type")
@@ -159,7 +159,7 @@ struct ScheduleEntry: Identifiable, Equatable {
         let courseCycle = resource.type == "seminar-cycle-dates"
         guard resource.type == "schedule-entries" || courseCycle else { return nil }
         id = resource.id
-        title = resource.string("title") ?? "Termin"
+        title = resource.string("title") ?? String(localized: "Termin")
         description = resource.string("description")?.nilIfEmpty
         weekday = resource.int("weekday") ?? 1
         start = resource.string("start") ?? "00:00"
@@ -256,7 +256,7 @@ struct CourseEvent: Identifiable, Equatable {
         guard resource.type == "course-events" || resource.type == "calendar-events",
               let start = resource.date("start") else { return nil }
         id = resource.id
-        title = resource.string("title")?.nilIfEmpty ?? "Termin"
+        title = resource.string("title")?.nilIfEmpty ?? String(localized: "Termin")
         description = resource.string("description")?.nilIfEmpty
         self.start = start
         end = resource.date("end") ?? start
@@ -290,7 +290,7 @@ struct CourseEvent: Identifiable, Equatable {
         end = day.addingTimeInterval(TimeInterval(entry.endMinutes * 60))
         location = entry.location
         category = nil
-        recurrence = entry.isCourse ? "wöchentlich" : nil
+        recurrence = entry.isCourse ? String(localized: "wöchentlich") : nil
         // Ob eine Sitzung ausfällt, weiß nur `/v1/courses/{id}/events` -
         // das wäre eine Anfrage je Veranstaltung.
         isCancelled = false
@@ -315,7 +315,7 @@ struct CourseEvent: Identifiable, Equatable {
         if let mark, let range = name.range(of: mark, options: .caseInsensitive) {
             name.removeSubrange(range)
         }
-        title = name.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "Termin"
+        title = name.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? String(localized: "Termin")
 
         description = event.description
         start = event.start
@@ -358,7 +358,7 @@ struct Message: Identifiable, Equatable {
     init?(_ resource: Resource, sender: Resource? = nil, recipients: [Resource] = []) {
         guard resource.type == "messages" else { return nil }
         id = resource.id
-        subject = resource.string("subject")?.nilIfEmpty ?? "(kein Betreff)"
+        subject = resource.string("subject")?.nilIfEmpty ?? String(localized: "(kein Betreff)")
         body = resource.string("message") ?? ""
         sentAt = resource.date("mkdate")
         isRead = resource.bool("is-read")
@@ -392,7 +392,7 @@ struct NewsItem: Identifiable, Equatable {
     init?(_ resource: Resource, author: Resource? = nil) {
         guard resource.type == "news" else { return nil }
         id = resource.id
-        title = resource.string("title")?.nilIfEmpty ?? "Ankündigung"
+        title = resource.string("title")?.nilIfEmpty ?? String(localized: "Ankündigung")
         content = resource.string("content") ?? ""
         publishedAt = resource.date("publication-start") ?? resource.date("mkdate")
         authorName = author.flatMap { $0.string("formatted-name") ?? $0.string("username") }
@@ -466,7 +466,7 @@ struct Folder: Identifiable, Equatable, Hashable {
     init?(_ resource: Resource) {
         guard resource.type == "folders" else { return nil }
         id = resource.id
-        name = resource.string("name")?.nilIfEmpty ?? "Ordner"
+        name = resource.string("name")?.nilIfEmpty ?? String(localized: "Ordner")
         description = resource.string("description")?.nilIfEmpty
         isEmpty = resource.bool("is-empty")
         isReadable = resource.bool("is-readable")
@@ -498,7 +498,7 @@ struct FileRef: Identifiable, Equatable, Hashable {
     init?(_ resource: Resource) {
         guard resource.type == "file-refs" else { return nil }
         id = resource.id
-        name = resource.string("name")?.nilIfEmpty ?? "Datei"
+        name = resource.string("name")?.nilIfEmpty ?? String(localized: "Datei")
         mimeType = resource.string("mime-type")?.nilIfEmpty
         size = resource.int("filesize")
         changedAt = resource.date("chdate")
@@ -546,7 +546,7 @@ struct Participant: Identifiable, Equatable {
     init?(membership: Resource, user: Resource?) {
         guard membership.type == "course-memberships" else { return nil }
         id = membership.id
-        name = user?.string("formatted-name") ?? user?.string("username") ?? "Unbekannt"
+        name = user?.string("formatted-name") ?? user?.string("username") ?? String(localized: "Unbekannt")
         username = user?.string("username")
         userID = user?.id
         label = membership.string("label")?.nilIfEmpty
@@ -557,11 +557,11 @@ struct Participant: Identifiable, Equatable {
     /// Ungefiltert stand das so in der Teilnehmendenliste - hier der Klartext.
     var role: String {
         switch permission {
-        case "dozent": return "Lehrende"
-        case "tutor": return "Tutorinnen und Tutoren"
-        case "autor": return "Studierende"
-        case "user": return "Lesende"
-        default: return "Weitere"
+        case "dozent": return String(localized: "Lehrende")
+        case "tutor": return String(localized: "Tutorinnen und Tutoren")
+        case "autor": return String(localized: "Studierende")
+        case "user": return String(localized: "Lesende")
+        default: return String(localized: "Weitere")
         }
     }
 

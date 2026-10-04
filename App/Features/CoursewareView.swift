@@ -301,7 +301,7 @@ struct CoursewareBlockRow: View {
         case .unsupported:
             RowLabel(symbol: "square.dashed",
                      title: block.title ?? block.typeTitle,
-                     subtitle: "\(block.typeTitle), in Stud.IP ansehen")
+                     subtitle: String(localized: "\(block.typeTitle), in Stud.IP ansehen"))
         }
     }
 

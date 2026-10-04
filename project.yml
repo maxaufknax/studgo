@@ -3,6 +3,9 @@
 name: StudGo
 options:
   bundleIdPrefix: de.maxaufknax
+  # Entwicklungssprache Deutsch: Die Schlüssel der Übersetzungen sind die
+  # deutschen Texte im Quelltext, en.lproj übersetzt sie (seit 1.8.2).
+  developmentLanguage: de
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true

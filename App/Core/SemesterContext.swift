@@ -104,20 +104,20 @@ struct SemesterContext {
     func emptyExplanation(on date: Date = Date()) -> String {
         switch phase(on: date) {
         case .lectures:
-            return "In den nächsten Wochen steht nichts an."
+            return String(localized: "In den nächsten Wochen steht nichts an.")
         case .semesterBreak(let title, let start):
             guard let start else {
-                return "Vorlesungsfreie Zeit. Im Stundenplan steht deshalb nichts."
+                return String(localized: "Vorlesungsfreie Zeit. Im Stundenplan steht deshalb nichts.")
             }
             let day = start.formatted(.dateTime.day().month(.wide).year())
             let days = daysUntilLectures(from: date)
-            let countdown = days.map { $0 == 1 ? " (morgen)" : " (in \($0) Tagen)" } ?? ""
+            let countdown = days.map { $0 == 1 ? String(localized: " (morgen)") : String(localized: " (in \($0) Tagen)") } ?? ""
             guard let title else {
-                return "Vorlesungsfreie Zeit. Die Vorlesungen beginnen wieder am \(day)\(countdown)."
+                return String(localized: "Vorlesungsfreie Zeit. Die Vorlesungen beginnen wieder am \(day)\(countdown).")
             }
-            return "Vorlesungsfreie Zeit. Das \(title) beginnt am \(day)\(countdown)."
+            return String(localized: "Vorlesungsfreie Zeit. Das \(title) beginnt am \(day)\(countdown).")
         case .unknown:
-            return "Es konnten keine Semesterdaten geladen werden."
+            return String(localized: "Es konnten keine Semesterdaten geladen werden.")
         }
     }
 }

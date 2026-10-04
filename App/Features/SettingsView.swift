@@ -24,8 +24,8 @@ struct SettingsView: View {
         if preferences.eventReminders {
             parts.append(Preferences.leadLabel(preferences.leadMinutes))
         }
-        if preferences.mailboxAlerts { parts.append("Postfach") }
-        return parts.isEmpty ? "Aus" : parts.joined(separator: " · ")
+        if preferences.mailboxAlerts { parts.append(String(localized: "Postfach")) }
+        return parts.isEmpty ? String(localized: "Aus") : parts.joined(separator: " · ")
     }
 
     /// Die anderen Systeme der LUH.
@@ -251,7 +251,7 @@ struct SettingsView: View {
                                  title: "Melden und Blockieren",
                                  subtitle: moderation.blocklist.isEmpty
                                     ? "Filter und Nutzungsbedingungen"
-                                    : "\(moderation.blocklist.count) blockiert")
+                                    : String(localized: "\(moderation.blocklist.count) blockiert"))
                     }
                     Button {
                         // Falsche Inhalte **in Stud.IP** - veraltete Daten,
@@ -500,7 +500,7 @@ struct MailSetupView: View {
     private func rows(_ entries: [Entry]) -> some View {
         ForEach(entries) { entry in
             HStack {
-                Text(entry.label)
+                Text(entry.label.localizedUI)
                 Spacer(minLength: 8)
                 Text(entry.value)
                     .foregroundStyle(.secondary)
@@ -513,7 +513,7 @@ struct MailSetupView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.tint)
-                .accessibilityLabel("\(entry.label) kopieren")
+                .accessibilityLabel("\(entry.label.localizedUI) kopieren")
             }
             .font(.callout)
         }
@@ -570,8 +570,8 @@ struct NotificationSettingsView: View {
             } header: {
                 Text("Termine")
             } footer: {
-                Text("Wird auf dem Gerät geplant und funktioniert auch ohne Empfang. Fällt eine Sitzung aus, verschwindet die Erinnerung beim nächsten Laden des Kalenders."
-                     + (pendingCount > 0 ? " Zurzeit sind \(pendingCount) Erinnerungen vorgemerkt." : ""))
+                Text(String(localized: "Wird auf dem Gerät geplant und funktioniert auch ohne Empfang. Fällt eine Sitzung aus, verschwindet die Erinnerung beim nächsten Laden des Kalenders.")
+                     + (pendingCount > 0 ? String(localized: " Zurzeit sind \(pendingCount) Erinnerungen vorgemerkt.") : ""))
             }
 
             Section {

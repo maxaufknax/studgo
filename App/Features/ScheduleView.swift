@@ -35,9 +35,9 @@ struct ScheduleView: View {
 
         var label: String {
             switch self {
-            case .three: return "3 Tage"
-            case .workWeek: return "Mo–Fr"
-            case .full: return "ganze Woche"
+            case .three: return String(localized: "3 Tage")
+            case .workWeek: return String(localized: "Mo–Fr")
+            case .full: return String(localized: "ganze Woche")
             }
         }
     }
@@ -198,9 +198,9 @@ struct ScheduleView: View {
                     if upcomingHasCourses {
                         Divider()
                         Picker("Semester", selection: planBinding) {
-                            Text(context.current()?.title ?? "Laufendes Semester")
+                            Text(context.current()?.title ?? String(localized: "Laufendes Semester"))
                                 .tag(SchedulePlanScope.current)
-                            Text(context.upcoming()?.title ?? "Kommendes Semester")
+                            Text(context.upcoming()?.title ?? String(localized: "Kommendes Semester"))
                                 .tag(SchedulePlanScope.upcoming)
                         }
                     }
@@ -349,11 +349,11 @@ struct ScheduleView: View {
         case .upcoming:
             var detail: String?
             if let start = planSemester?.lectureStart {
-                detail = "Vorlesungsbeginn \(Format.longDay(start))\(countdownSuffix)."
+                detail = String(localized: "Vorlesungsbeginn \(Format.longDay(start))\(countdownSuffix).")
             }
-            let title = name.map { "Vorschau auf \($0)" } ?? "Plan des kommenden Semesters"
+            let title = name.map { String(localized: "Vorschau auf \($0)") } ?? String(localized: "Plan des kommenden Semesters")
             let backAction: (title: String, scope: SchedulePlanScope)? =
-                (title: "Zurück zum laufenden Semester", scope: .current)
+                (title: String(localized: "Zurück zum laufenden Semester"), scope: .current)
             return PlanNote(symbol: "sparkles",
                             title: title,
                             detail: detail,
@@ -365,20 +365,20 @@ struct ScheduleView: View {
             var parts: [String] = []
             if let name {
                 if let ende = planSemester?.lectureEnd {
-                    parts.append("Im Raster steht der Plan des \(name); die Vorlesungszeit endete am \(Format.longDay(ende)).")
+                    parts.append(String(localized: "Im Raster steht der Plan des \(name); die Vorlesungszeit endete am \(Format.longDay(ende))."))
                 } else {
-                    parts.append("Im Raster steht der Plan des \(name).")
+                    parts.append(String(localized: "Im Raster steht der Plan des \(name)."))
                 }
             }
             if let next = context.upcoming(), let begin = next.lectureStart {
-                parts.append("\(next.title) beginnt am \(Format.longDay(begin))\(countdownSuffix).")
+                parts.append(String(localized: "\(next.title) beginnt am \(Format.longDay(begin))\(countdownSuffix)."))
             }
             let switchAction: (title: String, scope: SchedulePlanScope)? =
                 upcomingHasCourses
-                    ? (title: "Plan des kommenden Semesters zeigen", scope: .upcoming)
+                    ? (title: String(localized: "Plan des kommenden Semesters zeigen"), scope: .upcoming)
                     : nil
             return PlanNote(symbol: "moon.zzz",
-                            title: "Vorlesungsfreie Zeit: nichts davon findet gerade statt",
+                            title: String(localized: "Vorlesungsfreie Zeit: nichts davon findet gerade statt"),
                             detail: parts.isEmpty ? nil : parts.joined(separator: " "),
                             action: switchAction)
         }
@@ -387,7 +387,7 @@ struct ScheduleView: View {
     /// „ (in 47 Tagen)" - oder nichts, wenn sich das nicht ausrechnen lässt.
     private var countdownSuffix: String {
         guard let days = context.daysUntilLectures(), days > 0 else { return "" }
-        return days == 1 ? " (morgen)" : " (in \(days) Tagen)"
+        return days == 1 ? String(localized: " (morgen)") : String(localized: " (in \(days) Tagen)")
     }
 
     // MARK: - Tag
@@ -433,15 +433,15 @@ struct ScheduleView: View {
         // Der Feiertag vor allem anderen: „Tag der Deutschen Einheit“
         // beantwortet die Frage nach dem leeren Tag ohne raten zu müssen.
         if let holiday = HolidayCalendar.holiday(on: anchor) {
-            return "Feiertag: \(holiday.name)."
+            return String(localized: "Feiertag: \(holiday.name).")
         }
         if context.lecturePeriod(covering: anchor) == nil {
             return context.emptyExplanation(on: anchor)
         }
         if calendar.isDateInWeekend(anchor) {
-            return "Wochenende, nichts eingetragen."
+            return String(localized: "Wochenende, nichts eingetragen.")
         }
-        return "An diesem Tag steht nichts an."
+        return String(localized: "An diesem Tag steht nichts an.")
     }
 
     // MARK: - Woche
@@ -813,9 +813,9 @@ struct DayAgenda: View {
                 Chip(text: holiday.name, symbol: "sparkles", color: .orange)
             }
             if total > 0 {
-                Chip(text: "\(Int(total / 3600)) Std", symbol: "clock", color: .accentColor)
+                Chip(text: String(localized: "\(Int(total / 3600)) Std"), symbol: "clock", color: .accentColor)
             }
-            Chip(text: events.count == 1 ? "1 Termin" : "\(events.count) Termine",
+            Chip(text: events.count == 1 ? String(localized: "1 Termin") : String(localized: "\(events.count) Termine"),
                  color: .secondary)
         }
         .padding(.bottom, 2)
@@ -901,14 +901,14 @@ struct CalendarEmptyState: View {
                 ProgressView()
             } else {
                 Image(systemName: symbol)
-                    .font(.system(size: 38, weight: .light))
+                    .font(.largeTitle.weight(.light))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
                 VStack(spacing: 6) {
-                    Text(title)
+                    Text(title.localizedUI)
                         .font(.headline)
                     if !message.isEmpty {
-                        Text(message)
+                        Text(message.localizedUI)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -919,7 +919,7 @@ struct CalendarEmptyState: View {
                     Button {
                         action.perform()
                     } label: {
-                        Label(action.title, systemImage: action.symbol)
+                        Label(action.title.localizedUI, systemImage: action.symbol)
                             .font(.footnote.weight(.medium))
                     }
                     .buttonStyle(.bordered)

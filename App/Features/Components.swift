@@ -51,7 +51,7 @@ struct ContentUnavailableView: View {
     private let actions: AnyView?
 
     init(_ title: String, systemImage: String, description: Text? = nil) {
-        self.label = AnyView(Label(title, systemImage: systemImage))
+        self.label = AnyView(Label(title.localizedUI, systemImage: systemImage))
         self.description = AnyView(description ?? Text(""))
         actions = nil
     }
@@ -156,14 +156,16 @@ struct RowLabel<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
-                .font(.system(size: 17))
+                .font(.body)
                 .foregroundStyle(.tint)
-                .frame(width: 26)
+                // Mindestbreite statt fester Breite: Untereinander stehen die
+                // Symbole bündig, bei großer Schrift dürfen sie breiter werden.
+                .frame(minWidth: 26)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.body)
+                Text(title.localizedUI).font(.body)
                 if let subtitle {
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                    Text(subtitle.localizedUI).font(.caption).foregroundStyle(.secondary)
                 }
             }
 
@@ -172,7 +174,7 @@ struct RowLabel<Trailing: View>: View {
             if let detail {
                 // Kontrast (WCAG 1.4.3): Das Detail trägt Information -
                 // etwa Datum oder Größe -, `.tertiary` bleibt der Zier.
-                Text(detail).font(.caption).foregroundStyle(.secondary)
+                Text(detail.localizedUI).font(.caption).foregroundStyle(.secondary)
             }
             trailing
         }
@@ -282,8 +284,8 @@ struct SegmentedHeader<Selection: Hashable & Identifiable>: View {
     let label: (Selection) -> String
 
     var body: some View {
-        Picker(title, selection: $selection) {
-            ForEach(options) { Text(label($0)).tag($0) }
+        Picker(title.localizedUI, selection: $selection) {
+            ForEach(options) { Text(label($0).localizedUI).tag($0) }
         }
         .pickerStyle(.segmented)
         .padding(.horizontal)

@@ -223,9 +223,9 @@ extension StudIPClient {
         var thread: BlubberThread?
         do {
             thread = try await blubberThread(id: id)
-            trail.append("Faden: geladen")
+            trail.append(String(localized: "Faden: geladen"))
         } catch {
-            trail.append("Faden: \(Self.reason(error))")
+            trail.append(String(localized: "Faden: \(Self.reason(error))"))
         }
 
         // Weg 1 und 2 - die Kommentarroute.
@@ -235,7 +235,7 @@ extension StudIPClient {
                                                      limit: limit,
                                                      offset: offset,
                                                      sorted: sorted)
-                let label = sorted ? "Beiträge (sort=-mkdate)" : "Beiträge (unsortiert)"
+                let label = sorted ? String(localized: "Beiträge (sort=-mkdate)") : String(localized: "Beiträge (unsortiert)")
                 if !page.comments.isEmpty {
                     trail.append("\(label): \(page.comments.count)")
                     return BlubberConversation(thread: thread,
@@ -243,20 +243,21 @@ extension StudIPClient {
                                                hasOlder: page.hasOlder,
                                                trail: trail)
                 }
-                trail.append("\(label): keine")
+                trail.append(String(localized: "\(label): keine"))
                 // Kam eine gültige, leere Antwort *ohne* Sortierung, ist der
                 // Faden mit einiger Sicherheit wirklich leer - der zweite
                 // Anlauf mit demselben Ergebnis bringt nichts Neues.
                 if !sorted { break }
             } catch {
-                trail.append("Beiträge (\(sorted ? "sortiert" : "unsortiert")): \(Self.reason(error))")
+                let mode = sorted ? String(localized: "sortiert") : String(localized: "unsortiert")
+                trail.append(String(localized: "Beiträge (\(mode)): \(Self.reason(error))"))
             }
         }
 
         // Weg 3 - die Beiträge über die Show-Route.
         do {
             let included = try await blubberCommentsViaThread(id: id)
-            trail.append("Beiträge über den Faden: \(included.count)")
+            trail.append(String(localized: "Beiträge über den Faden: \(included.count)"))
             if !included.isEmpty {
                 // Blättern gibt es auf diesem Weg nicht: Es kam ohnehin alles.
                 return BlubberConversation(thread: thread,
@@ -265,7 +266,7 @@ extension StudIPClient {
                                            trail: trail)
             }
         } catch {
-            trail.append("Beiträge über den Faden: \(Self.reason(error))")
+            trail.append(String(localized: "Beiträge über den Faden: \(Self.reason(error))"))
         }
 
         return BlubberConversation(thread: thread, comments: [], hasOlder: false, trail: trail)
@@ -371,9 +372,9 @@ extension StudIPClient {
         switch api {
         case .http(let code, let detail):
             return detail.map { "HTTP \(code): \($0)" } ?? "HTTP \(code)"
-        case .decoding(let text): return "unlesbar (\(text))"
-        case .jsonAPI(let messages): return messages.first ?? "Fehlermeldung ohne Text"
-        case .offline: return "keine Verbindung"
+        case .decoding(let text): return String(localized: "unlesbar (\(text))")
+        case .jsonAPI(let messages): return messages.first ?? String(localized: "Fehlermeldung ohne Text")
+        case .offline: return String(localized: "keine Verbindung")
         }
     }
 }

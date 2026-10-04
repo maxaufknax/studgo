@@ -41,7 +41,7 @@ extension StudIPClient {
     func coursewareChapter(id: String) async throws -> CoursewareChapter {
         guard let chapter = try await get("/v1/courseware-structural-elements/\(id)")
             .first.flatMap(CoursewareChapter.init) else {
-            throw APIError.decoding("Kapitel konnte nicht gelesen werden")
+            throw APIError.decoding(String(localized: "Kapitel konnte nicht gelesen werden"))
         }
         return chapter
     }

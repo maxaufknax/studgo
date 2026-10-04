@@ -109,8 +109,8 @@ struct TodayView: View {
                         }
 
                         if !unread.isEmpty {
-                            SectionCard(title: unread.count == 1 ? "1 ungelesene Nachricht"
-                                                                 : "\(unread.count) ungelesene Nachrichten",
+                            SectionCard(title: unread.count == 1 ? String(localized: "1 ungelesene Nachricht")
+                                                                 : String(localized: "\(unread.count) ungelesene Nachrichten"),
                                         symbol: "envelope.badge") {
                                 rows(Array(unread.prefix(3))) { message in
                                     PushButton(value: message) {
@@ -331,9 +331,9 @@ struct TodayView: View {
     private var salutation: String {
         let name = user.givenName ?? user.formattedName
         switch Calendar.current.component(.hour, from: .now) {
-        case 5..<11: return "Guten Morgen, \(name)"
-        case 11..<18: return "Hallo, \(name)"
-        default: return "Guten Abend, \(name)"
+        case 5..<11: return String(localized: "Guten Morgen, \(name)")
+        case 11..<18: return String(localized: "Hallo, \(name)")
+        default: return String(localized: "Guten Abend, \(name)")
         }
     }
 
@@ -371,7 +371,7 @@ struct TodayView: View {
                                         plans: [EventMerge.PlanWindow(entries: plan.value ?? [],
                                                                       semester: context.current())],
                                         days: CalendarSync.horizonDays)
-        try? CalendarSync.sync(merged.filter { !hiddenEvents.isHidden($0) })
+        _ = try? CalendarSync.sync(merged.filter { !hiddenEvents.isHidden($0) })
     }
 
     private func reload(fresh: Bool) async {
@@ -484,7 +484,7 @@ struct SectionCard<Content: View>: View {
                 if let symbol {
                     Image(systemName: symbol).font(.caption2)
                 }
-                Text(title)
+                Text(title.localizedUI)
                     .font(.footnote.weight(.semibold))
             }
             .foregroundStyle(.secondary)

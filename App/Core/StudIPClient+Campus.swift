@@ -137,11 +137,11 @@ extension StudIPClient {
 
         var label: String {
             switch self {
-            case .all: return "Überall"
-            case .titleLecturerNumber: return "Titel, Lehrende, Nummer"
-            case .title: return "Titel"
-            case .lecturer: return "Lehrende"
-            case .number: return "Nummer"
+            case .all: return String(localized: "Überall")
+            case .titleLecturerNumber: return String(localized: "Titel, Lehrende, Nummer")
+            case .title: return String(localized: "Titel")
+            case .lecturer: return String(localized: "Lehrende")
+            case .number: return String(localized: "Nummer")
             }
         }
     }
@@ -246,7 +246,7 @@ extension StudIPClient {
     func institute(id: String) async throws -> Institute {
         let document = try await get("/v1/institutes/\(id)")
         guard let resource = document.first, let institute = Institute(resource) else {
-            throw APIError.decoding("Einrichtung konnte nicht gelesen werden")
+            throw APIError.decoding(String(localized: "Einrichtung konnte nicht gelesen werden"))
         }
         return institute
     }

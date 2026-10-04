@@ -25,9 +25,9 @@ struct CoursesView: View {
 
     private var choiceLabel: String {
         switch choice {
-        case .all: return "Alle Semester"
+        case .all: return String(localized: "Alle Semester")
         case .one(let id):
-            return sortedSemesters.first { $0.id == id }?.title ?? "Semester"
+            return sortedSemesters.first { $0.id == id }?.title ?? String(localized: "Semester")
         case .undecided: return "…"
         }
     }
@@ -56,7 +56,7 @@ struct CoursesView: View {
                             }
                         }
                     } header: {
-                        Text("\(filtered.count) \(filtered.count == 1 ? "Veranstaltung" : "Veranstaltungen")")
+                        Text(filtered.count == 1 ? "1 Veranstaltung" : "\(filtered.count) Veranstaltungen")
                     }
                 } else if courses.value != nil {
                     // Geladen, aber nichts drin - der Hinweis gehört in die

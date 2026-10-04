@@ -122,9 +122,9 @@ final class Preferences: ObservableObject {
 
     static func leadLabel(_ minutes: Int) -> String {
         switch minutes {
-        case 0: return "zum Beginn"
-        case 60: return "1 Stunde vorher"
-        default: return "\(minutes) Minuten vorher"
+        case 0: return String(localized: "zum Beginn")
+        case 60: return String(localized: "1 Stunde vorher")
+        default: return String(localized: "\(minutes) Minuten vorher")
         }
     }
 

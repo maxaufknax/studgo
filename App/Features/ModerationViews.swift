@@ -68,7 +68,7 @@ private struct ModerationModifier: ViewModifier {
                         if let id = target.authorID?.nilIfEmpty {
                             Button {
                                 person = PersonRef(id: id,
-                                                   name: target.authorName ?? "Person")
+                                                   name: target.authorName ?? String(localized: "Person"))
                             } label: {
                                 Label("Profil ansehen", systemImage: "person.crop.circle")
                             }
@@ -261,9 +261,9 @@ struct ReportSheet: View {
     private var intro: String {
         switch mode {
         case .report:
-            return "Die Inhalte in StudGo stammen aus Stud.IP und von anderen Angehörigen deiner Hochschule. Was gegen die Nutzungsbedingungen verstößt, kannst du hier melden."
+            return String(localized: "Die Inhalte in StudGo stammen aus Stud.IP und von anderen Angehörigen deiner Hochschule. Was gegen die Nutzungsbedingungen verstößt, kannst du hier melden.")
         case .block:
-            return "Blockierte Personen siehst du in StudGo nicht mehr, weder ihre Beiträge noch ihre Nachrichten. Aufheben lässt sich das in den Einstellungen unter „Melden und Blockieren“."
+            return String(localized: "Blockierte Personen siehst du in StudGo nicht mehr, weder ihre Beiträge noch ihre Nachrichten. Aufheben lässt sich das in den Einstellungen unter „Melden und Blockieren“.")
         }
     }
 

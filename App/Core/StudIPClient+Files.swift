@@ -212,7 +212,7 @@ struct TermsOfUse: Identifiable, Equatable, Hashable {
     init?(_ resource: Resource) {
         guard resource.type == "terms-of-use" else { return nil }
         id = resource.id
-        name = resource.string("name")?.nilIfEmpty ?? "Ohne Angabe"
+        name = resource.string("name")?.nilIfEmpty ?? String(localized: "Ohne Angabe")
         summary = resource.string("description").map(StudipMarkup.plain)?.nilIfEmpty
         isDefault = resource.bool("is-default")
     }

@@ -164,10 +164,10 @@ struct EventDetailView: View {
 
     private var durationLabel: String {
         let minutes = max(0, Int(event.end.timeIntervalSince(event.start) / 60))
-        if minutes < 60 { return "\(minutes) Min" }
+        if minutes < 60 { return String(localized: "\(minutes) Min") }
         let hours = minutes / 60
         let rest = minutes % 60
-        return rest == 0 ? "\(hours) Std" : "\(hours) Std \(rest) Min"
+        return rest == 0 ? String(localized: "\(hours) Std") : String(localized: "\(hours) Std \(rest) Min")
     }
 
     // MARK: - Beschreibung

@@ -1,0 +1,34 @@
+/* StudGo – englische Widgets.
+   Schlüssel sind die deutschen Texte aus dem Quelltext (Entwicklungssprache
+   Deutsch). Fehlt ein Schlüssel, zeigt die App den deutschen Text. */
+
+"%@ bis %@" = "%1$@ until %2$@";
+"%lld ungelesen" = "%lld unread";
+"%lld ungelesene Nachrichten" = "%lld unread messages";
+"1 ungelesene Nachricht" = "1 unread message";
+"Alles gelesen" = "All read";
+"App öffnen" = "Open the app";
+"Danach" = "Then";
+"Dann steht hier, was im Postfach offen ist." = "This will then show what's unread in your inbox.";
+"Datenbanksysteme" = "Database Systems";
+"Die nächsten 7 Tage frei" = "Next 7 days free";
+"endet %@" = "ends %@";
+"Gebäude 1101, Raum 017" = "Building 1101, Room 017";
+"Gebäude 1101, Raum B305" = "Building 1101, Room B305";
+"Gebäude 3703, Raum 023" = "Building 3703, Room 023";
+"In den nächsten sieben Tagen steht nichts an" = "Nothing scheduled for the next seven days";
+"Keine neuen Nachrichten" = "No new messages";
+"Keine Termine" = "No events";
+"Läuft gerade" = "Happening now";
+"Nächster Termin" = "Next Event";
+"Postfach" = "Inbox";
+"Postfach gelesen" = "Inbox read";
+"Programmieren 2" = "Programming 2";
+"StudGo öffnen" = "Open StudGo";
+"StudGo öffnen, um den Stand zu sehen" = "Open StudGo to see your schedule";
+"ungelesene Nachricht" = "unread message";
+"Ungelesene Nachrichten" = "Unread Messages";
+"ungelesene Nachrichten" = "unread messages";
+"Was als Nächstes ansteht - aus dem Stundenplan und dem Kalender." = "What's coming up next – from your timetable and calendar.";
+"Wie viele Nachrichten im Stud.IP-Postfach noch offen sind." = "How many messages are still unread in your Stud.IP inbox.";
+"Übung: Analysis I" = "Tutorial: Analysis I";

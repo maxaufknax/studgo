@@ -41,12 +41,12 @@ enum HolidayCalendar {
     /// Ostersonntag hängen.
     static func holidays(of year: Int, calendar: Calendar = .current) -> [Holiday] {
         var days: [(month: Int, day: Int, name: String)] = [
-            (1, 1, "Neujahr"),
-            (5, 1, "Tag der Arbeit"),
-            (10, 3, "Tag der Deutschen Einheit"),
-            (10, 31, "Reformationstag"),
-            (12, 25, "1. Weihnachtstag"),
-            (12, 26, "2. Weihnachtstag"),
+            (1, 1, String(localized: "Neujahr")),
+            (5, 1, String(localized: "Tag der Arbeit")),
+            (10, 3, String(localized: "Tag der Deutschen Einheit")),
+            (10, 31, String(localized: "Reformationstag")),
+            (12, 25, String(localized: "1. Weihnachtstag")),
+            (12, 26, String(localized: "2. Weihnachtstag")),
         ]
 
         guard let easter = easterSunday(year, calendar: calendar) else { return [] }
@@ -55,10 +55,10 @@ enum HolidayCalendar {
             return (calendar.component(.month, from: date), calendar.component(.day, from: date))
         }
 
-        days.append((offset(-2).month, offset(-2).day, "Karfreitag"))
-        days.append((offset(1).month, offset(1).day, "Ostermontag"))
-        days.append((offset(39).month, offset(39).day, "Christi Himmelfahrt"))
-        days.append((offset(50).month, offset(50).day, "Pfingstmontag"))
+        days.append((offset(-2).month, offset(-2).day, String(localized: "Karfreitag")))
+        days.append((offset(1).month, offset(1).day, String(localized: "Ostermontag")))
+        days.append((offset(39).month, offset(39).day, String(localized: "Christi Himmelfahrt")))
+        days.append((offset(50).month, offset(50).day, String(localized: "Pfingstmontag")))
 
         return days.compactMap { entry in
             calendar.date(from: DateComponents(year: year, month: entry.month, day: entry.day))

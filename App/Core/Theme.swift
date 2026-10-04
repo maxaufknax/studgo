@@ -23,27 +23,27 @@ enum AppTheme: String, CaseIterable, Identifiable, Sendable {
 
     var name: String {
         switch self {
-        case .signature: return "StudGo Blau"
-        case .ocean: return "Ozean"
-        case .forest: return "Waldgrün"
-        case .sunset: return "Sonnenuntergang"
-        case .berry: return "Beere"
-        case .midnight: return "Mitternacht"
-        case .graphite: return "Graphit"
-        case .contrast: return "Hoher Kontrast"
+        case .signature: return String(localized: "StudGo Blau")
+        case .ocean: return String(localized: "Ozean")
+        case .forest: return String(localized: "Waldgrün")
+        case .sunset: return String(localized: "Sonnenuntergang")
+        case .berry: return String(localized: "Beere")
+        case .midnight: return String(localized: "Mitternacht")
+        case .graphite: return String(localized: "Graphit")
+        case .contrast: return String(localized: "Hoher Kontrast")
         }
     }
 
     var blurb: String {
         switch self {
-        case .signature: return "Das Blau der Wortmarke"
-        case .ocean: return "Türkis und Petrol, ruhig und kühl"
-        case .forest: return "Sattes Grün mit warmen Zweitfarben"
-        case .sunset: return "Orange, Koralle, Abendrot"
-        case .berry: return "Magenta und Violett"
-        case .midnight: return "Tiefes Indigo, besonders nachts"
-        case .graphite: return "Zurückhaltend, fast einfarbig"
-        case .contrast: return "Kräftige Farben, dickere Konturen"
+        case .signature: return String(localized: "Das Blau der Wortmarke")
+        case .ocean: return String(localized: "Türkis und Petrol, ruhig und kühl")
+        case .forest: return String(localized: "Sattes Grün mit warmen Zweitfarben")
+        case .sunset: return String(localized: "Orange, Koralle, Abendrot")
+        case .berry: return String(localized: "Magenta und Violett")
+        case .midnight: return String(localized: "Tiefes Indigo, besonders nachts")
+        case .graphite: return String(localized: "Zurückhaltend, fast einfarbig")
+        case .contrast: return String(localized: "Kräftige Farben, dickere Konturen")
         }
     }
 
@@ -177,9 +177,9 @@ enum AppAppearance: String, CaseIterable, Identifiable, Sendable {
 
     var name: String {
         switch self {
-        case .system: return "Automatisch"
-        case .light: return "Hell"
-        case .dark: return "Dunkel"
+        case .system: return String(localized: "Automatisch")
+        case .light: return String(localized: "Hell")
+        case .dark: return String(localized: "Dunkel")
         }
     }
 

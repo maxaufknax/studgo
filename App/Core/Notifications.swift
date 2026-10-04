@@ -170,8 +170,8 @@ enum Notifications {
     private static func reminderBody(for event: CourseEvent, leadMinutes: Int) -> String {
         var parts: [String] = []
         parts.append(leadMinutes == 0
-                     ? "Beginnt jetzt"
-                     : "Beginnt um \(event.start.formatted(date: .omitted, time: .shortened))")
+                     ? String(localized: "Beginnt jetzt")
+                     : String(localized: "Beginnt um \(event.start.formatted(date: .omitted, time: .shortened))"))
         if let location = event.location { parts.append(location) }
         return parts.joined(separator: " · ")
     }

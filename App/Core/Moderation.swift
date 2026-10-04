@@ -22,23 +22,23 @@ enum ReportReason: String, CaseIterable, Identifiable, Sendable {
 
     var label: String {
         switch self {
-        case .abuse: return "Beleidigung oder Hassrede"
-        case .harassment: return "Belästigung oder Mobbing"
-        case .sexual: return "Sexueller Inhalt"
-        case .violence: return "Gewalt oder Bedrohung"
-        case .spam: return "Spam oder Werbung"
-        case .other: return "Etwas anderes"
+        case .abuse: return String(localized: "Beleidigung oder Hassrede")
+        case .harassment: return String(localized: "Belästigung oder Mobbing")
+        case .sexual: return String(localized: "Sexueller Inhalt")
+        case .violence: return String(localized: "Gewalt oder Bedrohung")
+        case .spam: return String(localized: "Spam oder Werbung")
+        case .other: return String(localized: "Etwas anderes")
         }
     }
 
     var hint: String {
         switch self {
-        case .abuse: return "Herabwürdigend, diskriminierend, verletzend"
-        case .harassment: return "Gezielt gegen eine Person gerichtet"
-        case .sexual: return "Sexuell explizit oder anzüglich"
-        case .violence: return "Droht Gewalt an oder verherrlicht sie"
-        case .spam: return "Werbung, Betrug, Kettenbriefe"
-        case .other: return "Passt in keine der Kategorien"
+        case .abuse: return String(localized: "Herabwürdigend, diskriminierend, verletzend")
+        case .harassment: return String(localized: "Gezielt gegen eine Person gerichtet")
+        case .sexual: return String(localized: "Sexuell explizit oder anzüglich")
+        case .violence: return String(localized: "Droht Gewalt an oder verherrlicht sie")
+        case .spam: return String(localized: "Werbung, Betrug, Kettenbriefe")
+        case .other: return String(localized: "Passt in keine der Kategorien")
         }
     }
 }
@@ -59,14 +59,14 @@ enum ReportTargetKind: String, Codable, Sendable {
 
     var label: String {
         switch self {
-        case .blubberComment: return "Blubber-Beitrag"
-        case .blubberThread: return "Blubber-Faden"
-        case .message: return "Nachricht"
-        case .forumEntry: return "Forenbeitrag"
-        case .news: return "Ankündigung"
-        case .activity: return "Aktivität"
-        case .wikiPage: return "Wikiseite"
-        case .person: return "Profil"
+        case .blubberComment: return String(localized: "Blubber-Beitrag")
+        case .blubberThread: return String(localized: "Blubber-Faden")
+        case .message: return String(localized: "Nachricht")
+        case .forumEntry: return String(localized: "Forenbeitrag")
+        case .news: return String(localized: "Ankündigung")
+        case .activity: return String(localized: "Aktivität")
+        case .wikiPage: return String(localized: "Wikiseite")
+        case .person: return String(localized: "Profil")
         }
     }
 }
@@ -295,7 +295,7 @@ struct Blocklist: Equatable, Sendable {
     /// Blockierte, nach Anzeigename sortiert - die Reihenfolge der
     /// Einstellungsliste.
     var entries: [(id: String, name: String)] {
-        ids.map { (id: $0, name: names[$0] ?? "Unbekannte Person") }
+        ids.map { (id: $0, name: names[$0] ?? String(localized: "Unbekannte Person")) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 }

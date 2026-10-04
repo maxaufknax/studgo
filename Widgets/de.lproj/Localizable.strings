@@ -1,0 +1,4 @@
+/* StudGo – deutsche Oberfläche.
+   Absichtlich leer: Die Schlüssel sind schon die deutschen Texte. Die Datei
+   muss trotzdem existieren, sonst hält iOS Deutsch für keine der Sprachen
+   der App und zeigt deutschen Geräten die englische Fassung. */

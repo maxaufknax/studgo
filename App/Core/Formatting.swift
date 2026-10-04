@@ -1,13 +1,30 @@
 import Foundation
 
+extension String {
+    /// Die Übersetzung einer festen Beschriftung, die als `String` durch einen
+    /// Baustein läuft (`RowLabel`, `Chip`, Leerzustände …).
+    ///
+    /// SwiftUI übersetzt nur, was als Literal in `Text("…")` steht. Ein
+    /// Baustein, der seinen Titel als `String` bekommt, zeigt ihn wörtlich -
+    /// und durch solche Bausteine läuft der Großteil der Beschriftungen. Hier
+    /// schlagen sie selbst nach. Ein reiner Tabellenzugriff ohne Formatierung:
+    /// Kursnamen, Personen und andere fremde Inhalte, die durch dieselben
+    /// Bausteine laufen, stehen in keiner Tabelle und kommen unverändert
+    /// zurück, auch mit einem `%` darin. Was zusammengesetzt wird („3
+    /// blockiert“), übersetzt die Aufrufstelle mit `String(localized:)`.
+    var localizedUI: String {
+        Bundle.main.localizedString(forKey: self, value: nil, table: nil)
+    }
+}
+
 enum Format {
     /// "Heute, 14:00" / "Morgen, 09:15" / "Mo, 3. Nov, 14:00"
     static func eventTime(_ date: Date) -> String {
         let time = date.formatted(date: .omitted, time: .shortened)
         let calendar = Calendar.current
-        if calendar.isDateInToday(date) { return "Heute, \(time)" }
-        if calendar.isDateInTomorrow(date) { return "Morgen, \(time)" }
-        if calendar.isDateInYesterday(date) { return "Gestern, \(time)" }
+        if calendar.isDateInToday(date) { return String(localized: "Heute, \(time)") }
+        if calendar.isDateInTomorrow(date) { return String(localized: "Morgen, \(time)") }
+        if calendar.isDateInYesterday(date) { return String(localized: "Gestern, \(time)") }
         return date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)) + ", " + time
     }
 
@@ -64,8 +81,8 @@ enum Format {
 
     static func dayHeader(_ date: Date) -> String {
         let calendar = Calendar.current
-        if calendar.isDateInToday(date) { return "Heute" }
-        if calendar.isDateInTomorrow(date) { return "Morgen" }
+        if calendar.isDateInToday(date) { return String(localized: "Heute") }
+        if calendar.isDateInTomorrow(date) { return String(localized: "Morgen") }
         return date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
     /// Veranstaltungs- und Termintitel für die Anzeige.

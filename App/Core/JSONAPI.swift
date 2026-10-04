@@ -10,7 +10,7 @@ struct JSONAPIDocument {
 
     init(data: Data) throws {
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw APIError.decoding("Antwort ist kein JSON-Objekt")
+            throw APIError.decoding(String(localized: "Antwort ist kein JSON-Objekt"))
         }
         if let errors = root["errors"] as? [[String: Any]] {
             throw APIError.jsonAPI(errors.compactMap {
@@ -172,19 +172,19 @@ enum APIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .http(401, _):
-            return "Die Sitzung ist abgelaufen. Bitte erneut anmelden."
+            return String(localized: "Die Sitzung ist abgelaufen. Bitte erneut anmelden.")
         case .http(403, _):
-            return "Für diesen Bereich fehlen die Rechte."
+            return String(localized: "Für diesen Bereich fehlen die Rechte.")
         case .http(404, _):
-            return "Nicht gefunden. Vielleicht wurde der Eintrag entfernt."
+            return String(localized: "Nicht gefunden. Vielleicht wurde der Eintrag entfernt.")
         case .http(let code, let detail):
-            return detail.map { "Serverfehler \(code): \($0)" } ?? "Serverfehler \(code)"
+            return detail.map { String(localized: "Serverfehler \(code): \($0)") } ?? String(localized: "Serverfehler \(code)")
         case .decoding(let reason):
-            return "Die Antwort von Stud.IP war unlesbar: \(reason)"
+            return String(localized: "Die Antwort von Stud.IP war unlesbar: \(reason)")
         case .jsonAPI(let messages):
-            return messages.isEmpty ? "Stud.IP hat einen Fehler gemeldet." : messages.joined(separator: "\n")
+            return messages.isEmpty ? String(localized: "Stud.IP hat einen Fehler gemeldet.") : messages.joined(separator: "\n")
         case .offline:
-            return "Keine Verbindung zu Stud.IP."
+            return String(localized: "Keine Verbindung zu Stud.IP.")
         }
     }
 }
