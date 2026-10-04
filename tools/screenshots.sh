@@ -7,8 +7,9 @@
 # zwei Bordmittel:
 #   * Startargumente füllen UserDefaults (NSArgumentDomain): Demo an,
 #     Nutzungsbedingungen angenommen, Einführung gesehen, Sprache gesetzt.
-#   * `simctl openurl studgo://<reiter>` schaltet den Reiter um - dieselben
-#     Adressen, die die Widgets benutzen (`NotificationRouter.route(url:)`).
+#   * Das Startargument `-studgo.initialTab <reiter>` wählt in Debug-Bauten
+#     den Reiter (`MainTabView.initialTab`). `simctl openurl` taugt dafür
+#     nicht: Es fragt erst „In StudGo öffnen?“, und das bestätigt kein Skript.
 #
 #   ./tools/screenshots.sh [Sprachen…]     # Vorgabe: de en
 #
@@ -51,6 +52,10 @@ shoot_device() {
     udid="$(xcrun simctl create "shot-$label" "$type" "$RUNTIME")"
     xcrun simctl boot "$udid"
     xcrun simctl bootstatus "$udid" -b >/dev/null
+    # Ein frisches Gerät zeigt in den ersten Sekunden Systemmitteilungen
+    # („Ready for Apple Intelligence“ …). Die sollen weg sein, bevor
+    # aufgenommen wird.
+    sleep 25
     xcrun simctl ui "$udid" appearance light
     xcrun simctl status_bar "$udid" override --time "9:41" \
         --dataNetwork wifi --wifiMode active --wifiBars 3 \
@@ -63,20 +68,18 @@ shoot_device() {
         [ "$lang" = "en" ] && locale="en_US"
         local dir="$OUT/$lang/$label"
         mkdir -p "$dir"
-        xcrun simctl terminate "$udid" "$BUNDLE_ID" >/dev/null 2>&1 || true
-        xcrun simctl launch "$udid" "$BUNDLE_ID" \
-            -AppleLanguages "($lang)" -AppleLocale "$locale" \
-            -studgo.demo.active YES \
-            -studgo.moderation.termsVersion 1 \
-            -studgo.onboarding.seen.v1 YES >/dev/null
-        # Die Demo lädt aus der App selbst, braucht aber einen Augenblick für
-        # Zusammenführung und erste Darstellung.
-        sleep 8
-        xcrun simctl io "$udid" screenshot "$dir/1-heute.png" >/dev/null
-        local n=2
-        for tab in plan kurse postfach campus; do
-            xcrun simctl openurl "$udid" "studgo://$tab"
-            sleep 4
+        local n=1
+        for tab in heute plan kurse postfach campus; do
+            xcrun simctl terminate "$udid" "$BUNDLE_ID" >/dev/null 2>&1 || true
+            xcrun simctl launch "$udid" "$BUNDLE_ID" \
+                -AppleLanguages "($lang)" -AppleLocale "$locale" \
+                -studgo.demo.active YES \
+                -studgo.moderation.termsVersion 1 \
+                -studgo.onboarding.seen.v1 YES \
+                -studgo.initialTab "$tab" >/dev/null
+            # Die Demo lädt aus der App selbst, braucht aber einen Augenblick
+            # für Zusammenführung und erste Darstellung.
+            sleep 8
             xcrun simctl io "$udid" screenshot "$dir/$n-$tab.png" >/dev/null
             n=$((n + 1))
         done

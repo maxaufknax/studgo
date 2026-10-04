@@ -33,7 +33,27 @@ struct MainTabView: View {
     /// `Tint.color(_:)` verzeichnet selbst nichts, siehe `Palette`.
     @ObservedObject private var palette = Palette.shared
 
-    @State private var selection: AppTab = .today
+    @State private var selection: AppTab = MainTabView.initialTab
+
+    /// Der Reiter beim Start - immer „Heute“, außer in Debug-Bauten mit dem
+    /// Startargument `-studgo.initialTab <plan|kurse|postfach|campus>`.
+    ///
+    /// Nur für die Bildschirmfotos (tools/screenshots.sh): `simctl openurl`
+    /// fragt erst „In StudGo öffnen?“, und diese Rückfrage kann kein Skript
+    /// bestätigen. In Release-Bauten fällt der Zweig ganz weg.
+    private static var initialTab: AppTab {
+        #if DEBUG
+        switch UserDefaults.standard.string(forKey: "studgo.initialTab") {
+        case "plan": return .schedule
+        case "kurse": return .courses
+        case "postfach": return .postfach
+        case "campus": return .campus
+        default: return .today
+        }
+        #else
+        return .today
+        #endif
+    }
     /// Die Einführung - einmal je Gerät, gleich nach der ersten Anmeldung.
     @State private var showsOnboarding = false
 
