@@ -352,6 +352,40 @@ workflows:
     artifacts:
       - build/logs/*.log
 
+  # Bildschirmfotos für den App Store - im Simulator, im Demo-Modus, auf
+  # Deutsch und Englisch, für iPhone (6,9") und iPad (13"). Nur von Hand
+  # anzustoßen; die Bilder liegen danach als Artefakt bereit (siehe
+  # tools/screenshots.sh).
+  screenshots:
+    name: 3 · Bildschirmfotos (Simulator, Demo-Modus)
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      xcode: latest
+      vars:
+        XCODE_SCHEME: "StudGo"
+        XCODE_PROJECT: "StudGo.xcodeproj"
+    scripts:
+      - name: XcodeGen bereitstellen
+        script: which xcodegen || brew install xcodegen
+      - name: Platzhalter-Secrets schreiben
+        script: |
+          mkdir -p Config
+          printf 'STUDIP_CLIENT_ID = 0\nCURRENT_PROJECT_VERSION = 1\n' > Config/Secrets.xcconfig
+      - name: Für den Simulator bauen
+        script: |
+          set -eo pipefail
+          xcodegen generate
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" \
+            -configuration Debug \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -20
+      - name: Aufnehmen
+        script: ./tools/screenshots.sh de en
+    artifacts:
+      - build/screenshots/**/*.png
+
   testflight:
     name: 2 · TestFlight (Apple-Einrichtung nötig)
     <<: *ios_setup
