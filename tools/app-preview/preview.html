@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>StudGo App-Vorschau</title>
+<!--
+  Die Szene des App-Store-Vorschauvideos (886 × 1920).
+
+  Nichts hier läuft von selbst: `renderFrame(t)` setzt jeden Zustand aus der
+  Zeit t, und `render.mjs` fotografiert die Seite Bild für Bild. Dadurch ist
+  jedes Bild reproduzierbar, gleich wie schnell der Rechner ist.
+
+  Was im iPhone zu sehen ist, sind die echten Bildschirmfotos aus
+  `screens/` - zerschnitten in Ebenen (Kopfzeile, Karten, Kacheln,
+  Stundenplanblöcke), die einzeln einfliegen oder herausgehoben werden. Kein
+  Pixel der App ist nachgebaut; nur die Statusleiste bekommt volle Balken
+  und einen vollen Akku.
+
+  Zum Anschauen ohne Aufnahme: `node render.mjs --serve` und im Browser
+  …/preview.html?t=5 (Standbild) oder ?play (Echtzeit) öffnen.
+-->
+<style>
+:root {
+  --night: #04070c;
+  --blue: #38b6ff;
+  --violet: #8f7bff;
+  --teal: #2bd9c9;
+  --text: #f2f7fb;
+  --muted: #9fb0bd;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 886px; height: 1920px; overflow: hidden; background: var(--night); }
+body {
+  font-family: "Inter", sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+#frame { position: absolute; inset: 0; overflow: hidden; background: var(--night); }
+.abs { position: absolute; }
+
+/* ---------- Hintergrund ---------- */
+.blob { position: absolute; border-radius: 50%; pointer-events: none; }
+#b1 { width: 1300px; height: 1300px; background: radial-gradient(circle, rgba(56, 182, 255, .55), rgba(56, 182, 255, 0) 62%); }
+#b2 { width: 1150px; height: 1150px; background: radial-gradient(circle, rgba(143, 123, 255, .42), rgba(143, 123, 255, 0) 62%); }
+#b3 { width: 1000px; height: 1000px; background: radial-gradient(circle, rgba(43, 217, 201, .30), rgba(43, 217, 201, 0) 62%); }
+#dots { position: absolute; inset: 0; width: 886px; height: 1920px; }
+#vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 85% 70% at 50% 52%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, .55) 100%);
+}
+#flash { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 20%, rgba(120, 210, 255, .55), rgba(120, 210, 255, 0) 60%); }
+
+/* ---------- Telefon ---------- */
+.cam { position: absolute; inset: 0; transform-origin: 443px 1179.65px; }
+.persp { position: absolute; inset: 0; perspective: 2300px; perspective-origin: 443px 1100px; }
+.phone { position: absolute; transform-style: preserve-3d; }
+.phone .halo {
+  position: absolute; left: -260px; top: -200px; right: -260px; bottom: -200px;
+  background: radial-gradient(ellipse 50% 46% at 50% 48%, rgba(56, 182, 255, .30), rgba(56, 182, 255, 0) 70%);
+  transform: translateZ(-60px);
+}
+.phone .rim {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 18%, rgba(255, 255, 255, 0) 80%, rgba(255, 255, 255, .16)),
+    linear-gradient(160deg, #46525e, #1b232c 35%, #0c1117 65%, #303c48);
+  box-shadow:
+    0 70px 120px -30px rgba(0, 0, 0, .85),
+    0 30px 60px -20px rgba(0, 0, 0, .6),
+    inset 0 0 0 1px rgba(255, 255, 255, .10);
+}
+.phone .bezel { position: absolute; inset: 4px; background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05); }
+.phone .key {
+  position: absolute; width: 5px; border-radius: 3px;
+  background: linear-gradient(90deg, #1b232c, #56636f 50%, #1b232c);
+}
+.phone .screen { position: absolute; overflow: hidden; background: #000; }
+.native { position: absolute; left: 0; top: 0; width: 924px; height: 2000px; transform-origin: 0 0; }
+.phone .dim { position: absolute; inset: 0; background: #000; opacity: 0; }
+.phone .glare {
+  position: absolute; inset: 0; pointer-events: none; opacity: .9;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, .055) 42%, rgba(255, 255, 255, 0) 54%);
+  background-size: 300% 100%;
+}
+.phone .island { position: absolute; background: #000; border-radius: 999px; }
+.phone .island::after {
+  content: ""; position: absolute; right: 15%; top: 50%; width: 22%; aspect-ratio: 1; transform: translateY(-50%);
+  border-radius: 50%; background: radial-gradient(circle at 40% 35%, #1c2a3a, #05080c 60%);
+}
+.over { position: absolute; transform-style: preserve-3d; pointer-events: none; }
+.over .native { transform-style: preserve-3d; }
+
+/* Ebenen aus dem Bildschirmfoto */
+.scr { position: absolute; inset: 0; }
+.lay { position: absolute; background-repeat: no-repeat; background-size: 924px 2000px; }
+.pop { position: absolute; background-repeat: no-repeat; background-size: 924px 2000px; opacity: 0; }
+.popglow { position: absolute; border-radius: 50%; opacity: 0; }
+.tap { position: absolute; width: 0; height: 0; opacity: 0; }
+.tap .dot, .tap .ring {
+  position: absolute; left: -48px; top: -48px; width: 96px; height: 96px; border-radius: 50%;
+}
+.tap .dot { background: radial-gradient(circle, rgba(255, 255, 255, .55), rgba(255, 255, 255, .28) 60%, rgba(255, 255, 255, 0) 72%); }
+.tap .ring { border: 4px solid rgba(255, 255, 255, .7); }
+
+/* ---------- Schrift ---------- */
+.cap { position: absolute; left: 0; right: 0; top: 112px; text-align: center; }
+.cap .kick {
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 10px 22px 10px 18px; margin-bottom: 26px; border-radius: 999px;
+  font: 700 23px/1 "Inter", sans-serif; letter-spacing: .2em; text-transform: uppercase;
+  color: #bfe6ff;
+  background: rgba(56, 182, 255, .10);
+  box-shadow: inset 0 0 0 1.5px rgba(56, 182, 255, .28);
+}
+.cap .kick i { width: 11px; height: 11px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 14px var(--teal); }
+.cap .ln { overflow: hidden; padding: 0 20px .16em; margin-bottom: -.16em; }
+.cap .ln span {
+  display: inline-block;
+  font-family: "Inter Display", "Inter", sans-serif; font-weight: 800;
+  letter-spacing: -.035em; line-height: 1.04; white-space: nowrap;
+}
+.cap .g span {
+  background: linear-gradient(100deg, #6ef0e6 0%, #38b6ff 42%, #5b7cff 78%, #8f7bff 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* ---------- Symbol und Abspann ---------- */
+.icon {
+  position: absolute; left: 0; top: 0; width: 100px; height: 100px; border-radius: 22.4%;
+  background-size: cover;
+  box-shadow: 0 30px 70px -10px rgba(0, 0, 0, .8), 0 0 0 1px rgba(255, 255, 255, .10);
+}
+.icon .shine {
+  position: absolute; inset: 0; border-radius: inherit; overflow: hidden;
+}
+.icon .shine::after {
+  content: ""; position: absolute; top: -20%; bottom: -20%; width: 45%; left: 0;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .28) 50%, rgba(255, 255, 255, 0));
+  transform: translateX(var(--shine, -120%)) skewX(-12deg);
+}
+.iconGlow {
+  position: absolute; left: 0; top: 0; width: 100px; height: 100px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 182, 255, .55), rgba(56, 182, 255, 0) 65%);
+}
+#chips { position: absolute; left: 40px; right: 40px; top: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 14px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 11px;
+  padding: 13px 22px 13px 18px; border-radius: 999px;
+  font: 600 25px/1 "Inter", sans-serif; letter-spacing: -.005em; color: #e6f1f9;
+  background: rgba(255, 255, 255, .06);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .13);
+  opacity: 0;
+}
+.chip i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+</style>
+</head>
+<body>
+<div id="frame">
+  <div id="bg" class="abs" style="inset:0">
+    <div class="blob" id="b1"></div>
+    <div class="blob" id="b2"></div>
+    <div class="blob" id="b3"></div>
+    <canvas id="dots"></canvas>
+    <div id="flash"></div>
+  </div>
+  <div id="introGlow" class="iconGlow"></div>
+  <div id="introIcon" class="icon"></div>
+  <div id="stage" class="abs" style="inset:0"></div>
+  <div id="vignette"></div>
+  <div id="caps"></div>
+  <div id="outroGlow" class="iconGlow"></div>
+  <div id="outroIcon" class="icon"></div>
+  <div id="chips"></div>
+</div>
+
+<script src="timeline.js"></script>
+<script>
+"use strict";
+
+// ---------------------------------------------------------------------------
+// Maße
+// ---------------------------------------------------------------------------
+
+const W = 886, H = 1920;
+// Bildschirmfotos: iPhone 6,9", verkleinert auf 924 × 2000.
+const NW = 924, NH = 2000;
+const SW = 640, K = SW / NW, SH = NH * K;
+// Rahmen: 4 px Titankante, 13 px schwarzes Glas.
+const B = 17, PW = SW + 2 * B, PH = SH + 2 * B;
+const PX = (W - PW) / 2, PY = 470;
+const R = 82;                         // Rundung des Displays
+const CX = PX + PW / 2, CY = PY + PH / 2;
+const ICON = "../../App/Resources/Assets.xcassets/AppIcon.appiconset/icon-1024.png";
+
+// ---------------------------------------------------------------------------
+// Inhalt
+// ---------------------------------------------------------------------------
+
+// Ebenen je Bildschirm: r = [x, y, b, h] im Bildschirmfoto, d = Verzögerung
+// beim Einblenden. Die Schnitte liegen auf rein schwarzen Zeilen, so fügen
+// sich die Ebenen am Ende wieder lückenlos zum Originalbild.
+const SCREENS = {
+  heute: {
+    src: "screens/heute.webp",
+    layers: [
+      { r: [0, 100, 924, 128] },
+      { r: [0, 228, 924, 150], d: .05 },
+      { r: [0, 378, 924, 174], d: .10 },
+      { r: [0, 552, 924, 408], d: .16 },
+      { r: [0, 960, 924, 76], d: .24 },
+      { r: [0, 1036, 924, 754], d: .30 },
+    ],
+  },
+  plan: {
+    src: "screens/plan-woche.webp",
+    layers: [
+      { r: [0, 100, 924, 128] },
+      { r: [0, 228, 924, 97], d: .05 },
+      { r: [0, 325, 924, 85], d: .10 },
+      { r: [0, 410, 924, 1380], d: .12, grid: true },
+    ],
+    // Stundenplanblöcke [x, y, b, h] und die leere Spalte, aus der das Raster
+    // unter ihnen nachgezeichnet wird (Versatz in x). Mo, Di, Mi, Do, Fr.
+    blocks: [
+      [111, 585, 155, 186, 327], [111, 1061, 155, 185, 490],
+      [274, 459, 155, 186, 164], [274, 1092, 155, 185, 327],
+      [438, 807, 155, 186, 163], [438, 1567, 155, 186, 163],
+      [601, 585, 155, 186, -163],
+      [765, 459, 154, 186, -327], [765, 1061, 154, 249, -164],
+    ],
+  },
+  kurs: {
+    src: "screens/kurs.webp",
+    layers: [
+      { r: [0, 100, 924, 132] },
+      { r: [0, 232, 924, 424], d: .06, spring: true },
+      { r: [0, 656, 924, 224], d: .14 },
+      { r: [0, 880, 462, 271], d: .20 }, { r: [462, 880, 462, 271], d: .25 },
+      { r: [0, 1151, 462, 265], d: .30 }, { r: [462, 1151, 462, 265], d: .35 },
+      { r: [0, 1416, 462, 266], d: .40 }, { r: [462, 1416, 462, 266], d: .45 },
+      { r: [0, 1682, 924, 108], d: .50 },
+    ],
+    tiles: [
+      [38, 899, 410, 239], [476, 899, 410, 239],
+      [38, 1165, 410, 238], [476, 1165, 410, 238],
+      [38, 1430, 410, 239], [476, 1430, 410, 239],
+    ],
+  },
+  mensa: {
+    src: "screens/mensa.webp",
+    layers: [
+      { r: [0, 100, 924, 132] },
+      { r: [0, 232, 924, 98], d: .05 },
+      { r: [0, 330, 924, 190], d: .10 },
+      { r: [0, 520, 924, 340], d: .17 },
+      { r: [0, 860, 924, 355], d: .24 },
+      { r: [0, 1215, 924, 325], d: .31 },
+      { r: [0, 1540, 924, 250], d: .38 },
+    ],
+  },
+};
+
+const CAPTIONS = {
+  intro: { lines: ["Dein Stud.IP.", "In deiner Tasche."] },
+  heute: { kick: "Heute", lines: ["Keine Vorlesung", "mehr verpassen."] },
+  plan: { kick: "Plan", lines: ["Deine Woche.", "Auf einen Blick."] },
+  kurs: { kick: "Kurse", lines: ["Jeder Kurs.", "Alles an einem Ort."] },
+  mensa: { kick: "Campus", lines: ["Mittagspause?", "Mensa inklusive."] },
+  outro: { lines: ["Bereit für", "das Semester?"], top: 436 },
+};
+
+const CHIPS = [
+  ["Widgets", "#38b6ff"], ["iOS-Kalender", "#8f7bff"], ["Offline nutzbar", "#2bd9c9"],
+  ["Dunkelmodus", "#5b7cff"], ["Ohne Tracker", "#30d158"], ["Open Source", "#ff9f0a"],
+];
+
+// ---------------------------------------------------------------------------
+// Werkzeuge
+// ---------------------------------------------------------------------------
+
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, x) => a + (b - a) * x;
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eOut5 = x => 1 - Math.pow(1 - x, 5);
+const eIn = x => x * x * x;
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+// Gedämpfte Feder: schießt knapp über 1 hinaus und kommt zur Ruhe.
+const spring = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.exp(-6.5 * x) * Math.cos(x * 11);
+
+/** Wert aus Stützstellen [[t, v], …], weich überblendet. */
+function track(t, keys, ease = eInOut) {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 0; i < keys.length - 1; i++) {
+    const [t0, v0] = keys[i], [t1, v1] = keys[i + 1];
+    if (t <= t1) return v0 + (v1 - v0) * ease((t - t0) / (t1 - t0));
+  }
+  return keys[keys.length - 1][1];
+}
+
+/** Hebt an, hält und setzt wieder ab: 0 → 1 → 0. */
+function lift(t, a, b, up = .45, down = .45) {
+  return eOut(P(t, a, a + up)) * (1 - eInOut(P(t, b - down, b)));
+}
+
+function el(tag, cls, parent, style) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (style) Object.assign(e.style, style);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+const px = v => v.toFixed(2) + "px";
+
+/** Ausschnitt eines Bildschirmfotos als Ebene. */
+function crop(parent, src, [x, y, w, h], cls = "lay", at = [x, y]) {
+  return el("div", cls, parent, {
+    left: px(at[0]), top: px(at[1]), width: px(w), height: px(h),
+    backgroundImage: `url(${src})`,
+    backgroundPosition: `${-x}px ${-y}px`,
+  });
+}
+
+/**
+ * Volle Balken und voller Akku statt Funkloch und Stromsparmodus. Der Grund
+ * der Statusleiste ist in allen Aufnahmen reines Schwarz, darum genügt eine
+ * Abdeckung.
+ */
+function statusPatch(parent) {
+  const s = el("div", null, parent, { position: "absolute", left: "0", top: "0" });
+  s.innerHTML = `
+    <svg width="924" height="100" viewBox="0 0 924 100" style="position:absolute;left:0;top:0">
+      <rect x="712" y="38" width="50" height="38" fill="#000"/>
+      <rect x="716" y="62" width="7.5" height="9.5" rx="2.2" fill="#fff"/>
+      <rect x="727" y="57" width="7.5" height="14.5" rx="2.2" fill="#fff"/>
+      <rect x="738" y="51" width="7.5" height="20.5" rx="2.2" fill="#fff"/>
+      <rect x="749" y="45" width="7.5" height="26.5" rx="2.2" fill="#fff"/>
+      <rect x="814" y="36" width="76" height="44" fill="#000"/>
+      <rect x="822" y="44" width="50" height="28" rx="8.5" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="2.2"/>
+      <rect x="825.5" y="47.5" width="43" height="21" rx="5.5" fill="#fff"/>
+      <path d="M875.5 53.5 a3.5 3.5 0 0 1 3.5 3.5 v2 a3.5 3.5 0 0 1 -3.5 3.5 z" fill="rgba(255,255,255,.42)"/>
+    </svg>`;
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// Aufbau
+// ---------------------------------------------------------------------------
+
+/** Ein iPhone mit Rahmen; Inhalt kommt in `native` (Koordinaten des Fotos). */
+function makePhone(stage) {
+  const cam = el("div", "cam", stage);
+  const persp = el("div", "persp", cam);
+  const phone = el("div", "phone", persp, {
+    left: px(PX), top: px(PY), width: px(PW), height: px(PH),
+  });
+  const halo = el("div", "halo", phone);
+  const rim = el("div", "rim", phone, { borderRadius: px(R + B) });
+  el("div", "bezel", phone, { borderRadius: px(R + B - 4) });
+  // Tasten: Aktion, laut, leise links; Seitentaste rechts.
+  for (const [side, a, b] of [["l", .155, .195], ["l", .235, .30], ["l", .32, .385], ["r", .26, .36]]) {
+    el("div", "key", phone, {
+      [side === "l" ? "left" : "right"]: "-3px",
+      top: px(PH * a), height: px(PH * (b - a)),
+    });
+  }
+  const screen = el("div", "screen", phone, {
+    left: px(B), top: px(B), width: px(SW), height: px(SH), borderRadius: px(R),
+  });
+  const native = el("div", "native", screen, { transform: `scale(${K})` });
+  const dim = el("div", "dim", screen);
+  const glare = el("div", "glare", screen);
+  el("div", "island", phone, {
+    left: px(B + SW / 2 - 94), top: px(B + 16), width: "188px", height: "55px",
+  });
+  const over = el("div", "over", phone, { left: px(B), top: px(B), width: px(SW), height: px(SH) });
+  const overNative = el("div", "native", over, { transform: `scale(${K})` });
+  return { cam, persp, phone, halo, rim, screen, native, dim, glare, overNative };
+}
+
+/** Ein ganzes Bildschirmfoto ohne Ebenen, für die Telefone im Abspann. */
+function staticScreen(parent, src) {
+  const s = el("div", "scr", parent);
+  crop(s, src, [0, 0, NW, NH]);
+  statusPatch(s);
+  return s;
+}
+
+/** Ein Bildschirmfoto in Ebenen, die einzeln einfliegen. */
+function layeredScreen(parent, key) {
+  const def = SCREENS[key];
+  const s = el("div", "scr", parent);
+  const fixed = [crop(s, def.src, [0, 0, NW, 100])];
+  const layers = def.layers.map(L => {
+    const e = crop(s, def.src, L.r);
+    if (L.grid) {
+      // Unter jedem Block das leere Raster einer Nachbarspalte einsetzen.
+      for (const [x, y, w, h, dx] of def.blocks) {
+        crop(e, def.src, [x + dx - 2, y - 3, w + 4, h + 6], "lay", [x - 2, y - 3 - L.r[1]]);
+      }
+    }
+    return { e, d: L.d || 0, spring: !!L.spring };
+  });
+  const blocks = (def.blocks || []).map(([x, y, w, h], i) => {
+    const e = crop(s, def.src, [x, y, w, h]);
+    e.style.borderRadius = "13px";
+    e.style.transformOrigin = "50% 50%";
+    return { e, i };
+  });
+  // Tab-Leiste und was darunter liegt, steht fest.
+  fixed.push(crop(s, def.src, [0, 1790, NW, NH - 1790]));
+  fixed.push(statusPatch(s));
+  return { s, fixed, layers, blocks };
+}
+
+function makePop(over, src, r, radius, glow) {
+  const [x, y, w, h] = r;
+  const g = el("div", "popglow", over, {
+    left: px(x - w * .25), top: px(y - h * .6), width: px(w * 1.5), height: px(h * 2.2),
+    background: `radial-gradient(ellipse 50% 50% at 50% 50%, ${glow}, rgba(0,0,0,0) 70%)`,
+  });
+  const e = crop(over, src, r, "pop");
+  e.style.borderRadius = px(radius);
+  e.style.transformOrigin = "50% 50%";
+  return { e, g };
+}
+
+function makeCaption(key) {
+  const def = CAPTIONS[key];
+  const c = el("div", "cap", document.getElementById("caps"));
+  if (def.top) c.style.top = px(def.top);
+  let kick = null;
+  if (def.kick) {
+    kick = el("div", "kick", c);
+    el("i", null, kick);
+    el("span", null, kick).textContent = def.kick;
+    el("br", null, c);
+  }
+  const lines = def.lines.map((text, i) => {
+    const ln = el("div", "ln" + (i === 1 ? " g" : ""), c);
+    const span = el("span", null, ln);
+    span.textContent = text;
+    return span;
+  });
+  return { c, kick, lines };
+}
+
+const stage = document.getElementById("stage");
+// Abspann: zwei Telefone hinter dem Hauptgerät.
+const sideL = makePhone(stage);
+const sideR = makePhone(stage);
+staticScreen(sideL.native, SCREENS.kurs.src);
+staticScreen(sideR.native, SCREENS.plan.src);
+
+const main = makePhone(stage);
+const scr = {};
+for (const key of ["heute", "plan", "kurs", "mensa"]) scr[key] = layeredScreen(main.native, key);
+const finalScreen = staticScreen(main.native, SCREENS.heute.src);
+
+const pops = {
+  heute: makePop(main.overNative, SCREENS.heute.src, [37, 572, 851, 374], 46, "rgba(70, 205, 225, .55)"),
+  tiles: SCREENS.kurs.tiles.map(r => makePop(main.overNative, SCREENS.kurs.src, r, 44, "rgba(70, 200, 225, .38)")),
+  mensa: makePop(main.overNative, SCREENS.mensa.src, [40, 606, 846, 235], 50, "rgba(48, 209, 88, .45)"),
+};
+
+const taps = [];
+const TL = window.TIMELINE;
+for (const tp of TL.taps) {
+  const e = el("div", "tap", main.overNative, { left: px(tp.x), top: px(tp.y) });
+  taps.push({ ...tp, e, dot: el("div", "dot", e), ring: el("div", "ring", e) });
+}
+
+const caps = {};
+for (const key of Object.keys(CAPTIONS)) caps[key] = makeCaption(key);
+
+const chipsBox = document.getElementById("chips");
+const chips = CHIPS.map(([text, color]) => {
+  const c = el("div", "chip", chipsBox);
+  el("i", null, c, { background: color, boxShadow: `0 0 12px ${color}` });
+  el("span", null, c).textContent = text;
+  return c;
+});
+
+for (const id of ["introIcon", "outroIcon"]) {
+  const icon = document.getElementById(id);
+  icon.style.backgroundImage = `url(${ICON})`;
+  el("div", "shine", icon);
+}
+
+// Eine Schriftgröße für alle Zeilen: die längste Zeile bestimmt sie.
+function fitCaptions() {
+  let widest = 0;
+  for (const c of Object.values(caps)) {
+    for (const s of c.lines) { s.style.fontSize = "100px"; widest = Math.max(widest, s.offsetWidth); }
+  }
+  const size = Math.min(88, Math.floor(100 * 780 / widest));
+  for (const c of Object.values(caps)) for (const s of c.lines) s.style.fontSize = size + "px";
+  return size;
+}
+
+// ---------------------------------------------------------------------------
+// Hintergrund
+// ---------------------------------------------------------------------------
+
+const canvas = document.getElementById("dots");
+const dpr = window.devicePixelRatio || 1;
+canvas.width = W * dpr; canvas.height = H * dpr;
+const ctx = canvas.getContext("2d");
+ctx.scale(dpr, dpr);
+
+/** Rasterpunkte als ruhige Welle - das Muster aus den App-Store-Bildern. */
+function drawDots(t, energy) {
+  ctx.clearRect(0, 0, W, H);
+  const step = 19;
+  for (let y = 980; y < H + step; y += step) {
+    for (let x = step / 2 - 2; x < W + step; x += step) {
+      const crest = 1500 + 120 * Math.sin(x * .0062 + t * .55) + 60 * Math.sin(x * .013 - t * .8);
+      const d = (y - crest) / 170;
+      let v = Math.exp(-d * d);
+      v += .35 * Math.exp(-Math.pow((y - crest - 250) / 120, 2));
+      v *= .75 + .25 * Math.sin(x * .02 + y * .01 + t * 1.3);
+      v = clamp(v * (.85 + .4 * energy));
+      if (v < .04) continue;
+      ctx.fillStyle = `rgba(${Math.round(lerp(40, 110, v))}, ${Math.round(lerp(120, 200, v))}, 255, ${(.10 + .55 * v).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(x, y, .8 + 3.1 * v, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+/** Puls auf jedem Viertel, sobald der Beat läuft. */
+function beatPulse(t) {
+  if (t < TL.groove) return 0;
+  const beat = 60 / TL.bpm;
+  const since = (t - TL.groove) % beat;
+  return Math.exp(-since * 7);
+}
+
+function renderBackground(t) {
+  const on = eOut(P(t, 0, .9));
+  const pulse = beatPulse(t) * (t < TL.screens.outro + 1.2 ? 1 : .4);
+  const impact = Math.exp(-Math.max(0, t - TL.impact) * 2.2) * (t >= TL.impact ? 1 : 0);
+  const b1 = document.getElementById("b1"), b2 = document.getElementById("b2"), b3 = document.getElementById("b3");
+  b1.style.transform = `translate(${px(-520 + 140 * Math.sin(t * .23))}, ${px(-420 + 120 * Math.cos(t * .19))})`;
+  b2.style.transform = `translate(${px(260 + 120 * Math.cos(t * .21))}, ${px(380 + 160 * Math.sin(t * .17))})`;
+  b3.style.transform = `translate(${px(-300 + 180 * Math.sin(t * .15 + 1))}, ${px(1180 + 100 * Math.cos(t * .2))})`;
+  b1.style.opacity = (on * (.85 + .15 * pulse + .3 * impact)).toFixed(3);
+  b2.style.opacity = (on * (.8 + .1 * pulse + .3 * impact)).toFixed(3);
+  b3.style.opacity = (on * (.9 + .1 * pulse)).toFixed(3);
+  document.getElementById("flash").style.opacity = (impact * .8).toFixed(3);
+  canvas.style.opacity = (on * .9).toFixed(3);
+  drawDots(t, pulse * .5 + impact);
+}
+
+// ---------------------------------------------------------------------------
+// Schrift
+// ---------------------------------------------------------------------------
+
+function renderCaption(key, t) {
+  const c = caps[key];
+  const [tin, tout] = TL.captions[key];
+  const visible = t > tin - .05 && t < tout + .6;
+  c.c.style.visibility = visible ? "visible" : "hidden";
+  if (!visible) return;
+  if (c.kick) {
+    const k = eOut(P(t, tin, tin + .5)) * (1 - eIn(P(t, tout, tout + .3)));
+    c.kick.style.opacity = k.toFixed(3);
+    c.kick.style.transform = `translateY(${px((1 - eOut(P(t, tin, tin + .5))) * 18 - eIn(P(t, tout, tout + .3)) * 12)})`;
+  }
+  c.lines.forEach((s, i) => {
+    const a = tin + .08 + i * .13;
+    const inP = eOut5(P(t, a, a + .7));
+    const outP = eIn(P(t, tout + i * .06, tout + i * .06 + .32));
+    s.style.transform = `translateY(${(110 * (1 - inP) - 110 * outP).toFixed(2)}%)`;
+    // Leichtes Wandern des Verlaufs hält die zweite Zeile lebendig.
+    if (i === 1) s.style.backgroundPosition = `${(50 + 40 * Math.sin(t * .7)).toFixed(2)}% 50%`;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Telefon
+// ---------------------------------------------------------------------------
+
+function setPhone(p, { tx = 0, ty = 0, s = 1, rx = 0, ry = 0, rz = 0, z = 0 }) {
+  p.cam.style.transform = `translate(${px(tx)}, ${px(ty)}) scale(${s.toFixed(4)})`;
+  p.phone.style.transform =
+    `translateZ(${px(z)}) rotateX(${rx.toFixed(3)}deg) rotateY(${ry.toFixed(3)}deg) rotateZ(${rz.toFixed(3)}deg)`;
+}
+
+/** Lage eines Punkts im Foto auf dem ruhenden Telefon. */
+const restPoint = (nx, ny) => [PX + B + nx * K, PY + B + ny * K];
+
+/**
+ * Kamerafahrt durch den Stundenplan: Punkt F des Fotos landet bei Zoom s an
+ * der Bildstelle T. Bei s = 1 und T = Ruhelage steht alles still.
+ */
+function planCamera(t) {
+  const [a, b] = TL.planCamera;
+  const F1 = [300, 760], F2 = [600, 1290], F0 = [462, 1000];
+  const keys = (f) => [[a, f(0)], [a + 1.0, f(1)], [b - .75, f(2)], [b, f(3)]];
+  const s = track(t, keys(i => [1, 1.42, 1.42, 1][i]));
+  const fx = track(t, keys(i => [F0[0], F1[0], F2[0], F0[0]][i]));
+  const fy = track(t, keys(i => [F0[1], F1[1], F2[1], F0[1]][i]));
+  const [rx0, ry0] = restPoint(fx, fy);
+  const target = [lerp(rx0, 443, P(s, 1, 1.42)), lerp(ry0, 1180, P(s, 1, 1.42))];
+  return {
+    s,
+    tx: target[0] - (CX + s * (rx0 - CX)),
+    ty: target[1] - (CY + s * (ry0 - CY)),
+    zoom: P(s, 1, 1.42),
+  };
+}
+
+function renderMainPhone(t) {
+  // Aufstieg aus dem unteren Bildrand.
+  const rise = P(t, TL.phoneRise, TL.phoneRise + 1.35);
+  const r = eOut(rise);
+  let ty = (1 - r) * 1500, rx = (1 - r) * 34, s = .93 + .07 * r, tx = 0, ry = 0, rz = 0;
+
+  // Ruhiges Schweben, damit das Bild nie ganz einfriert.
+  ty += 5 * Math.sin(t * 1.1);
+  rz += .35 * Math.sin(t * .7 + .5);
+
+  // Heute: Karte "Als Nächstes" hebt ab, das Telefon dreht leicht mit.
+  const [ha, hb] = TL.pops.heute;
+  ry += track(t, [[ha - .2, 0], [ha + .5, -10], [hb - .3, -7], [hb + .35, 0]]);
+  rx += track(t, [[ha - .2, 0], [ha + .5, 5], [hb - .3, 4], [hb + .35, 0]]);
+
+  // Plan: Fahrt über die Woche.
+  const cam = planCamera(t);
+  s *= cam.s; tx += cam.tx; ty += cam.ty;
+  // Beim Heranfahren reicht das Telefon bis unter die Überschrift; dort
+  // blendet es weich in den Hintergrund aus, statt die Schrift zu stören.
+  const m = (1 - eInOut(P(cam.zoom, 0, .55))).toFixed(3);
+  stage.style.webkitMaskImage = stage.style.maskImage = cam.zoom > 0
+    ? `linear-gradient(180deg, rgba(0,0,0,${m}) 0px, rgba(0,0,0,${m}) 360px, #000 560px)`
+    : "none";
+
+  // Kurs: Schwenk, während die Kacheln abheben.
+  const [ka, kb] = TL.kursTilt;
+  ry += track(t, [[ka, 0], [ka + .9, -15], [kb - .9, 11], [kb, 0]]);
+  rx += track(t, [[ka, 0], [ka + .9, 7], [kb - .9, 5], [kb, 0]]);
+  s *= track(t, [[ka, 1], [ka + .9, .95], [kb - .9, .95], [kb, 1]]);
+
+  // Mensa: die erste Karte hebt ab.
+  const [ma, mb] = TL.pops.mensa;
+  ry += track(t, [[ma - .2, 0], [ma + .5, 10], [mb - .3, 7], [mb + .35, 0]]);
+  rx += track(t, [[ma - .2, 0], [ma + .5, 5], [mb - .3, 4], [mb + .35, 0]]);
+
+  // Abspann: zurücktreten in die Mitte der drei Telefone.
+  const o = eInOut(P(t, TL.screens.outro, TL.screens.outro + 1.0));
+  s *= lerp(1, .6, o);
+  ty += 165 * o;
+
+  setPhone(main, { tx, ty, s, rx, ry, rz });
+  main.cam.style.visibility = t < TL.phoneRise ? "hidden" : "visible";
+  main.halo.style.opacity = (.55 + .45 * r).toFixed(3);
+  main.glare.style.backgroundPosition = `${(100 - 100 * P(t, 2.3, 3.6) - 60 * P(t, 23.6, 25)).toFixed(2)}% 0`;
+}
+
+function renderSidePhones(t) {
+  const a = TL.screens.outro + .5;
+  const o = eOut(P(t, a, a + 1.0));
+  const vis = t > a ? "visible" : "hidden";
+  for (const [p, dir] of [[sideL, -1], [sideR, 1]]) {
+    p.cam.style.visibility = vis;
+    setPhone(p, {
+      tx: dir * 252 * o,
+      ty: 150 + 18 * o + 5 * Math.sin(t * 1.1 + dir),
+      s: lerp(.5, .52, o),
+      ry: dir * -24 * o,
+      rz: dir * 5 * o,
+    });
+    p.cam.style.opacity = o.toFixed(3);
+    p.dim.style.opacity = (.32 * o).toFixed(3);
+  }
+}
+
+function renderScreen(key, t, tin, tout) {
+  const S = scr[key];
+  const on = t >= tin - .01 && t < tout + .25;
+  S.s.style.visibility = on ? "visible" : "hidden";
+  if (!on) return;
+  // Der alte Inhalt ist weg, bevor der neue einfliegt - sonst stehen zwei
+  // Bildschirme übereinander. Status- und Tab-Leiste blenden direkt über.
+  S.s.style.opacity = (1 - P(t, tout, tout + .13)).toFixed(3);
+  const f = P(t, tin, tin + .16);
+  for (const e of S.fixed) e.style.opacity = f.toFixed(3);
+  for (const L of S.layers) {
+    const a = tin + .1 + L.d;
+    const x = P(t, a, a + .65);
+    if (L.spring) {
+      const k = spring(P(t, a, a + .9));
+      L.e.style.transform = `translateY(${px((1 - eOut(x)) * 50)}) scale(${(.9 + .1 * k).toFixed(4)})`;
+    } else {
+      L.e.style.transform = `translateY(${px((1 - eOut(x)) * 70)})`;
+    }
+    L.e.style.opacity = clamp(eOut(x) * 1.5).toFixed(3);
+  }
+  for (const b of S.blocks) {
+    const a = tin + .38 + b.i * .075;
+    const k = spring(P(t, a, a + .75));
+    b.e.style.transform = `scale(${(.55 + .45 * k).toFixed(4)})`;
+    b.e.style.opacity = P(t, a, a + .14).toFixed(3);
+  }
+}
+
+function renderPop(pop, p, { z = 90, s = .06, shadow = 1 } = {}) {
+  pop.e.style.opacity = p > .001 ? "1" : "0";
+  pop.e.style.transform = `translateZ(${px(z * p)}) scale(${(1 + s * p).toFixed(4)})`;
+  pop.e.style.boxShadow =
+    `0 ${px(60 * p)} ${px(110 * p)} rgba(0,0,0,${(.7 * p * shadow).toFixed(3)}), 0 0 0 ${px(2 * p)} rgba(255,255,255,${(.14 * p).toFixed(3)})`;
+  pop.g.style.opacity = (p * .9).toFixed(3);
+  pop.g.style.transform = `translateZ(${px(z * p * .4)}) scale(${(.8 + .2 * p).toFixed(3)})`;
+}
+
+function renderPops(t) {
+  const [ha, hb] = TL.pops.heute;
+  const ph = lift(t, ha, hb, .55, .45);
+  renderPop(pops.heute, ph, { z: 110, s: .05 });
+
+  const [ka, step] = TL.pops.kursTiles;
+  let tileMax = 0;
+  pops.tiles.forEach((pop, i) => {
+    const a = ka + i * step;
+    const p = lift(t, a, a + 1.25, .35, .4);
+    tileMax = Math.max(tileMax, p);
+    renderPop(pop, p, { z: 80, s: .05 });
+  });
+
+  const [ma, mb] = TL.pops.mensa;
+  const pm = lift(t, ma, mb, .55, .45);
+  renderPop(pops.mensa, pm, { z: 110, s: .05 });
+
+  main.dim.style.opacity = Math.max(ph * .55, tileMax * .4, pm * .55).toFixed(3);
+}
+
+function renderTaps(t) {
+  for (const tp of taps) {
+    const a = tp.t - .14, b = tp.t + .55;
+    if (t < a || t > b) { tp.e.style.opacity = "0"; continue; }
+    const press = eOut(P(t, a, tp.t));
+    const rel = P(t, tp.t, b);
+    tp.e.style.opacity = (press * (1 - eIn(P(t, tp.t + .2, b)))).toFixed(3);
+    tp.dot.style.transform = `scale(${(.6 + .4 * press - .15 * eOut(P(t, tp.t, tp.t + .12))).toFixed(3)})`;
+    tp.ring.style.transform = `scale(${(.9 + 1.6 * eOut(rel)).toFixed(3)})`;
+    tp.ring.style.opacity = (1 - rel).toFixed(3);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Symbol, Abspann
+// ---------------------------------------------------------------------------
+
+function placeIcon(icon, glow, cx, cy, size, opacity, glowAmt) {
+  icon.style.transform = `translate(${px(cx - size / 2)}, ${px(cy - size / 2)}) scale(${(size / 100).toFixed(4)})`;
+  icon.style.transformOrigin = "0 0";
+  icon.style.opacity = opacity.toFixed(3);
+  const gs = size * 3.2;
+  glow.style.transformOrigin = "0 0";
+  glow.style.transform = `translate(${px(cx - gs / 2)}, ${px(cy - gs / 2)}) scale(${(gs / 100).toFixed(4)})`;
+  glow.style.opacity = (opacity * glowAmt).toFixed(3);
+}
+
+function renderIcons(t) {
+  // Vorspann: Symbol in der Bildmitte, weicht dem aufsteigenden Telefon.
+  const pin = spring(P(t, .1, 1.0));
+  const away = eInOut(P(t, TL.phoneRise - .05, TL.phoneRise + .75));
+  const introIcon = document.getElementById("introIcon");
+  placeIcon(introIcon, document.getElementById("introGlow"),
+    443, lerp(1040, 860, away) + 6 * Math.sin(t * 1.3),
+    lerp(290, 160, away) * (.6 + .4 * pin),
+    clamp(P(t, .1, .45)) * (1 - away), 1.05 + .1 * Math.sin(t * 2));
+  introIcon.style.setProperty("--shine", `${lerp(-120, 330, eInOut(P(t, .55, 1.35))).toFixed(1)}%`);
+
+  // Abspann: Symbol oben.
+  const a = TL.screens.outro + .85;
+  const k = spring(P(t, a, a + .9));
+  placeIcon(document.getElementById("outroIcon"), document.getElementById("outroGlow"),
+    443, 268 + 4 * Math.sin(t * 1.2), 196 * (.55 + .45 * k), P(t, a, a + .2),
+    .85 + .3 * Math.exp(-Math.max(0, t - TL.impact) * 2) * (t >= TL.impact ? 1 : 0));
+
+  document.getElementById("outroIcon").style.setProperty("--shine",
+    `${lerp(-120, 330, eInOut(P(t, TL.impact + .1, TL.impact + .9))).toFixed(1)}%`);
+
+  const top = 436 + caps.outro.c.offsetHeight + 46;
+  chipsBox.style.top = px(top);
+  chips.forEach((c, i) => {
+    const b = TL.captions.outro[0] + .55 + i * .09;
+    const x = P(t, b, b + .55);
+    c.style.opacity = eOut(x).toFixed(3);
+    c.style.transform = `translateY(${px((1 - eOut5(x)) * 26)}) scale(${(.94 + .06 * spring(x)).toFixed(4)})`;
+  });
+}
+
+// ---------------------------------------------------------------------------
+
+function renderFrame(t) {
+  renderBackground(t);
+  for (const key of Object.keys(CAPTIONS)) renderCaption(key, t);
+  renderMainPhone(t);
+  renderSidePhones(t);
+  const sc = TL.screens;
+  renderScreen("heute", t, sc.heute, sc.plan);
+  renderScreen("plan", t, sc.plan, sc.kurs);
+  renderScreen("kurs", t, sc.kurs, sc.mensa);
+  renderScreen("mensa", t, sc.mensa, sc.outro + .25);
+  // Im Abspann zeigt das mittlere Telefon wieder "Heute".
+  const fin = P(t, sc.outro + .25, sc.outro + .55);
+  finalScreen.style.visibility = fin > 0 ? "visible" : "hidden";
+  finalScreen.style.opacity = fin.toFixed(3);
+  renderPops(t);
+  renderTaps(t);
+  renderIcons(t);
+}
+
+async function ready() {
+  const srcs = [...Object.values(SCREENS).map(s => s.src), ICON];
+  await Promise.all(srcs.map(src => { const i = new Image(); i.src = src; return i.decode(); }));
+  await document.fonts.load('800 80px "Inter Display"');
+  await document.fonts.load('700 24px "Inter"');
+  await document.fonts.ready;
+  const size = fitCaptions();
+  // Einmal alles zeigen, damit jedes Bild vor der ersten Aufnahme dekodiert ist.
+  for (const t of [3, 9, 14, 20, 26]) renderFrame(t);
+  return { size };
+}
+
+window.renderFrame = renderFrame;
+window.ready = ready();
+
+// Ansicht im Browser: ?t=5 zeigt ein Standbild, ?play spielt ab.
+const q = new URLSearchParams(location.search);
+if (q.has("t") || q.has("play")) {
+  window.ready.then(() => {
+    if (q.has("t")) return renderFrame(parseFloat(q.get("t")));
+    const t0 = performance.now();
+    const loop = () => { renderFrame(((performance.now() - t0) / 1000) % TL.duration); requestAnimationFrame(loop); };
+    loop();
+  });
+}
+</script>
+</body>
+</html>

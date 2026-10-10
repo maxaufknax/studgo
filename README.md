@@ -68,7 +68,8 @@ App/Features    SwiftUI-Ansichten
 App/Resources   Assets, Datenschutzmanifest, Übersetzungen (de.lproj, en.lproj)
 Widgets/        WidgetKit-Erweiterung (Home- und Sperrbildschirm)
 docs/           API-Befunde, Funktionsumfang, Codemagic-Anleitung
-tools/          Swift-Toolchain im Container, Lint, Codemagic-CLI, Secrets
+tools/          Swift-Toolchain im Container, Lint, Codemagic-CLI, Secrets,
+                App-Store-Vorschauvideo (tools/app-preview)
 Tests/          Tests der Logikschicht (swift-testing)
 PRIVACY.md      Datenschutzerklärung (Adresse im App Store)
 SUPPORT.md      Hilfeseite (Adresse im App Store)

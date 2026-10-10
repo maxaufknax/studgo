@@ -1,0 +1,30 @@
+{
+  "_": "Gemeinsame Zeitleiste für Bild (preview.html) und Ton (soundtrack.py). Sekunden.",
+  "fps": 30,
+  "duration": 28.0,
+  "bpm": 120,
+  "groove": 2.0,
+  "phoneRise": 1.45,
+  "screens": { "heute": 1.5, "plan": 7.75, "kurs": 12.75, "mensa": 17.75, "outro": 22.7 },
+  "captions": {
+    "intro": [0.55, 3.55],
+    "heute": [3.8, 7.6],
+    "plan": [7.9, 12.55],
+    "kurs": [12.9, 17.55],
+    "mensa": [17.9, 22.55],
+    "outro": [24.1, 99]
+  },
+  "taps": [
+    { "t": 7.55, "x": 304, "y": 1878 },
+    { "t": 12.55, "x": 460, "y": 1878 },
+    { "t": 17.55, "x": 777, "y": 1878 }
+  ],
+  "pops": {
+    "heute": [4.55, 6.75],
+    "kursTiles": [14.35, 0.24],
+    "mensa": [19.4, 21.75]
+  },
+  "planCamera": [9.3, 12.35],
+  "kursTilt": [13.4, 17.5],
+  "impact": 24.0
+}
