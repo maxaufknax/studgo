@@ -27,12 +27,30 @@
  "offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"},
  "author":{"@type":"Person","name":"Maximilian Paasch"}}
 </script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+ {"@type":"Question","name":"Funktionieren die Widgets auch ohne Empfang?",
+  "acceptedAnswer":{"@type":"Answer","text":"Ja. Die Widgets fragen nie selbst beim Uni-Server an: Sie zeigen den Stand, den die App beim letzten Öffnen hinterlegt hat. Ohne Internet steht dort der letzte bekannte Termin, nicht eine Fehlermeldung."}},
+ {"@type":"Question","name":"Kommt mein Stundenplan in den iPhone-Kalender?",
+  "acceptedAnswer":{"@type":"Answer","text":"Ja, auf Wunsch. StudGo legt einen eigenen Kalender „StudGo“ an, trägt die nächsten acht Wochen ein und hält ihn aktuell. Andere Termine liest die App nicht; Ausschalten entfernt den Kalender wieder."}},
+ {"@type":"Question","name":"Was kostet StudGo?",
+  "acceptedAnswer":{"@type":"Answer","text":"Nichts. Die App ist kostenlos, ohne Werbung und ohne In-App-Käufe. Der Quelltext steht unter MIT-Lizenz offen auf GitHub."}},
+ {"@type":"Question","name":"Mit welchem Stud.IP funktioniert StudGo?",
+  "acceptedAnswer":{"@type":"Answer","text":"StudGo ist für die Stud.IP-Installation unter studip.uni-hannover.de gebaut und verbindet sich direkt mit ihr. Die Anmeldung läuft über dein Hochschulkonto."}},
+ {"@type":"Question","name":"Was passiert mit meinen Daten?",
+  "acceptedAnswer":{"@type":"Answer","text":"Die App hat kein eigenes Backend und spricht verschlüsselt direkt mit dem Stud.IP-Server. Zugangs-Tokens liegen nur im Schlüsselbund deines Geräts."}},
+ {"@type":"Question","name":"Gibt es StudGo für Android?",
+  "acceptedAnswer":{"@type":"Answer","text":"Derzeit nur iOS ab iOS 16. Eine Android-Version steht nicht auf der Roadmap."}},
+ {"@type":"Question","name":"Kann ich StudGo ohne Konto ausprobieren?",
+  "acceptedAnswer":{"@type":"Answer","text":"Ja. Der Demo-Modus zeigt die vollständige App mit erfundenen Daten, ohne Anmeldung und ohne Verbindung zu einem Uni-Server."}}
+]}
+</script>
 <link rel="canonical" href="https://studgo.de/">
 <link rel="icon" href="assets/icon-180.png" type="image/png">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <meta name="theme-color" content="#f5f7fa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#070c12" media="(prefers-color-scheme: dark)">
-<script src="assets/early.js?v=1.8.2"></script>
+<script src="assets/early.js?v=2.0"></script>
 <style>
 :root {
   --accent: #0e6ea6;
@@ -49,6 +67,7 @@
   --shadow: 0 12px 40px rgba(11, 28, 38, .12);
   --radius: 20px;
   --gap: 16px;
+  --ring: color-mix(in srgb, var(--accent-2) 55%, transparent);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -84,6 +103,16 @@ h1, h2, h3 { line-height: 1.1; letter-spacing: -.025em; margin: 0 0 14px; }
 p { margin: 0 0 12px; }
 .muted { color: var(--muted); }
 .center { text-align: center; }
+section { padding: 64px 0; scroll-margin-top: 84px; }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; border-radius: 8px; }
+::selection { background: color-mix(in srgb, var(--grad-a) 30%, transparent); }
+.skip {
+  position: fixed; top: -60px; left: 16px; z-index: 100;
+  background: var(--surface); border: 1px solid var(--accent-2); color: var(--text);
+  padding: 10px 16px; border-radius: 10px; font-weight: 600;
+  transition: top .2s ease;
+}
+.skip:focus { top: 12px; text-decoration: none; }
 
 /* ---------- Aurora-Hintergrund (fix, mit leichter Scroll-Parallaxe) ---------- */
 .aurora {
@@ -109,10 +138,23 @@ p { margin: 0 0 12px; }
   background: radial-gradient(circle at 50% 50%, var(--grad-c), transparent 60%);
   animation: drift1 38s ease-in-out infinite alternate-reverse;
 }
+/* Feines Korn über dem Aurora: nimmt dem Farbverlauf die digitale Glätte. */
+.aurora::after {
+  content: ""; position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  opacity: .55;
+}
 @keyframes drift1 { to { transform: translate(8vmax, 6vmax) scale(1.12); } }
 @keyframes drift2 { to { transform: translate(-7vmax, 9vmax) scale(1.06); } }
 @media (prefers-reduced-motion: reduce) {
   .aurora .blob { animation: none; }
+}
+
+/* ---------- Lesefortschritt ---------- */
+#progress {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 60;
+  background: linear-gradient(90deg, var(--grad-a), var(--grad-b), var(--grad-c));
+  transform-origin: 0 50%; transform: scaleX(0); pointer-events: none;
 }
 
 /* ---------- Kopfzeile ---------- */
@@ -125,14 +167,61 @@ header {
   transition: border-color .25s ease, box-shadow .25s ease;
 }
 header.scrolled { border-bottom-color: var(--line); box-shadow: 0 6px 24px rgba(0, 0, 0, .06); }
-.nav { display: flex; align-items: center; gap: 16px; padding: 13px 0; }
+.nav { display: flex; align-items: center; gap: 16px; padding: 13px 0; transition: padding .25s ease; flex-wrap: wrap; }
+header.scrolled .nav { padding: 9px 0; }
 .brand { display: flex; align-items: center; gap: 11px; font-weight: 800; font-size: 1.22rem; letter-spacing: -.02em; color: var(--text); }
 .brand img { width: 34px; height: 34px; border-radius: 9px; box-shadow: 0 4px 14px rgba(0, 0, 0, .22); }
+.brand .ver {
+  font-size: .62rem; font-weight: 700; letter-spacing: .04em;
+  color: var(--muted); border: 1px solid var(--line); border-radius: 999px;
+  padding: 1px 8px; margin-top: 2px;
+}
 .nav .links { display: flex; gap: 20px; margin-left: auto; }
-.nav .links a { color: var(--muted); font-size: .95rem; font-weight: 500; }
+.nav .links a {
+  position: relative; color: var(--muted); font-size: .95rem; font-weight: 500;
+  padding: 4px 0;
+}
+.nav .links a::after {
+  content: ""; position: absolute; left: 0; right: 100%; bottom: -2px; height: 2px;
+  border-radius: 2px; background: linear-gradient(90deg, var(--grad-a), var(--grad-c));
+  transition: right .25s ease;
+}
 .nav .links a:hover { color: var(--text); text-decoration: none; }
+.nav .links a:hover::after, .nav .links a.active::after { right: 0; }
+.nav .links a.active { color: var(--text); }
 .nav .store-mini { margin-left: 8px; }
-@media (max-width: 760px) { .nav .links { display: none; } }
+
+/* Burger-Knopf: erst mit JavaScript sichtbar, denn erst dann öffnet er etwas. */
+.menu-toggle {
+  display: none; margin-left: auto; width: 42px; height: 42px;
+  align-items: center; justify-content: center; flex-direction: column; gap: 5px;
+  background: none; border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+}
+.menu-toggle .bar { width: 18px; height: 2px; border-radius: 2px; background: var(--text); transition: transform .25s ease, opacity .25s ease; }
+header.menu-open .menu-toggle .bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+header.menu-open .menu-toggle .bar:nth-child(2) { opacity: 0; }
+header.menu-open .menu-toggle .bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+.mobile-panel { display: none; }
+header.menu-open .mobile-panel {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 0 18px; border-top: 1px solid var(--line);
+  animation: panelIn .25s ease;
+}
+@keyframes panelIn { from { opacity: 0; transform: translateY(-8px); } }
+.mobile-panel a {
+  display: block; color: var(--text); font-weight: 600; padding: 11px 4px; border-radius: 10px;
+}
+.mobile-panel a:hover { text-decoration: none; background: var(--surface-2); }
+.mobile-panel .btn { margin-top: 8px; }
+@media (min-width: 761px) { header.menu-open .mobile-panel { display: none; } }
+/* Ohne JavaScript klappt das Burger-Menü nicht: dann die schlichten Links zeigen. */
+@media (max-width: 760px) {
+  .nav .links { display: none; }
+  html:not(.js) .nav .links { display: flex; margin-left: 0; flex-wrap: wrap; gap: 12px; }
+  html:not(.js) .menu-toggle { display: none; }
+  .js .menu-toggle { display: flex; }
+  .js .nav .store-mini { margin-left: auto; }
+}
 
 /* ---------- Knöpfe ---------- */
 .btn {
@@ -186,7 +275,10 @@ header.scrolled { border-bottom-color: var(--line); box-shadow: 0 6px 24px rgba(
 }
 .stats .stat { padding: 14px 18px; }
 .stats .stat + .stat { border-left: 1px solid var(--line); }
-.stats .stat b { display: block; font-size: 1.45rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; }
+.stats .stat b {
+  display: block; font-size: 1.45rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
 .stats .stat span { font-size: .8rem; color: var(--muted); }
 @media (max-width: 640px) {
   .stats { grid-template-columns: 1fr 1fr; }
@@ -195,11 +287,11 @@ header.scrolled { border-bottom-color: var(--line); box-shadow: 0 6px 24px rgba(
 }
 
 /* ---------- Telefonbühne (feste Proportionen, nichts läuft heraus) ---------- */
-.stage {
-  position: relative;
-  width: min(100%, 440px);
-  margin-inline: auto;
-  aspect-ratio: 10 / 14;
+.stage { position: relative; width: min(100%, 440px); margin-inline: auto; aspect-ratio: 10 / 14; perspective: 1100px; }
+.stage-inner {
+  position: absolute; inset: 0;
+  transition: transform .45s cubic-bezier(.2, .7, .3, 1);
+  will-change: transform;
 }
 .phone {
   position: absolute; left: 50%; top: 50%;
@@ -244,6 +336,19 @@ header.scrolled { border-bottom-color: var(--line); box-shadow: 0 6px 24px rgba(
   .stage { display: block; width: min(76vw, 320px); margin: 30px auto 0; }
 }
 
+/* ---------- Scroll-Hinweis unter dem Held ---------- */
+.cue { display: flex; justify-content: center; margin-top: 42px; }
+.cue a {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--muted); font-size: .82rem; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; text-decoration: none;
+}
+.cue a:hover { color: var(--text); }
+.cue svg { animation: cueDip 2.4s ease-in-out infinite; color: var(--accent-2); }
+@keyframes cueDip { 50% { transform: translateY(5px); } }
+@media (prefers-reduced-motion: reduce) { .cue svg { animation: none; } }
+@media (max-width: 920px) { .cue { margin-top: 12px; } }
+
 /* ---------- Laufband ---------- */
 .marquee {
   /* auto links/rechts: sonst überschreibt der Kurz-Margin das "margin: 0 auto"
@@ -267,7 +372,6 @@ header.scrolled { border-bottom-color: var(--line); box-shadow: 0 6px 24px rgba(
 .chip svg { color: var(--accent-2); flex: none; }
 
 /* ---------- Abschnitte ---------- */
-section { padding: 64px 0; }
 section h2 { font-size: clamp(1.7rem, 3.2vw, 2.35rem); font-weight: 800; }
 section .lede { color: var(--muted); max-width: 46rem; font-size: 1.04rem; }
 .sec-head { margin-bottom: 36px; }
@@ -278,7 +382,7 @@ section .lede { color: var(--muted); max-width: 46rem; font-size: 1.04rem; }
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 
-/* ---------- Karten (überall gleich) ---------- */
+/* ---------- Karten (überall gleich): Zeigerspur + Schwebe ---------- */
 .card {
   position: relative; overflow: hidden;
   background: color-mix(in srgb, var(--surface) 90%, transparent);
@@ -287,6 +391,13 @@ section .lede { color: var(--muted); max-width: 46rem; font-size: 1.04rem; }
   transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
 }
 .card:hover { transform: translateY(-4px); box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--accent-2) 45%, var(--line)); }
+/* Lichtspur unter dem Zeiger: Position setzt site.js als --mx/--my. */
+.card::after, .step::after, .flow::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: radial-gradient(220px circle at var(--mx, 50%) var(--my, -40%), color-mix(in srgb, var(--grad-a) 14%, transparent), transparent 65%);
+  opacity: 0; transition: opacity .3s ease;
+}
+.card:hover::after, .step:hover::after, .flow:hover::after { opacity: 1; }
 .card .ico {
   display: inline-flex; align-items: center; justify-content: center;
   width: 44px; height: 44px; border-radius: 13px; margin-bottom: 15px;
@@ -302,10 +413,116 @@ section .lede { color: var(--muted); max-width: 46rem; font-size: 1.04rem; }
   background: radial-gradient(circle, color-mix(in srgb, var(--grad-a) 20%, transparent), transparent 70%);
 }
 
+/* ---------- Mini-Ansichten in den Karten ---------- */
+.viz {
+  margin: 16px 0 0;
+  border: 1px solid var(--line); border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  padding: 12px;
+  font-size: .78rem;
+}
+.viz * { line-height: 1.35; }
+
+/* Wochenraster */
+.vc-days { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 6px; }
+.vc-days span { text-align: center; font-size: .58rem; font-weight: 700; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.vc-grid { display: grid; grid-template-columns: repeat(5, 1fr); grid-auto-rows: 17px; gap: 4px; }
+.vc-grid i { border-radius: 5px; display: block; }
+.vc-grid .ca { background: linear-gradient(140deg, color-mix(in srgb, var(--grad-a) 34%, var(--surface)), color-mix(in srgb, var(--grad-a) 18%, var(--surface))); }
+.vc-grid .cb { background: linear-gradient(140deg, color-mix(in srgb, var(--grad-b) 34%, var(--surface)), color-mix(in srgb, var(--grad-b) 18%, var(--surface))); }
+.vc-grid .cc { background: linear-gradient(140deg, color-mix(in srgb, var(--grad-c) 34%, var(--surface)), color-mix(in srgb, var(--grad-c) 18%, var(--surface))); }
+.vc-grid .now { position: relative; outline: 1.5px solid color-mix(in srgb, var(--grad-c) 70%, transparent); }
+.vc-grid .now::after {
+  content: ""; position: absolute; right: 4px; top: 4px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--grad-c);
+  animation: pulse 2.2s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: .25; } }
+
+/* Widget-Karte */
+.vw-row { display: flex; align-items: center; gap: 10px; padding: 5px 2px; }
+.vw-ring {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  background: conic-gradient(var(--grad-c) 62%, color-mix(in srgb, var(--line) 70%, transparent) 0);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.vw-ring::after { content: ""; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.vw-row b { display: block; font-size: .8rem; }
+.vw-row span { display: block; font-size: .7rem; color: var(--muted); }
+.vw-ico { flex: none; width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(140deg, color-mix(in srgb, var(--grad-b) 26%, var(--surface)), color-mix(in srgb, var(--grad-b) 10%, var(--surface))); color: var(--accent-2); }
+
+/* Dateiliste */
+.vf-row { display: flex; align-items: center; gap: 9px; padding: 6px 2px; }
+.vf-row + .vf-row { border-top: 1px solid var(--line); }
+.vf-row svg { flex: none; color: var(--accent-2); }
+.vf-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vf-row em { font-style: normal; flex: none; font-size: .62rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; }
+
+/* Chat */
+.vb { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 7px; }
+.vb:last-child { margin-bottom: 0; }
+.vb .ava {
+  flex: none; width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .62rem; font-weight: 800; color: #fff;
+  background: linear-gradient(140deg, var(--grad-a), var(--grad-b));
+}
+.vb p {
+  margin: 0; padding: 7px 11px; border-radius: 13px 13px 13px 4px; max-width: 85%;
+  background: var(--surface); border: 1px solid var(--line); font-size: .74rem;
+}
+.vb.right { flex-direction: row-reverse; }
+.vb.right .ava { background: linear-gradient(140deg, var(--grad-c), var(--grad-a)); }
+.vb.right p { border-radius: 13px 13px 4px 13px; background: color-mix(in srgb, var(--grad-a) 14%, var(--surface)); border-color: color-mix(in srgb, var(--grad-a) 30%, var(--line)); }
+
+/* Kalenderwoche */
+.vw-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.vw-week .wd {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  border: 1px solid var(--line); border-radius: 9px; padding: 5px 2px 6px;
+  background: var(--surface); min-width: 0;
+}
+.vw-week .wd b { font-size: .56rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.vw-week .wd span { font-size: .72rem; font-weight: 700; }
+.vw-week .wd .ev { width: 7px; height: 7px; border-radius: 50%; }
+.vw-week .wd.today { border-color: color-mix(in srgb, var(--grad-c) 60%, var(--line)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--grad-c) 40%, transparent); }
+
+/* Mensa */
+.vm-row { display: flex; align-items: center; gap: 8px; padding: 6px 2px; }
+.vm-row + .vm-row { border-top: 1px solid var(--line); }
+.vm-row b { flex: 1; min-width: 0; font-weight: 600; font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vm-row .leaf { flex: none; color: color-mix(in srgb, var(--grad-c) 85%, var(--text)); }
+.vm-row em { font-style: normal; flex: none; font-size: .62rem; font-weight: 700; color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; font-variant-numeric: tabular-nums; }
+
+/* Demo-Schalter */
+.vd-row { display: flex; align-items: center; gap: 11px; }
+.vd-switch {
+  flex: none; width: 42px; height: 24px; border-radius: 999px; position: relative;
+  background: linear-gradient(135deg, var(--grad-a), var(--grad-b));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, .2);
+}
+.vd-switch::after {
+  content: ""; position: absolute; top: 3px; right: 3px; width: 18px; height: 18px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
+}
+.vd-row b { display: block; font-size: .8rem; }
+.vd-row span { display: block; font-size: .68rem; color: var(--muted); }
+
+/* Farbwelten */
+.vc-swatches { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.vc-swatches span {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--sw);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--surface) 40%, transparent), 0 2px 6px rgba(0, 0, 0, .18);
+}
+.vc-swatches .plus { width: auto; height: auto; border-radius: 999px; box-shadow: none; background: none; color: var(--muted); font-size: .66rem; border: 1px dashed var(--line); padding: 2px 9px; }
+
 /* ---------- Bento-Raster ---------- */
 .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--gap); }
 .c-2 { grid-column: span 2; }
 .c-3 { grid-column: span 3; }
+.bento .card:nth-child(2n) { --d: .07s; }
+.bento .card:nth-child(4n+3) { --d: .12s; }
 @media (max-width: 980px) { .bento { grid-template-columns: 1fr 1fr; } .c-2, .c-3 { grid-column: span 1; } }
 @media (max-width: 540px) { .bento { grid-template-columns: 1fr; } }
 
@@ -319,19 +536,175 @@ section .lede { color: var(--muted); max-width: 46rem; font-size: 1.04rem; }
   margin-bottom: 12px; display: block;
 }
 
-/* ---------- Galerie ---------- */
-.gallery { display: grid; grid-auto-flow: column; grid-auto-columns: 268px; gap: var(--gap); overflow-x: auto; padding: 8px 4px 22px; scroll-snap-type: x mandatory; scrollbar-width: thin; }
-.gallery figure { margin: 0; scroll-snap-align: center; }
-.gallery img {
-  width: 268px; border-radius: 22px; border: 1px solid var(--line);
-  box-shadow: var(--shadow); display: block;
-  transition: transform .3s ease, box-shadow .3s ease;
+/* ---------- Datenfluss-Karte ---------- */
+.flow { margin-top: var(--gap); padding: 28px; }
+.flow h3 { font-size: 1.3rem; margin-bottom: 8px; }
+.flow > p { color: var(--muted); max-width: 56rem; }
+.flow-viz { display: flex; align-items: center; justify-content: center; gap: 28px; margin: 22px 0 18px; flex-wrap: wrap; }
+.fnode {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  text-align: center; border: 1px solid var(--line); border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  padding: 16px 20px; min-width: 170px;
+  box-shadow: 0 8px 26px rgba(11, 28, 38, .07);
 }
-.gallery img:hover { transform: translateY(-6px); box-shadow: 0 22px 60px rgba(11, 28, 38, .2); }
-.hint { font-size: .82rem; color: var(--muted); }
+.fnode .f-ico {
+  width: 40px; height: 40px; border-radius: 12px; margin-bottom: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--grad-a) 22%, var(--surface)), color-mix(in srgb, var(--grad-b) 18%, var(--surface)));
+  color: var(--accent-2);
+}
+.fnode b { font-size: .92rem; }
+.fnode span { font-size: .74rem; color: var(--muted); }
+.flink { flex: none; color: var(--accent-2); }
+.fl-line { stroke: color-mix(in srgb, var(--accent-2) 55%, transparent); }
+.fl-lock circle { fill: var(--surface); stroke: color-mix(in srgb, var(--accent-2) 70%, transparent); }
+.fl-lock path, .fl-lock rect { stroke: var(--accent-2); fill: none; }
+@media (max-width: 700px) {
+  .flow-viz { flex-direction: column; gap: 14px; }
+  .flink { transform: rotate(90deg); }
+}
+.fx-node {
+  position: relative; margin: 0 auto; width: fit-content;
+  border: 1.5px dashed color-mix(in srgb, var(--accent-2) 55%, var(--line));
+  border-radius: 12px; padding: 9px 18px; text-align: center;
+  color: var(--muted); font-size: .8rem; transform: rotate(-1.4deg);
+}
+.fx-node s { text-decoration-thickness: 1.5px; }
+.fx-node em { font-style: normal; margin-left: 8px; color: var(--accent-2); font-weight: 700; }
+.fx-node::after {
+  content: ""; position: absolute; left: -6%; right: -6%; top: 50%; height: 1.5px;
+  background: color-mix(in srgb, var(--accent-2) 65%, transparent); transform: rotate(-3deg); border-radius: 2px;
+}
+
+/* ---------- Rundgang ---------- */
+.tour {
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+}
+.tour-tabs { display: none; }
+.js .tour-tabs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.tour-tab {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  color: var(--muted); font: inherit; font-size: .88rem; font-weight: 600;
+  padding: 9px 16px; cursor: pointer;
+  transition: color .2s ease, border-color .2s ease, background .2s ease, transform .18s ease;
+}
+.tour-tab svg { flex: none; }
+.tour-tab:hover { color: var(--text); transform: translateY(-1px); }
+.tour-tab[aria-pressed="true"] {
+  color: var(--text); border-color: color-mix(in srgb, var(--grad-a) 55%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--grad-a) 16%, var(--surface)), color-mix(in srgb, var(--grad-b) 12%, var(--surface)));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--grad-a) 16%, transparent);
+}
+.tour-stage { display: flex; align-items: center; gap: 18px; }
+.tour-arrow {
+  display: none; flex: none; width: 46px; height: 46px; border-radius: 50%;
+  border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--text); cursor: pointer; align-items: center; justify-content: center;
+  transition: border-color .2s ease, transform .18s ease, box-shadow .2s ease;
+}
+.js .tour-arrow { display: inline-flex; }
+.tour-arrow:hover { border-color: var(--accent-2); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(11, 28, 38, .12); }
+.tour-arrow svg { pointer-events: none; }
+.t-phone {
+  position: relative; width: min(288px, 72vw);
+  border-radius: 44px; padding: 12px;
+  background: linear-gradient(160deg, #2a3946, #0d1520);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, .42), inset 0 0 0 2px rgba(255, 255, 255, .06);
+}
+.t-notch {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  width: 88px; height: 22px; border-radius: 999px; background: #05080c; z-index: 3;
+}
+.t-screen {
+  position: relative; overflow: hidden; border-radius: 34px;
+  aspect-ratio: 560 / 1212; background: #0a1118;
+}
+.t-screen img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; display: block;
+}
+.js .t-screen img { opacity: 0; transform: scale(.985); transition: opacity .5s ease, transform .5s ease; }
+.js .t-screen img.on { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .js .t-screen img { transition: none; transform: none; }
+}
+/* Ohne JavaScript: das erste Bild steht da, alle Bildunterschriften folgen. */
+html:not(.js) .t-screen img + img { display: none; }
+.tour-cap { text-align: center; max-width: 34rem; min-height: 3.2em; }
+.tour-cap p { display: none; margin: 0; color: var(--muted); font-size: .98rem; }
+.tour-cap p.on { display: block; }
+.tour-foot { display: none; align-items: center; gap: 18px; }
+.js .tour-foot { display: flex; }
+.tour-dots { display: flex; gap: 7px; }
+.tour-dot {
+  width: 8px; height: 8px; border-radius: 999px; padding: 0;
+  border: none; cursor: pointer;
+  background: color-mix(in srgb, var(--muted) 40%, transparent);
+  transition: width .25s ease, background .25s ease;
+}
+.tour-dot:hover { background: var(--muted); }
+.tour-dot.on { width: 24px; background: linear-gradient(90deg, var(--grad-a), var(--grad-b)); }
+.tour-count { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tour-count b { color: var(--text); }
+
+/* ---------- Drei Schritte ---------- */
+.steps { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
+.steps::before {
+  content: ""; position: absolute; top: 27px; left: 11%; right: 11%; height: 2px;
+  background: linear-gradient(90deg, var(--grad-a), var(--grad-b), var(--grad-c));
+  opacity: .35; border-radius: 2px;
+  transform: scaleX(0); transform-origin: 0 50%; transition: transform 1s ease .2s;
+}
+.steps.in::before { transform: scaleX(1); }
+.step {
+  position: relative; text-align: center;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 30px 22px 24px; overflow: hidden;
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.step:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+.s-num {
+  position: relative; z-index: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 54px; height: 54px; border-radius: 50%; font-weight: 800; font-size: 1.2rem;
+  color: var(--text); margin-bottom: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--grad-a) 20%, var(--surface)), color-mix(in srgb, var(--grad-b) 14%, var(--surface)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--grad-a) 30%, transparent), 0 0 0 6px var(--bg);
+}
+@media (prefers-color-scheme: dark) { .s-num { color: #04121c; background: linear-gradient(135deg, var(--grad-a), var(--grad-b)); } }
+.step b { display: block; font-size: 1.08rem; margin-bottom: 6px; }
+.step p { font-size: .92rem; color: var(--muted); margin: 0; }
+@media (max-width: 860px) {
+  .steps { grid-template-columns: 1fr; gap: 12px; max-width: 460px; margin-inline: auto; }
+  .steps::before { top: 8%; bottom: 8%; left: 27px; right: auto; width: 2px; height: auto; transform: scaleY(0); transform-origin: 50% 0; }
+  .steps.in::before { transform: scaleY(1); }
+  .step { text-align: left; display: grid; grid-template-columns: 54px 1fr; column-gap: 16px; align-items: center; padding: 18px 20px; }
+  .s-num { grid-column: 1 / -1; margin-bottom: 6px; }
+  .step > div { grid-column: 1 / -1; }
+}
 
 /* ---------- FAQ ---------- */
 .faq { max-width: 760px; }
+.faq-search {
+  display: none; align-items: center; gap: 10px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  padding: 6px 10px 6px 16px; margin-bottom: 20px;
+}
+.js .faq-search { display: flex; }
+.faq-search svg { color: var(--muted); flex: none; }
+.faq-search input {
+  flex: 1; border: none; background: none; color: var(--text);
+  font: inherit; font-size: .96rem; padding: 8px 0; min-width: 0;
+}
+.faq-search input:focus { outline: none; }
+.faq-search:focus-within { border-color: var(--accent-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--grad-a) 16%, transparent); }
+.faq-search input::placeholder { color: var(--muted); opacity: .8; }
+.faq-search .faq-count { flex: none; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; padding-right: 6px; }
 .faq details {
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   border: 1px solid var(--line);
@@ -350,6 +723,10 @@ section .lede { color: var(--muted); max-width: 46rem; font-size: 1.04rem; }
 }
 .faq details[open] summary::after { content: "−"; transform: rotate(180deg); }
 .faq details p { margin: 12px 0 0; color: var(--muted); font-size: .96rem; }
+.faq-empty {
+  text-align: center; color: var(--muted); font-size: .95rem;
+  border: 1.5px dashed var(--line); border-radius: 16px; padding: 26px 18px;
+}
 
 /* ---------- Roadmap ---------- */
 .roadmap { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); max-width: 860px; }
@@ -359,17 +736,35 @@ section .lede { color: var(--muted); max-width: 46rem; font-size: 1.04rem; }
   content: ""; position: absolute; left: 22px; top: -6px; width: 12px; height: 12px;
   border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 12px color-mix(in srgb, var(--accent-2) 60%, transparent);
 }
-.roadmap .step b { display: block; font-size: 1rem; margin-bottom: 3px; }
+.roadmap .step b { display: flex; align-items: center; gap: 9px; font-size: 1rem; margin-bottom: 3px; flex-wrap: wrap; }
 .roadmap .step span { font-size: .88rem; color: var(--muted); }
+.roadmap .tag {
+  flex: none; font-size: .6rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--accent-2); border: 1px solid color-mix(in srgb, var(--accent-2) 45%, var(--line));
+  border-radius: 999px; padding: 1px 8px;
+}
 
 /* ---------- Schluss-CTA ---------- */
 .final {
   position: relative; overflow: hidden;
   border: 1px solid var(--line); border-radius: 30px;
-  padding: 64px 32px; text-align: center;
+  text-align: center;
+}
+/* Rotierender Farbrahmen: eine Scheibe hinter dem Inhalt, die langsam läuft. */
+.final .spin {
+  position: absolute; inset: -160%;
+  background: conic-gradient(from 0deg, transparent 0deg 48deg, color-mix(in srgb, var(--grad-a) 55%, transparent) 90deg, color-mix(in srgb, var(--grad-b) 55%, transparent) 140deg, color-mix(in srgb, var(--grad-c) 45%, transparent) 190deg, transparent 240deg);
+  animation: rot 14s linear infinite;
+  pointer-events: none;
+}
+.final .inner {
+  position: relative; margin: 1.5px; border-radius: 29px;
+  padding: 64px 32px;
   background: linear-gradient(150deg, color-mix(in srgb, var(--grad-a) 16%, var(--surface)), color-mix(in srgb, var(--grad-b) 12%, var(--surface)) 60%, var(--surface));
 }
-.final::before {
+@keyframes rot { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .final .spin { animation: none; } }
+.final .inner::before {
   content: ""; position: absolute; left: 50%; top: -160px; transform: translateX(-50%);
   width: 560px; height: 300px; border-radius: 50%;
   background: radial-gradient(circle, color-mix(in srgb, var(--grad-a) 28%, transparent), transparent 70%);
@@ -387,19 +782,23 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
 .foot .col a:hover { color: var(--text); }
 .foot .head { font-weight: 650; color: var(--text); margin-bottom: 4px; }
 .foot .note { font-size: .85rem; color: var(--muted); max-width: 32rem; }
+.foot .top { display: inline-flex; align-items: center; gap: 7px; }
 
 /* ---------- Einblenden ----------
    Erst deckel, dann anheben: Der „backwards"-Ende stellt nach der Animation
-   die normalen Stile wieder her, damit :hover-Transformen weiter greifen. */
+   die normalen Stile wieder her, damit :hover-Transformen weiter greifen.
+   --d staffelt die Karten eines Rasters leicht. */
 @keyframes rise { from { opacity: 0; transform: translateY(24px); } }
 .js .reveal { opacity: 0; }
 .js .reveal.in {
   opacity: 1;
   animation: rise .65s cubic-bezier(.22, .68, .34, 1) backwards;
+  animation-delay: var(--d, 0s);
 }
 @media (prefers-reduced-motion: reduce) {
   .js .reveal { opacity: 1; }
   .js .reveal.in { animation: none; }
+  .steps::before { transform: none; transition: none; }
 }
 
 /* ---------- Mobil ---------- */
@@ -409,10 +808,10 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
   section { padding: 48px 0; }
   .sec-head { margin-bottom: 26px; }
   .nav .store-mini { padding: 10px 18px; font-size: .92rem; }
-  .gallery { grid-auto-columns: 232px; }
-  .gallery img { width: 232px; }
-  .final { padding: 46px 20px; border-radius: 24px; }
+  .final .inner { padding: 46px 20px; }
   .foot { gap: 30px 20px; }
+  .tour-stage { gap: 8px; }
+  .tour-arrow { width: 38px; height: 38px; }
 }
 @media (max-width: 540px) {
   .hero h1 { font-size: clamp(2.15rem, 9vw, 2.6rem); }
@@ -432,17 +831,33 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
 <body>
 
 <div class="aurora" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div id="progress" aria-hidden="true"></div>
+<a class="skip" href="#features">Zum Inhalt springen</a>
 
 <header id="top">
   <div class="wrap nav">
     <a class="brand" href="/"><img src="assets/icon-180.png" alt="StudGo-Symbol">StudGo</a>
+    <span class="ver">1.8.2</span>
     <nav class="links" aria-label="Hauptnavigation">
       <a href="#features">Funktionen</a>
+      <a href="#rundgang">Rundgang</a>
+      <a href="#warum">Warum StudGo</a>
+      <a href="#faq">Fragen</a>
+    </nav>
+    <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="mpanel" aria-label="Menü öffnen oder schließen">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+    </button>
+    <a class="btn btn-primary store-mini" href="https://apps.apple.com/de/app/studgo/id6804845342">Laden</a>
+  </div>
+  <div class="mobile-panel" id="mpanel">
+    <div class="wrap">
+      <a href="#features">Funktionen</a>
+      <a href="#rundgang">Rundgang</a>
       <a href="#warum">Warum StudGo</a>
       <a href="#faq">Fragen</a>
       <a href="#roadmap">Roadmap</a>
-    </nav>
-    <a class="btn btn-primary store-mini" href="https://apps.apple.com/de/app/studgo/id6804845342">Laden</a>
+      <a class="btn btn-primary" href="https://apps.apple.com/de/app/studgo/id6804845342">Im App Store laden</a>
+    </div>
   </div>
 </header>
 
@@ -466,29 +881,32 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
       <p class="fineprint">Kostenlos · Ohne Werbung · iOS ab 16 · Ohne Konto testbar</p>
       <div class="stats">
         <div class="stat"><b>0</b><span>Tracker, Cookies, Werbung</span></div>
-        <div class="stat"><b>100&nbsp;%</b><span>quelloffen unter MIT</span></div>
-        <div class="stat"><b>194</b><span>Tests im Produkt selbst</span></div>
+        <div class="stat"><b data-count="100" data-suffix=" %">100 %</b><span>quelloffen unter MIT</span></div>
+        <div class="stat"><b data-count="194">194</b><span>Tests im Produkt selbst</span></div>
         <div class="stat"><b>1</b><span>Hochschule, ganz: die LUH</span></div>
       </div>
     </div>
 
     <div class="stage" aria-hidden="true">
-      <div class="phone">
-        <div class="notch"></div>
-        <img src="assets/shot-2.webp" alt="" loading="lazy">
-      </div>
-      <div class="widget w-next">
-        <div class="w-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Nächster Termin</div>
-        <div class="w-big">Algorithmen</div>
-        <div class="w-sub">W01 · in 25 Minuten</div>
-      </div>
-      <div class="widget w-mail">
-        <div class="w-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Postfach</div>
-        <div class="w-big">3 neu</div>
-        <div class="w-sub">aus zwei Kursen</div>
+      <div class="stage-inner">
+        <div class="phone">
+          <div class="notch"></div>
+          <img src="assets/shot-2.webp" alt="" loading="lazy">
+        </div>
+        <div class="widget w-next">
+          <div class="w-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Nächster Termin</div>
+          <div class="w-big">Algorithmen</div>
+          <div class="w-sub">W01 · in 25 Minuten</div>
+        </div>
+        <div class="widget w-mail">
+          <div class="w-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Postfach</div>
+          <div class="w-big">3 neu</div>
+          <div class="w-sub">aus zwei Kursen</div>
+        </div>
       </div>
     </div>
   </div>
+  <div class="cue" aria-hidden="true"><a href="#features">Mehr entdecken<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></a></div>
 </div>
 
 <div class="wrap marquee" aria-hidden="true">
@@ -500,6 +918,9 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
     <span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>Dunkelmodus und acht Farbwelten</span>
     <span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>Volle App ohne Konto im Demo-Modus</span>
     <span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Deutsch und English</span>
+    <span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Offline-Zwischenspeicher in der App</span>
+    <span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="10" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="17" width="7" height="4" rx="1.5"/></svg>Widgets in fünf Größen</span>
+    <span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Mensapläne über OpenMensa</span>
   </div>
 </div>
 
@@ -514,26 +935,64 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
       <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
       <h3>Stundenplan &amp; Termine</h3>
       <p>Wochenraster mit Countdown zum nächsten Termin, Sitzungstermine mit Raum und Thema, Feiertage im Kalender. Alles auch offline, wenn der Campus-Funk gerade wieder weg ist.</p>
+      <div class="viz viz-cal" aria-hidden="true">
+        <div class="vc-days"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span></div>
+        <div class="vc-grid">
+          <i class="ca" style="grid-column:1;grid-row:1/3"></i>
+          <i class="cb" style="grid-column:2;grid-row:2/4"></i>
+          <i class="cc now" style="grid-column:3;grid-row:1/3"></i>
+          <i class="ca" style="grid-column:4;grid-row:3"></i>
+          <i class="cb" style="grid-column:5;grid-row:1/2"></i>
+        </div>
+      </div>
     </div>
     <div class="card c-3 reveal">
       <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="10" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="17" width="7" height="4" rx="1.5"/></svg></span>
       <h3>Widgets</h3>
-      <p>Der nächste Termin und ungelesene Nachrichten auf dem Sperr- und dem Home-Bildschirm. Nach jedem Termin springt das Widget selbst zum nächsten, und es fragt nie selbst beim Server an.</p>
+      <p>Der nächste Termin und ungelesene Nachrichten auf dem Sperr- und dem Home-Bildschirm, in fünf Größen. Nach jedem Termin springt das Widget selbst zum nächsten, und es fragt nie selbst beim Server an.</p>
+      <div class="viz viz-widget" aria-hidden="true">
+        <div class="vw-row">
+          <span class="vw-ring"></span>
+          <div><b>Algorithmen</b><span>W01 · in 25 Minuten</span></div>
+        </div>
+        <div class="vw-row">
+          <span class="vw-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <div><b>3 neue Nachrichten</b><span>aus zwei Kursen</span></div>
+        </div>
+      </div>
     </div>
     <div class="card c-2 reveal">
       <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
       <h3>Kurse, Dateien &amp; Courseware</h3>
       <p>Vorlesungsverzeichnis mit Volltextsuche, Ordnerbäume mit Vorschau, Download und Teilen, Lernmaterialien aus der Courseware direkt in der App.</p>
+      <div class="viz viz-files" aria-hidden="true">
+        <div class="vf-row"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span>Übungsblätter</span><em>12 Dateien</em></div>
+        <div class="vf-row"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>blatt05.pdf</span><em>480 kB</em></div>
+        <div class="vf-row"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>ergebnisse.csv</span><em>6 kB</em></div>
+      </div>
     </div>
     <div class="card c-2 reveal">
       <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 15 11 17 15 13"/></svg></span>
       <h3>iOS-Kalender &amp; Teilen</h3>
       <p>Auf Wunsch stehen die nächsten acht Wochen im eigenen Kalender „StudGo“: auf der Apple Watch, in CarPlay, bei Siri. Und der Stundenplan geht als Bild an die Lerngruppe.</p>
+      <div class="viz vw-week" aria-hidden="true">
+        <div class="wd"><b>Mo</b><span>12</span><i class="ev" style="background: var(--grad-a)"></i></div>
+        <div class="wd"><b>Di</b><span>13</span><i class="ev" style="background: var(--grad-b)"></i></div>
+        <div class="wd today"><b>Mi</b><span>14</span><i class="ev" style="background: var(--grad-c)"></i></div>
+        <div class="wd"><b>Do</b><span>15</span><i class="ev" style="background: var(--grad-b)"></i></div>
+        <div class="wd"><b>Fr</b><span>16</span><i class="ev" style="background: var(--grad-a)"></i></div>
+        <div class="wd"><b>Sa</b><span>17</span><i></i></div>
+        <div class="wd"><b>So</b><span>18</span><i></i></div>
+      </div>
     </div>
     <div class="card c-2 reveal">
       <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
       <h3>Nachrichten &amp; Blubber</h3>
       <p>Das Postfach und der Chat deiner Kurse, übersichtlich in einer App, mit Mitteilung, wenn etwas Neues ankommt.</p>
+      <div class="viz viz-chat" aria-hidden="true">
+        <div class="vb"><span class="ava">L</span><p>Hat jemand Aufgabe 3 gelöst?</p></div>
+        <div class="vb right"><p>Ja, steht im Kurs-Blubber, Datei ist verlinkt.</p><span class="ava">M</span></div>
+      </div>
     </div>
     <div class="card c-2 reveal">
       <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7-7 18-2.5-7.5z"/></svg></span>
@@ -544,16 +1003,133 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
       <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
       <h3>Campus &amp; Mensa</h3>
       <p>Speisepläne in Tages- und Wochenansicht, je Gericht alle Preise und Kennzeichnungen, Raumangaben und die wichtigsten Links: alles, was zwischen zwei Vorlesungen fehlt.</p>
+      <div class="viz viz-mensa" aria-hidden="true">
+        <div class="vm-row"><b>Currywurst mit Pommes</b><em>2,10 €</em></div>
+        <div class="vm-row"><b>Vegane Kartoffelsuppe</b><svg class="leaf" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg><em>2,10 €</em></div>
+        <div class="vm-row"><b>Ofengemüse mit Hummus</b><svg class="leaf" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg><em>3,40 €</em></div>
+      </div>
     </div>
     <div class="card c-2 reveal">
       <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></span>
       <h3>Melden &amp; Blockieren</h3>
       <p>Beiträge melden, Personen blockieren: Blockierte Inhalte verschwinden sofort aus allen Listen. Meldungen werden binnen 24 Stunden bearbeitet.</p>
     </div>
-    <div class="card c-2 reveal">
+    <div class="card c-3 reveal">
       <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
       <h3>Demo-Modus</h3>
-      <p>Die ganze App ohne Anmeldung ausprobieren, mit erfundenen Daten, die keinen Uni-Server berühren.</p>
+      <p>Die ganze App ohne Anmeldung ausprobieren, mit erfundenen Daten, die keinen Uni-Server berühren. Parser und Ansichten laufen unverändert: Was du siehst, ist die echte App.</p>
+      <div class="viz" aria-hidden="true">
+        <div class="vd-row">
+          <span class="vd-switch"></span>
+          <div><b>Demo ohne Anmeldung</b><span>Erfundene Daten, kein Uni-Server, kein Netz</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card c-3 reveal">
+      <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></span>
+      <h3>Acht Farbwelten</h3>
+      <p>Jeder Kurs bekommt aus seiner ID eine eigene Farbe, in Plan, Liste und Kursliste dieselbe. Dazu ein Dunkelmodus, der die Widgets mitnimmt, und acht Farbwelten für die ganze App.</p>
+      <div class="viz" aria-hidden="true">
+        <div class="vc-swatches">
+          <span style="--sw:#38b6ff"></span><span style="--sw:#7c6bff"></span><span style="--sw:#25d0c2"></span><span style="--sw:#3ecf6f"></span><span style="--sw:#ffb020"></span><span style="--sw:#ff6b5e"></span><span style="--sw:#f26bd6"></span><span style="--sw:#8d9db5"></span>
+          <span class="plus">plus Dunkelmodus</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="rundgang">
+  <div class="wrap sec-head reveal">
+    <span class="kicker">Rundgang</span>
+    <h2>Sieh dir die App an</h2>
+    <p class="lede">Fünf Blicke in StudGo, vom Wochenraster bis zum Postfach. Tippe dich durch die Ansichten oder lass sie selbst laufen.</p>
+  </div>
+  <div class="wrap">
+    <div class="tour reveal" id="tour">
+      <div class="tour-tabs" role="group" aria-label="Ansichten der App">
+        <button type="button" class="tour-tab" aria-pressed="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Übersicht
+        </button>
+        <button type="button" class="tour-tab" aria-pressed="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Wochenplan
+        </button>
+        <button type="button" class="tour-tab" aria-pressed="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Kurse
+        </button>
+        <button type="button" class="tour-tab" aria-pressed="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Dateien
+        </button>
+        <button type="button" class="tour-tab" aria-pressed="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Nachrichten
+        </button>
+      </div>
+      <div class="tour-stage">
+        <button type="button" class="tour-arrow prev" data-dir="-1" aria-label="Vorherige Ansicht">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="t-phone">
+          <div class="t-notch"></div>
+          <div class="t-screen">
+            <img class="on" src="assets/shot-1.webp" alt="StudGo: Übersicht mit dem nächsten Termin und dem Countdown" loading="lazy">
+            <img src="assets/shot-2.webp" alt="StudGo: Stundenplan als Wochenraster mit Kursfarben" loading="lazy">
+            <img src="assets/shot-3.webp" alt="StudGo: Kursübersicht mit Suche" loading="lazy">
+            <img src="assets/shot-4.webp" alt="StudGo: Dateien eines Kurses mit Ordnerbaum" loading="lazy">
+            <img src="assets/shot-5.webp" alt="StudGo: Nachrichten und Blubber in einer Liste" loading="lazy">
+          </div>
+        </div>
+        <button type="button" class="tour-arrow next" data-dir="1" aria-label="Nächste Ansicht">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+      <div class="tour-cap" aria-live="polite">
+        <p class="on">Der Start in die App: der nächste Termin mit Countdown, ungelesene Nachrichten und neue Ankündigungen auf einen Blick.</p>
+        <p>Das Wochenraster mit Kursfarben, Räumen und Überschneidungen. Feiertage stehen direkt am Datum.</p>
+        <p>Alle Veranstaltungen des Semesters, umschaltbar, mit Volltextsuche und allen Details je Kurs.</p>
+        <p>Dateien je Kurs: Ordner durchblättern, Vorschau öffnen, herunterladen und teilen.</p>
+        <p>Postfach und Blubber in einer Übersicht: lesen, Antworten, Verfassen, Profile antippen.</p>
+      </div>
+      <div class="tour-foot">
+        <div class="tour-dots" role="group" aria-label="Ansicht wählen">
+          <button type="button" class="tour-dot on" aria-label="Ansicht 1 von 5"></button>
+          <button type="button" class="tour-dot" aria-label="Ansicht 2 von 5"></button>
+          <button type="button" class="tour-dot" aria-label="Ansicht 3 von 5"></button>
+          <button type="button" class="tour-dot" aria-label="Ansicht 4 von 5"></button>
+          <button type="button" class="tour-dot" aria-label="Ansicht 5 von 5"></button>
+        </div>
+        <span class="tour-count"><b id="tour-idx">1</b> / 5</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="starten">
+  <div class="wrap sec-head reveal">
+    <span class="kicker">Starten</span>
+    <h2>In einer Minute startklar</h2>
+    <p class="lede">Kein Konto nötig, um hinzuschauen: Der Demo-Modus zeigt die ganze App, bevor du dich entscheidest.</p>
+  </div>
+  <div class="wrap steps">
+    <div class="step reveal">
+      <span class="s-num">1</span>
+      <div>
+        <b>App laden</b>
+        <p>Kostenlos aus dem App Store: keine In-App-Käufe, keine Werbung. iOS ab 16.</p>
+      </div>
+    </div>
+    <div class="step reveal" style="--d:.08s">
+      <span class="s-num">2</span>
+      <div>
+        <b>Anmelden</b>
+        <p>Mit dem Hochschulkonto über OAuth: Dein Passwort sieht die App nie. Oder erst im Demo-Modus stöbern, ganz ohne Konto.</p>
+      </div>
+    </div>
+    <div class="step reveal" style="--d:.16s">
+      <span class="s-num">3</span>
+      <div>
+        <b>Einrichten</b>
+        <p>Widgets auf den Sperrbildschirm legen, den Kalender-Abgleich einschalten. Eine kurze Einführung führt durch alles.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -570,33 +1146,43 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
       <h3>Privat von Haus aus</h3>
       <p>Die Anmeldung läuft per OAuth&nbsp;2.0 mit PKCE über das Hochschulkonto. Dein Passwort sieht die App nie. Inhalte bleiben auf deinem Gerät, Tokens liegen ausschließlich im Schlüsselbund. Es gibt keinen Anbieter-Server und keine Nutzungsstatistik.</p>
     </div>
-    <div class="card reveal">
+    <div class="card reveal" style="--d:.08s">
       <span class="num">02</span>
       <h3>Offen und kostenlos</h3>
       <p>Der komplette Quelltext liegt unter MIT-Lizenz auf GitHub. Kein Preisschild, keine In-App-Käufe, keine Werbung. Und das bleibt so.</p>
     </div>
-    <div class="card reveal">
+    <div class="card reveal" style="--d:.16s">
       <span class="num">03</span>
       <h3>Eine Hochschule, ganz</h3>
       <p>StudGo verbindet sich direkt mit <a href="https://studip.uni-hannover.de">studip.uni-hannover.de</a>. Statt durchschnittlich für hundert Hochschulen gebaut zu sein, ist es genau für dein Stud.IP gemacht.</p>
     </div>
   </div>
-</section>
-
-<section id="bilder" aria-label="Screenshots">
-  <div class="wrap sec-head reveal">
-    <span class="kicker">Eindrücke</span>
-    <h2>Aus der App</h2>
-    <p class="hint">Seitlich ziehen oder wischen.</p>
-  </div>
-  <div class="wrap">
-    <div class="gallery">
-      <figure><img src="assets/shot-1.webp" alt="StudGo: Übersicht mit dem nächsten Termin" loading="lazy"></figure>
-      <figure><img src="assets/shot-2.webp" alt="StudGo: Stundenplan als Wochenraster" loading="lazy"></figure>
-      <figure><img src="assets/shot-3.webp" alt="StudGo: Kursübersicht" loading="lazy"></figure>
-      <figure><img src="assets/shot-4.webp" alt="StudGo: Dateien eines Kurses" loading="lazy"></figure>
-      <figure><img src="assets/shot-5.webp" alt="StudGo: Nachrichten und Blubber" loading="lazy"></figure>
+  <div class="wrap flow card reveal">
+    <h3>Deine Daten nehmen den direkten Weg</h3>
+    <p>StudGo hat kein eigenes Backend und keine Statistik. Die App spricht verschlüsselt direkt mit dem Stud.IP-Server deiner Hochschule; Inhalte bleiben auf deinem Gerät, Tokens ausschließlich im Schlüsselbund.</p>
+    <div class="flow-viz" aria-hidden="true">
+      <div class="fnode">
+        <span class="f-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
+        <b>StudGo auf deinem iPhone</b>
+        <span>Tokens nur im Schlüsselbund</span>
+      </div>
+      <svg class="flink" viewBox="0 0 140 48" width="140" height="48" aria-hidden="true">
+        <line class="fl-line" x1="8" y1="24" x2="132" y2="24" stroke-width="2" stroke-dasharray="7 6"/>
+        <path d="M16 16 L8 24 L16 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M124 16 L132 24 L124 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <g class="fl-lock">
+          <circle cx="70" cy="24" r="15"/>
+          <rect x="64" y="21" width="12" height="8" rx="1.5" stroke-width="1.8"/>
+          <path d="M66 21v-2.5a4 4 0 0 1 8 0V21" stroke-width="1.8"/>
+        </g>
+      </svg>
+      <div class="fnode">
+        <span class="f-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span>
+        <b>Stud.IP der LUH</b>
+        <span>studip.uni-hannover.de</span>
+      </div>
     </div>
+    <div class="fx-node" aria-hidden="true"><s>Anbieter-Server · Nutzungsstatistik</s><em>gibt es nicht</em></div>
   </div>
 </section>
 
@@ -606,6 +1192,11 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
     <h2>Häufige Fragen</h2>
   </div>
   <div class="wrap faq">
+    <div class="faq-search">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="faq-q" type="search" placeholder="Frage suchen, zum Beispiel: Widgets" aria-label="Fragen durchsuchen" autocomplete="off">
+      <span class="faq-count" id="faq-count">12 Fragen</span>
+    </div>
     <details class="reveal">
       <summary>Funktionieren die Widgets auch ohne Empfang?</summary>
       <p>Ja. Die Widgets fragen nie selbst beim Uni-Server an: Sie zeigen den Stand, den die App beim letzten Öffnen oder beim Hintergrundlauf hinterlegt hat. Ohne Internet steht dort also der letzte bekannte Termin, nicht eine Fehlermeldung.</p>
@@ -615,12 +1206,20 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
       <p>Ja, wenn du es einschaltest: im Profil unter „Stundenplan im iOS-Kalender“. StudGo legt dafür einen eigenen Kalender „StudGo“ an, trägt die nächsten acht Wochen ein und hält ihn bei jedem Öffnen aktuell. Andere Termine liest die App nicht, und Ausschalten entfernt den Kalender wieder.</p>
     </details>
     <details class="reveal">
+      <summary>Kann ich StudGo ohne Konto ausprobieren?</summary>
+      <p>Ja. Über „Demo ohne Anmeldung ansehen“ auf dem Anmeldebildschirm öffnet sich die vollständige App mit erfundenen Beispieldaten: ohne Konto, ohne Netzverbindung, ohne dass ein Uni-Server berührt wird.</p>
+    </details>
+    <details class="reveal">
       <summary>Gibt es StudGo auf Englisch?</summary>
       <p>Ja. Seit Fassung 1.8.2 folgt die App der Sprache deines iPhones: Deutsch oder Englisch. Inhalte aus Stud.IP, etwa Kursnamen, stehen so da, wie die Lehrenden sie eingetragen haben.</p>
     </details>
     <details class="reveal">
       <summary>Mit welchem Stud.IP funktioniert StudGo?</summary>
       <p>StudGo ist für die Stud.IP-Installation unter <a href="https://studip.uni-hannover.de">studip.uni-hannover.de</a> gebaut und verbindet sich direkt mit ihr. Die Anmeldung läuft über dein Hochschulkonto.</p>
+    </details>
+    <details class="reveal">
+      <summary>Welche iOS-Version brauche ich?</summary>
+      <p>iOS 16 oder neuer. Die App folgt der eingestellten Textgröße deines Geräts und gibt es auf Deutsch und Englisch.</p>
     </details>
     <details class="reveal">
       <summary>Was kostet StudGo?</summary>
@@ -635,6 +1234,10 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
       <p>Die App hat kein eigenes Backend und spricht verschlüsselt direkt mit dem Stud.IP-Server. Zugangs-Tokens liegen nur im Schlüsselbund deines Geräts. Alle Einzelheiten stehen in der <a href="https://github.com/maxaufknax/studgo/blob/main/PRIVACY.md">Datenschutzerklärung</a>.</p>
     </details>
     <details class="reveal">
+      <summary>Was passiert beim Abmelden?</summary>
+      <p>Beim Abmelden löscht StudGo Tokens und Zwischenspeicher zusammen von deinem Gerät; die Widgets verlieren dabei ihren Schnappschuss. Was du in Stud.IP hochgeladen oder eingetragen hast, bleibt dort unberührt.</p>
+    </details>
+    <details class="reveal">
       <summary>Ich sehe Inhalte, die dort nicht hingehören. Was kann ich tun?</summary>
       <p>Lange auf den Beitrag tippen und „Beitrag melden“ wählen, oder die Person blockieren: Blockierte Inhalte verschwinden sofort aus allen Listen. Jede Meldung erreicht den Entwickler unmittelbar und wird innerhalb von 24&nbsp;Stunden bearbeitet.</p>
     </details>
@@ -642,6 +1245,7 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
       <summary>Ich habe einen Fehler gefunden. Wohin damit?</summary>
       <p>Am besten als Issue auf <a href="https://github.com/maxaufknax/studgo/issues">GitHub</a> oder per Mail an <a href="mailto:maximilian.elias.paasch@gmail.com">maximilian.elias.paasch@gmail.com</a>.</p>
     </details>
+    <p class="faq-empty" id="faq-empty" hidden>Dazu steht hier noch nichts. Am schnellsten hilft ein Blick in die <a href="https://github.com/maxaufknax/studgo/issues">Issues auf GitHub</a> oder eine kurze Mail an <a href="mailto:maximilian.elias.paasch@gmail.com">maximilian.elias.paasch@gmail.com</a>.</p>
   </div>
 </section>
 
@@ -651,21 +1255,24 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
     <h2>Als Nächstes geplant</h2>
   </div>
   <div class="wrap roadmap">
-    <div class="step reveal"><b>Persönliche Dateiablage</b><span>Deine eigenen Dateien von Stud.IP, sortiert und durchsuchbar.</span></div>
-    <div class="step reveal"><b>Ankündigungen verfassen</b><span>Neuigkeiten direkt aus der App in den Kurs schreiben.</span></div>
-    <div class="step reveal"><b>Forenthemen eröffnen</b><span>Neue Themen im Kursforum direkt aus der App starten.</span></div>
+    <div class="step reveal"><b>Persönliche Dateiablage <span class="tag">Geplant</span></b><span>Deine eigenen Dateien von Stud.IP, sortiert und durchsuchbar.</span></div>
+    <div class="step reveal" style="--d:.08s"><b>Ankündigungen verfassen <span class="tag">Geplant</span></b><span>Neuigkeiten direkt aus der App in den Kurs schreiben.</span></div>
+    <div class="step reveal" style="--d:.16s"><b>Forenthemen eröffnen <span class="tag">Geplant</span></b><span>Neue Themen im Kursforum direkt aus der App starten.</span></div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
     <div class="final reveal">
-      <img class="icon-big" src="assets/icon-512.png" alt="StudGo-Symbol" width="76" height="76">
-      <h2>Bereit für das Semester?</h2>
-      <p class="muted">Kostenlos, ohne Anmeldung testbar und in einer Minute installiert.</p>
-      <div class="cta">
-        <a class="btn btn-primary" href="https://apps.apple.com/de/app/studgo/id6804845342">Im App Store laden</a>
-        <a class="btn btn-outline" href="https://github.com/maxaufknax/studgo">Quelltext ansehen</a>
+      <div class="spin" aria-hidden="true"></div>
+      <div class="inner">
+        <img class="icon-big" src="assets/icon-512.png" alt="StudGo-Symbol" width="76" height="76">
+        <h2>Bereit für das Semester?</h2>
+        <p class="muted">Kostenlos, ohne Anmeldung testbar und in einer Minute installiert.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="https://apps.apple.com/de/app/studgo/id6804845342">Im App Store laden</a>
+          <a class="btn btn-outline" href="https://github.com/maxaufknax/studgo">Quelltext ansehen</a>
+        </div>
       </div>
     </div>
   </div>
@@ -688,6 +1295,7 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
       <span class="head">Kontakt</span>
       <a href="mailto:maximilian.elias.paasch@gmail.com">maximilian.elias.paasch@gmail.com</a>
       <a href="https://github.com/maxaufknax/studgo/issues">Fehler melden (GitHub)</a>
+      <a class="top" href="#top">Nach oben <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></a>
     </div>
     <div class="col">
       <p class="note">StudGo ist ein privates, nichtkommerzielles, quelloffenes Projekt von Maximilian Paasch. Es ist keine offizielle App deiner Hochschule und keine offizielle App von Stud.IP&nbsp;e.V.</p>
@@ -695,7 +1303,7 @@ footer { border-top: 1px solid var(--line); padding: 42px 0 56px; margin-top: 56
   </div>
 </footer>
 
-<script src="assets/site.js?v=1.8.2"></script>
+<script src="assets/site.js?v=2.0"></script>
 
 </body>
 </html>
