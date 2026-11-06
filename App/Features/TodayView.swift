@@ -223,6 +223,8 @@ struct TodayView: View {
         HStack(spacing: 10) {
             Image(systemName: "play.circle.fill")
                 .foregroundStyle(.tint)
+                // Das Zier-Symbol sagt nichts, was nicht danebensteht.
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Demo-Modus").font(.footnote.weight(.semibold))
                 Text("Beispieldaten, keine Verbindung zu Stud.IP")
@@ -239,6 +241,8 @@ struct TodayView: View {
             Image(systemName: context.isSemesterBreak ? "sun.max.fill" : "checkmark.circle.fill")
                 .font(.title2)
                 .foregroundStyle(context.isSemesterBreak ? .orange : .green)
+                // Deko: „Semesterferien“ steht als Wort daneben.
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(context.isSemesterBreak ? "Semesterferien" : "Nichts mehr im Kalender")
                     .font(.subheadline.weight(.semibold))
@@ -259,6 +263,8 @@ struct TodayView: View {
             Image(systemName: "wifi.exclamationmark")
                 .font(.title2)
                 .foregroundStyle(.orange)
+                // Deko - „Termine nicht geladen“ nennt den Zustand schon.
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Termine nicht geladen")
                     .font(.subheadline.weight(.semibold))
@@ -522,7 +528,10 @@ struct SectionCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 5) {
                 if let symbol {
+                    // Das Symbol wiederholt den Titel nur - VoiceOver liest
+                    // sonst zweimal dasselbe.
                     Image(systemName: symbol).font(.caption2)
+                        .accessibilityHidden(true)
                 }
                 Text(title.localizedUI)
                     .font(.footnote.weight(.semibold))

@@ -92,6 +92,9 @@ struct LoginView: View {
                 .tint(.white)
                 .controlSize(.large)
                 .disabled(auth.isWorking || !moderation.hasAcceptedTerms)
+                // Mit Spinner läuft nur der `ProgressView` im Knopf - ohne
+                // dieses Label stünde er VoiceOver ohne Namen da.
+                .accessibilityLabel("Mit Stud.IP anmelden")
 
                 Text("Die Anmeldung läuft direkt bei studip.uni-hannover.de. StudGo speichert die Zugangstoken nur lokal auf diesem Gerät.")
                     .font(.caption2)
@@ -156,5 +159,7 @@ struct LoginView: View {
         Rectangle()
             .fill(.white.opacity(0.25))
             .frame(height: 1)
+            // Reine Zier neben dem „oder“ - für VoiceOver wäre sie nur Rauschen.
+            .accessibilityHidden(true)
     }
 }

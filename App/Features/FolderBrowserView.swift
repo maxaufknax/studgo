@@ -30,6 +30,9 @@ struct FolderBrowserView: View {
                         Text("Suche im Dateibereich…").font(.footnote)
                             .foregroundStyle(.secondary)
                     }
+                    // Ein Element statt zwei: Der Balken hat keinen eigenen
+                    // Namen, der Text gehört zu ihm.
+                    .accessibilityElement(children: .combine)
                 }
                 if let hits = searchHits ?? (isSearching ? nil : []) {
                     if hits.isEmpty {
