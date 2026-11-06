@@ -40,19 +40,23 @@ enum BackgroundSync {
 
         // Was das Nachrichten-Widget zeigt - aus dem Posteingang, der hier
         // ohnehin geholt wird; der nächste Termin bleibt dem Startbildschirm
-        // überlassen (siehe `WidgetBridge.publish(unread:)`).
+        // überlassen (siehe `WidgetBridge.publish(unread:)`). Konnte der
+        // Posteingang nicht geholt werden (nil), bleibt im Widget der alte
+        // Wert stehen - bis 1.9 stand dann „0 Nachrichten“ da.
         WidgetBridge.publish(unread: unread)
     }
 
     // MARK: - Nachrichten
 
     /// Sagt zurück, wie viele Nachrichten im Posteingang ungelesen sind -
-    /// das Widget zeigt dieselbe Zahl wie das App-Symbol.
+    /// das Widget zeigt dieselbe Zahl wie das App-Symbol. `nil` heißt: Der
+    /// Posteingang ließ sich nicht holen; dann bleibt im Widget der alte
+    /// Wert stehen, statt „0 Nachrichten“ zu behaupten.
     @discardableResult
     private static func notifyNewMessages(client: StudIPClient,
                                           userID: String,
-                                          preferences: Preferences) async -> Int {
-        guard let inbox = try? await client.inbox(for: userID) else { return 0 }
+                                          preferences: Preferences) async -> Int? {
+        guard let inbox = try? await client.inbox(for: userID) else { return nil }
         let unread = inbox.filter { !$0.isRead }.count
 
         let since = preferences.lastNotifiedMessage

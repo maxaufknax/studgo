@@ -37,15 +37,17 @@ enum WidgetBridge {
         reload()
     }
 
-    /// Nur die ungelesenen Nachrichten erneuern - der Weg des
-    /// Hintergrundlaufs, der den nächsten Termin bewusst nicht abruft
-    /// (siehe `BackgroundSync`): Der Termin bleibt stehen, wie ihn „Heute“
-    /// zuletzt hinterlegt hat.
-    static func publish(unread: Int) {
+    /// Nur die ungelesenen Nachrichten erneuern - der Weg des Hintergrundlaufs,
+    /// der den nächsten Termin bewusst nicht abruft (siehe `BackgroundSync`):
+    /// Der Termin bleibt stehen, wie ihn „Heute“ zuletzt hinterlegt hat.
+    ///
+    /// `nil` heißt, das Postfach ließ sich nicht holen - dann bleibt der alte
+    /// Wert stehen (siehe `WidgetSnapshot.updateUnread`).
+    static func publish(unread: Int?) {
+        guard let unread else { return }
         var snapshot = WidgetSnapshotStore.load()
             ?? WidgetSnapshot(unreadMessages: 0, updatedAt: Date())
-        snapshot.unreadMessages = max(0, unread)
-        snapshot.updatedAt = Date()
+        snapshot.updateUnread(unread)
         WidgetSnapshotStore.save(snapshot)
         reload()
     }

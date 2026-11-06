@@ -43,6 +43,21 @@ struct WidgetSnapshot: Codable, Equatable {
         self.updatedAt = updatedAt
     }
 
+    /// Erneuert nur die Zahl der ungelesenen Nachrichten - der Weg des
+    /// Hintergrundlaufs, der den nächsten Termin bewusst nicht abruft.
+    ///
+    /// `nil` heißt: Das Postfach ließ sich nicht holen. Der Sekundenschutz
+    /// des Clients springt nur bei 429/502/503/504 und Netzausfällen mit einem
+    /// Cached-Eintrag an - ein 500er ohne solchen bleibt ein Fehler. In dem
+    /// Fall bleibt der alte Wert stehen, statt 0 Nachrichten zu behaupten:
+    /// Niemand soll eine leere Inbox sehen, weil ein Server gerade spinnt
+    /// (bis 1.9 passierte genau das).
+    mutating func updateUnread(_ fresh: Int?) {
+        guard let fresh else { return }
+        unreadMessages = max(0, fresh)
+        updatedAt = Date()
+    }
+
     /// Alle bekannten Termine, chronologisch: die Liste, oder bei einem
     /// Schnappschuss aus 1.8.1 der eine.
     var events: [NextEvent] {

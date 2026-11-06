@@ -107,4 +107,21 @@ struct WidgetSnapshotTests {
         let back = try decoder.decode(WidgetSnapshot.self, from: data)
         #expect(back.events.map(\.title) == Self.day.events.map(\.title))
     }
+
+    @Test("Ein gescheiterter Postfach-Abruf lässt die alte Zahl stehen")
+    func gescheiterteZaehlung() {
+        var snapshot = WidgetSnapshot(unreadMessages: 7, updatedAt: Self.base)
+        // Gescheitert: der Hintergrundlauf meldet nichts, nicht 0 - ein 500er
+        // ist keine leere Inbox. Bis 1.9 schrieb der Lauf in dem Fall 0 hinein.
+        snapshot.updateUnread(nil)
+        #expect(snapshot.unreadMessages == 7)
+
+        snapshot.updateUnread(0)
+        #expect(snapshot.unreadMessages == 0)
+        snapshot.updateUnread(23)
+        #expect(snapshot.unreadMessages == 23)
+        // Nie negativ, egal was der Server sagt.
+        snapshot.updateUnread(-4)
+        #expect(snapshot.unreadMessages == 0)
+    }
 }
