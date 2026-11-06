@@ -17,12 +17,17 @@ struct OfflineFilesTests {
     }
 
     private func file(id: String, name: String, size: Int?,
-                      changedHoursAgo: Double = 1) throws -> FileRef {
-        let changed = Date().addingTimeInterval(-changedHoursAgo * 3600)
+                      changedHoursAgo: Double = 1,
+                      changed: Date? = nil) throws -> FileRef {
+        // `changed` geht vor `changedHoursAgo`: Wer denselben Stand wie im
+        // Manifest prüft, braucht *diesen* Zeitpunkt und keinen frisch
+        // gerechneten - zwei separate `Date()` laufen um eine Sekunden-
+        // grenze auseinander und ließen den Test gelegentlich scheitern.
+        let date = changed ?? Date().addingTimeInterval(-changedHoursAgo * 3600)
         let json = """
         {"data": {"type": "file-refs", "id": "\(id)", "attributes": {
             "name": "\(name)", "filesize": \(size.map(String.init) ?? "null"),
-            "chdate": "\(Self.stamp(changed))"}}}
+            "chdate": "\(Self.stamp(date))"}}}
         """
         let document = try JSONAPIDocument(data: Data(json.utf8))
         return try #require(FileRef(document.first!))
@@ -122,11 +127,13 @@ struct OfflineFilesTests {
         try keep(store, id: "d2", name: "b.pdf", courseID: "kurs1",
                  chdate: original, size: 20)
 
-        // Neue Liste: a.pdf wurde geändert, b.pdf nicht.
+        // Neue Liste: a.pdf wurde geändert, b.pdf nicht. b.pdf nennt
+        // denselben Zeitpunkt wie der Eintrag im Manifest - ein frisch
+        // gerechneter läge Sekunden daneben und gilt schon als veraltet.
         let freshList = [try file(id: "d1", name: "a.pdf", size: 10,
                                   changedHoursAgo: 0.5),
                          try file(id: "d2", name: "b.pdf", size: 20,
-                                  changedHoursAgo: 24)]
+                                  changed: original)]
 
         let outdated = store.outdated(in: freshList)
         #expect(outdated.map(\.id) == ["d1"])
