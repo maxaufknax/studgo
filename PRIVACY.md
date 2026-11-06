@@ -21,8 +21,9 @@
 > calendar syncs wherever your calendars sync (for example iCloud), and turning
 > the option off or signing out deletes it. Signing out (since version 1.9)
 > deletes every piece of account data on the device: tokens, cache, downloads,
-> block list, hidden events, background markers, widget snapshot and the
-> “StudGo” calendar; pure settings such as the colour scheme remain.
+> files kept offline, block list, hidden events, background markers, widget
+> snapshot and the “StudGo” calendar; pure settings such as the colour scheme
+> remain.
 > Contact: <maximilian.elias.paasch@gmail.com>.
 
 ## Wer ist verantwortlich?
@@ -231,8 +232,9 @@ Datenschutzbestimmungen der jeweiligen Einrichtung.
 Die auf dem Gerät gehaltenen Daten des Kontos löschst du vollständig, indem
 du dich in der App abmeldest oder die App entfernst. Seit Version 1.9 sind
 das wirklich alle: die Zugangstoken aus dem Schlüsselbund, der
-Zwischenspeicher, heruntergeladene Dateien, die Blockliste, die
-ausgeblendeten Termine, die Merker der Hintergrund-Mitteilungen, der
+Zwischenspeicher, heruntergeladene Dateien, offline behaltene
+Dateien, die Blockliste, die ausgeblendeten Termine, die Merker der
+Hintergrund-Mitteilungen, der
 Widget-Schnappschuss, der Kalender „StudGo“ samt seinem Schalter und die
 Annahme der Nutzungsbedingungen. Auch geplante und bereits zugestellte
 Mitteilungen werden dabei storniert - endet eine Sitzung von selbst, gilt

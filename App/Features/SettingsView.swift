@@ -16,6 +16,8 @@ struct SettingsView: View {
     @State private var didClearCache = false
     @State private var webTarget: WebTarget?
     @State private var showsOnboarding = false
+    @ObservedObject private var offline = OfflineStore.shared
+    @State private var showsOfflineDeleteConfirmation = false
     /// Der Pfad dieses Blatts - siehe Kommentar an `NavigationStack` unten.
     @StateObject private var navigator = Navigator()
 
@@ -224,6 +226,8 @@ struct SettingsView: View {
                     Text("StudGo hält die zuletzt geladenen Listen auf dem Gerät vor, damit die App sofort startet und auch ohne Empfang etwas anzeigt.")
                 }
 
+                offlineSection
+
                 Section {
                     Button {
                         webTarget = WebTarget(url: AppConfig.webmailURL)
@@ -292,7 +296,7 @@ struct SettingsView: View {
                 } footer: {
                     Text(auth.isDemo
                          ? "Führt zurück zur Anmeldung. Die Beispieldaten der Demo werden dabei verworfen."
-                         : "Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht: Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben (seit 1.9).")
+                         : "Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht: Tokens, Zwischenspeicher, Downloads und offline behaltene Dateien, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben (seit 1.9).")
                 }
             }
             .listStyle(.insetGrouped)
@@ -330,12 +334,58 @@ struct SettingsView: View {
                     // Neu seit Version 1.9: gelöscht wird alles, was zum Konto
                     // gehört - nicht nur Tokens und Zwischenspeicher.
                     Text(preferences.sharesWebSession
-                         ? "Neu seit 1.9: Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht - Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben. Die Anmeldung im Browser bleibt bestehen; sie liegt bei Safari, nicht bei StudGo."
-                         : "Neu seit 1.9: Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht - Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben.")
+                         ? "Neu seit 1.9: Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht - Tokens, Zwischenspeicher, Downloads und offline behaltene Dateien, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben. Die Anmeldung im Browser bleibt bestehen; sie liegt bei Safari, nicht bei StudGo."
+                         : "Neu seit 1.9: Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht - Tokens, Zwischenspeicher, Downloads und offline behaltene Dateien, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben.")
                 }
             }
         }
         .environmentObject(navigator)
+        .confirmationDialog("Alle offline behaltenen Dateien löschen?",
+                            isPresented: $showsOfflineDeleteConfirmation,
+                            titleVisibility: .visible) {
+            Button("Alle löschen", role: .destructive) {
+                offline.removeAll()
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Die Dateien lassen sich über die Veranstaltung neu herunterladen.")
+        }
+    }
+
+    /// Übersicht der offline gehaltenen Dateien - je Veranstaltung Zahl und
+    /// Größe, darunter der eine Weg, alles wieder loszuwerden. Für einzelne
+    /// Dateien liegt das Löschen in der Dateiansicht selbst.
+    private var offlineSection: some View {
+        Section {
+            let groups = offline.groupedByCourse()
+            if groups.isEmpty {
+                RowLabel(symbol: "internaldrive",
+                         title: "Keine Dateien offline",
+                         subtitle: "In einem Ordner „Offline behalten“ wählen, dann stehen sie ohne Empfang zur Verfügung.")
+            } else {
+                ForEach(groups, id: \.courseID) { group in
+                    LabeledContent(
+                        group.title.nilIfEmpty ?? String(localized: "Ohne Kursangabe"),
+                        value: group.count == 1
+                            ? String(localized: "1 Datei · \(formatted(group.size))")
+                            : String(localized: "\(group.count) Dateien · \(formatted(group.size))"))
+                }
+                Button(role: .destructive) {
+                    showsOfflineDeleteConfirmation = true
+                } label: {
+                    RowLabel(symbol: "trash", title: "Alle offline Dateien löschen")
+                }
+                .buttonStyle(.plain)
+            }
+        } header: {
+            Text("Offline behalten")
+        } footer: {
+            Text("Offline behaltene Dateien liegen verschlüsselt auf diesem Gerät und sind ohne Empfang lesbar - auch im Flugmodus. Sie sind vom Backup ausgeschlossen und werden beim Abmelden gelöscht.")
+        }
+    }
+
+    private func formatted(_ bytes: Int) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
 }
 

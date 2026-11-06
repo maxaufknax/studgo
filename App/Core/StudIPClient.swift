@@ -707,8 +707,10 @@ extension Error {
     }
 }
 
-private extension String {
+extension String {
     /// Stud.IP-Dateinamen können Zeichen enthalten, die im Dateisystem stören.
+    /// Nicht `private`: `OfflineFiles` legt damit dieselben Namen an, damit
+    /// Downloads und Offline-Kopien an einer Stelle sauber bleiben.
     var sanitizedFileName: String {
         let cleaned = components(separatedBy: CharacterSet(charactersIn: "/\\:*?\"<>|"))
             .joined(separator: "-")

@@ -220,6 +220,7 @@ final class AuthStore: ObservableObject {
         KeychainStore.clear()
         ResponseCache.clear()
         StudIPClient.clearDownloads()
+        OfflineFiles().removeAll()
         AccountState.removeFrom(UserDefaults.standard)
         WidgetBridge.clear()
         CalendarSync.removeCalendar()

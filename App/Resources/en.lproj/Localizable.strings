@@ -16,6 +16,9 @@
 "%lld blockiert" = "%lld blocked";
 "%lld Dateien" = "%lld files";
 "%lld Dateien hochgeladen." = "%lld files uploaded.";
+"%lld Dateien · %@" = "%lld files · %@";
+"%lld Dateien (%@) werden heruntergeladen und bleiben ohne Empfang lesbar." = "%lld files (%@) will be downloaded and stay available without reception.";
+"Behält %1$lld von %2$lld offline…" = "Keeping %1$lld of %2$lld offline…";
 "%lld Min" = "%lld min";
 "%lld Minuten vorher" = "%lld minutes before";
 "%lld neu" = "%lld new";
@@ -30,6 +33,10 @@
 "%lld Veranstaltungen" = "%lld courses";
 "(kein Betreff)" = "(no subject)";
 "1 Datei" = "1 file";
+"1 Datei · %@" = "1 file · %@";
+"Datei konnte nicht zugeordnet werden." = "The file could not be assigned.";
+"Die Dateien lassen sich über die Veranstaltung neu herunterladen." = "You can download the files again from the course.";
+
 "1 neuer Beitrag" = "1 new post";
 "1 Stunde vorher" = "1 hour before";
 "1 Termin" = "1 event";
@@ -50,6 +57,9 @@
 "Alle an der Universität können den Beitrag lesen." = "Everyone at the university can read this post.";
 "Alle Blöcke, auch die der Veranstaltungen" = "All blocks, including those of courses";
 "Alle Chats" = "All chats";
+"Alle offline Dateien löschen" = "Delete all offline files";
+"Alle offline behaltenen Dateien löschen?" = "Delete all files kept offline?";
+"Am Abmelden gemerkt: Beim Abmelden werden auch offline behaltene Dateien dieses Kontos gelöscht." = "Note: signing out also deletes the offline files of this account.";
 "Alle Hannoveraner Mensen, Preise und Kennzeichnungen" = "All Hannover cafeterias, prices and labels";
 "Alle Inhalte sind Beispieldaten und liegen nur auf diesem Gerät. Es besteht keine Verbindung zu Stud.IP." = "All content is sample data and stays on this device. There is no connection to Stud.IP.";
 "Alle Semester" = "All semesters";
@@ -355,6 +365,8 @@
 "Keine anstehenden Termine" = "No upcoming events";
 "Keine Courseware" = "No courseware";
 "Keine Dateien freigegeben" = "No files shared";
+"Keine Dateien in diesem Ordner." = "No files in this folder.";
+"Keine Dateien offline" = "No files kept offline";
 "Keine eigenen Termine" = "No events of your own";
 "Keine Einrichtungen" = "No institutes";
 "Keine Ergebnisse" = "No results";
@@ -461,6 +473,7 @@
 "Nicht geladen: %@" = "Not loaded: %@";
 "Nichts angelegt" = "Nothing created";
 "Nichts gefunden" = "Nothing found";
+"Nicht offline behalten: %@" = "Not kept offline: %@";
 "Nichts gesendet" = "Nothing sent";
 "Nichts mehr im Kalender" = "Nothing more in your calendar";
 "Nichts verpassen" = "Don't miss a thing";
@@ -473,6 +486,7 @@
 "Notiz" = "Note";
 "Nummer" = "Number";
 "Nur Teilnehmende dieser Veranstaltung sehen den Beitrag." = "Only participants of this course can see this post.";
+"Nur offline entfernen" = "Remove from offline storage only";
 "Nur, was in belegten Veranstaltungen und Studiengruppen geschrieben wurde." = "Only what was written in your courses and study groups.";
 "Nutzungsbedingungen" = "Terms of Use";
 "Nutzungsbedingungen angenommen" = "Terms of Use accepted";
@@ -482,10 +496,14 @@
 "ohne Kapazitätsgrenze" = "no capacity limit";
 "Ohne Angabe" = "Not specified";
 "Ohne Titel" = "Untitled";
+"Ohne Kursangabe" = "Without a course";
 "Orange, Koralle, Abendrot" = "Orange, coral, evening red";
 "Ordner" = "Folder";
 "Ordner anlegen" = "New folder";
 "Ordner ist leer" = "Folder is empty";
+"Ordner wird geprüft…" = "Checking the folder…";
+"Suche im Dateibereich…" = "Searching the file area…";
+"Dateien suchen" = "Search files";
 "Ordner ist leer, du kannst hier hochladen" = "Folder is empty, you can upload here";
 "Ort" = "Location";
 "Ostermontag" = "Easter Monday";
@@ -619,9 +637,9 @@
 "Titel" = "Title";
 "Titel, Lehrende oder Nummer" = "Title, lecturers or number";
 "Titel, Lehrende, Nummer" = "Title, lecturers, number";
-"Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht: Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben (seit 1.9)." = "Signing out deletes all of the account's data on this device: tokens, cache, downloads, block list, hidden events and scheduled notifications. Pure settings such as the colour scheme remain (as of 1.9).";
-"Neu seit 1.9: Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht - Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben." = "New in 1.9: Signing out deletes all of the account's data on this device - tokens, cache, downloads, block list, hidden events and scheduled notifications. Pure settings such as the colour scheme remain.";
-"Neu seit 1.9: Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht - Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben. Die Anmeldung im Browser bleibt bestehen; sie liegt bei Safari, nicht bei StudGo." = "New in 1.9: Signing out deletes all of the account's data on this device - tokens, cache, downloads, block list, hidden events and scheduled notifications. Pure settings such as the colour scheme remain. The browser sign-in remains; it belongs to Safari, not StudGo.";
+"Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht: Tokens, Zwischenspeicher, Downloads und offline behaltene Dateien, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben (seit 1.9)." = "Signing out deletes all of the account's data on this device: tokens, cache, downloads, offline files, block list, hidden events and scheduled notifications. Pure settings such as the colour scheme remain (as of 1.9).";
+"Neu seit 1.9: Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht - Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben." = "New in 1.9: Signing out deletes all of the account's data on this device - tokens, cache, downloads, offline files, block list, hidden events and scheduled notifications. Pure settings such as the colour scheme remain.";
+"Neu seit 1.9: Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht - Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben. Die Anmeldung im Browser bleibt bestehen; sie liegt bei Safari, nicht bei StudGo." = "New in 1.9: Signing out deletes all of the account's data on this device - tokens, cache, downloads, offline files, block list, hidden events and scheduled notifications. Pure settings such as the colour scheme remain. The browser sign-in remains; it belongs to Safari, not StudGo.";
 "Trägt die nächsten acht Wochen in einen eigenen Kalender „StudGo“ ein und hält ihn bei jedem Öffnen aktuell. So stehen die Termine auch auf der Apple Watch, in CarPlay und bei Siri. Ausschalten entfernt den Kalender wieder." = "Adds the next eight weeks to a separate “StudGo” calendar and keeps it up to date every time you open the app. Your events then also appear on Apple Watch, in CarPlay and in Siri. Turning this off removes the calendar again.";
 "Turnus" = "Recurrence";
 "Tutor:in" = "Tutor";
@@ -723,6 +741,8 @@
 "Zu Kontakten hinzufügen" = "Add to contacts";
 "Zuletzt abgeglichen: %@, %lld Termine." = "Last synced: %1$@, %2$lld events.";
 "Zuletzt war es ruhig." = "It's been quiet lately.";
+"Ordner offline behalten" = "Keep folder offline";
+"In einem Ordner „Offline behalten“ wählen, dann stehen sie ohne Empfang zur Verfügung." = "Choose “Keep offline” in a folder to have the files available without reception.";
 "zum Beginn" = "at the start";
 "Zum Eintragen eine Veranstaltung öffnen; die Anmeldung läuft über die Stud.IP-Weboberfläche." = "To enroll, open a course; enrollment happens on the Stud.IP website.";
 "Zum Vorlesungsbeginn" = "Go to start of lectures";
@@ -742,6 +762,10 @@
 "Öffnet die Einzelheiten" = "Opens the details";
 "Öffnet die Nutzungsbedingungen" = "Opens the Terms of Use";
 "Öffnet die Weboberfläche von Stud.IP" = "Opens the Stud.IP website";
+"Offline behalten" = "Keep offline";
+"Offline behalten?" = "Keep folder offline?";
+"Offline behaltene Dateien liegen verschlüsselt auf diesem Gerät und sind ohne Empfang lesbar - auch im Flugmodus. Sie sind vom Backup ausgeschlossen und werden beim Abmelden gelöscht." = "Files kept offline are stored encrypted on this device and can be read without reception - in airplane mode too. They are excluded from backups and deleted when you sign out.";
+"Offline behalten abbrechen" = "Cancel keeping offline";
 "Öffnet kalender.uni-hannover.de" = "Opens kalender.uni-hannover.de";
 "Öffnet sich im eingebauten Browser. Prüfungsanmeldung und Noten laufen über QIS und nicht über Stud.IP; dafür gibt es keine Schnittstelle." = "Opens in the built-in browser. Exam registration and grades go through QIS, not Stud.IP; there's no interface for them.";
 "Öffnet Stud.IP" = "Opens Stud.IP";
