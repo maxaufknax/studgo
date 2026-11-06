@@ -63,6 +63,7 @@ Der Loopback-Redirect erlaubt, den Flow ohne iOS-Gerät zu testen:
 | Termine | `GET /v1/users/{id}/events`, `.../events.ics` |
 | Veranstaltungen | `GET /v1/users/{id}/courses`, `/v1/courses/{id}` |
 | Nachrichten | `GET /v1/users/{id}/inbox` / `outbox`, `POST /v1/messages` (senden!) |
+| Statusgruppen | `GET /v1/courses/{id}/status-groups` (1.9.0 - Befund 26) |
 | Ankündigungen | `GET /v1/users/{id}/news`, `/v1/studip/news`, `/v1/courses/{id}/news` |
 | Dateien | `GET /v1/courses/{id}/folders` → `/v1/folders/{id}/file-refs` → `/v1/file-refs/{id}/content` |
 | Forum | `GET /v1/courses/{id}/forum-categories` → `/entries` |
@@ -966,3 +967,39 @@ Aus `/v1/discovery`, noch ungenutzt - sortiert nach Nutzen für Studierende:
 Nicht in der API (weiterhin): Ein-/Austragen zu Veranstaltungen, eigene
 Stundenplaneinträge schreiben, Uni-Mail, QIS/Noten, Mensen des Studentenwerks
 aus Stud.IP selbst.
+
+## 26. Statusgruppen: `GET /v1/courses/{id}/status-groups` (1.9.0)
+
+Am Stud.IP-6.0-Quelltext geprüft (`lib/classes/JsonApi/Routes/Courses/
+StatusGroupsOfCourses.php`, Branch 6.0) - nicht live, auf dem Entwicklungsserver liegt kein Access-Token (siehe oben):
+
+- **Route:** `GET /v1/courses/{id}/status-groups`, in `RouteMap.php` direkt
+  neben `/courses/{id}` registriert. Erlaubt sind **nur** `page[offset]` und
+  `page[limit]` - kein `include` (allerdings kennt das Schema die Beziehung
+  `range`), kein `filter`, kein `sort`.
+- **Berechtigung:** `Authority::canShowCourse` mit `SCOPE_BASIC` - dasselbe
+  Recht wie für die Veranstaltung selbst. Eine 403 ist für niemanden ohne
+  dieses Recht die normale Antwort.
+- **Felder** (`lib/classes/JsonApi/Schemas/StatusGroup.php`): `name`,
+  `full-name` (der Weg davor, mit „ > “ getrennt), `description` (Stud.IP-
+  Auszeichnung, `null` statt leerem Text), `position`, `size`, `selfassign`
+  (bool), `selfassign-start`, `selfassign-end` (beide `null` ohne Zeitraum),
+  dazu `mkdate`/`chdate`.
+- **`size` ist die Kapazität, nicht die Belegung** - und **0 heißt
+  unbegrenzt** (`lib/models/Statusgruppen.php`: „max number of members or
+  0 if unlimited“). Die Belegung steht in der API nirgends.
+- **Die Route liefert KEINE Mitglieder** und auch nicht, ob man selbst in
+  der Gruppe ist. Mitglieder sehen und das Ein- und Austragen passieren in
+  der Weboberfläche (`dispatch.php/course/statusgroups?cid=…`,
+  `app/controllers/course/statusgroups.php`; Gruppen mit `selfassign` erlauben
+  dort die Selbsteintragung im Zeitraum).
+- **Fallstricke, geprüft und vermieden:** Das `group`-Attribut an
+  `course-memberships` ist die **Farbgruppe der Weboberfläche**, nicht die
+  Statusgruppe - beide haben nichts miteinander zu tun. Und die Route
+  `/institutes/{id}/status-groups` gehört Einrichtungen, nicht
+  Veranstaltungen (gleiche Felder, anderer Kontext).
+
+In StudGo (1.9.0): Gruppen in der Personenansicht eines Kurses, Umschaltung
+nur, wenn Gruppen da sind; ein Fehlschlag des Abrufs lässt die
+Teilnehmendenliste unberührt. Im Demo-Modus liefert `DemoData` Tutoriengruppen
+zur Analysis-Veranstaltung.

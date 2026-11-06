@@ -420,6 +420,13 @@ enum DemoServer {
             return try document(members.map { membershipResource(course, person: $0) },
                                 included: members.map(userResource))
 
+        case "status-groups":
+            // Dieselben Felder wie das echte Schema unter
+            // `Schemas\StatusGroup` - und dieselbe Lücke: keine Mitglieder.
+            return try document(DemoData.statusGroups
+                .filter { $0.courseID == id }
+                .map { groupResource($0, course: course) })
+
         case "news":
             return try newsDocument(DemoData.news.filter { $0.courseID == id })
 
@@ -513,6 +520,23 @@ enum DemoServer {
         if let number = course.number { attributes["course-number"] = number }
         if let room = course.room { attributes["location"] = room }
         return resource("courses", course.id, attributes)
+    }
+
+    /// Eine Statusgruppe - `getFullName()` setzt am echten Server den Weg
+    /// davor („Veranstaltung > Gruppe“); hier genügt die Ebene darüber.
+    private static func groupResource(_ group: DemoData.DemoStatusGroup,
+                                      course: DemoData.DemoCourse) -> [String: Any] {
+        var attributes: [String: Any] = [
+            "name": group.name,
+            "full-name": "\(course.title) > \(group.name)",
+            "position": group.position,
+            "size": group.size,
+            "selfassign": group.selfassign,
+        ]
+        if let description = group.description { attributes["description"] = description }
+        if let start = group.selfassignStart { attributes["selfassign-start"] = DemoData.stamp(start) }
+        if let end = group.selfassignEnd { attributes["selfassign-end"] = DemoData.stamp(end) }
+        return resource("status-groups", group.id, attributes)
     }
 
     private static func semesterResource(_ semester: DemoData.DemoSemester) -> [String: Any] {

@@ -68,6 +68,16 @@ enum WebLinks {
         studip("dispatch.php/course/files", query: [URLQueryItem(name: "cid", value: courseID)])
     }
 
+    /// Die Gruppen einer Veranstaltung in der Weboberfläche - dort stehen die
+    /// Mitglieder, und in eine Gruppe mit freier Einschreibung trägt man sich
+    /// selbst ein. Die JSON:API liefert beides nicht.
+    ///
+    /// `app/controllers/course/statusgroups.php` (Stud.IP 6.0): Die Liste ist
+    /// die Index-Aktion, `Course::findCurrent()` liest die Kennung aus `cid`.
+    static func courseGroups(_ courseID: String) -> URL {
+        studip("dispatch.php/course/statusgroups", query: [URLQueryItem(name: "cid", value: courseID)])
+    }
+
     // MARK: - Blubber
 
     /// Der Blubber der Weboberfläche - ohne Kennung der globale Strom, mit

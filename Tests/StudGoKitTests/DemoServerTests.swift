@@ -316,6 +316,59 @@ struct DemoServerTests {
         #expect(list.map(\.roleRank) == list.map(\.roleRank).sorted())
     }
 
+    @Test("Statusgruppen der Veranstaltung, nach Position sortiert")
+    func statusGroups() async throws {
+        let course = try #require(DemoData.course("demo-analysis"))
+        let groups = try await client.statusGroups(of: Course(demo: course))
+
+        #expect(groups.count == DemoData.statusGroups.filter { $0.courseID == "demo-analysis" }.count)
+        #expect(groups.map(\.position) == groups.map(\.position).sorted())
+        let first = try #require(groups.first)
+        #expect(first.name == "Tutorium 1 (Montag)")
+        #expect(first.fullName.contains("Analysis"))
+        // Kapazität, 0 heißt unbegrenzt - zwei Fälle in den Beispieldaten.
+        #expect(groups.contains { $0.size == 25 })
+        #expect(groups.contains { $0.size == 0 })
+        // Selbsteintragung mit Zeitraum, Datumspaar kommt an.
+        #expect(first.isSelfassignable)
+        #expect(first.selfassignStart != nil)
+        #expect(first.selfassignEnd != nil)
+        #expect(groups.contains { !$0.isSelfassignable })
+        // Beschreibung mit Stud.IP-Auszeichnung wie in der Weboberfläche.
+        #expect(first.description?.contains("**Marek Sobczak**") == true)
+    }
+
+    @Test("Ein Kurs ohne Gruppen bekommt eine leere Liste")
+    func noStatusGroups() async throws {
+        let course = try #require(DemoData.course("demo-prog2"))
+        let groups = try await client.statusGroups(of: Course(demo: course))
+        #expect(groups.isEmpty)
+    }
+
+    @Test("Das Statusgruppen-Modell verträgt fehlende Felder")
+    func statusGroupModelDefensiv() throws {
+        // So harmlos darf der Parser nicht sein: Beschreibung und Zeitraum
+        // sind optional, `null` ist bei Stud.IP die übliche Art, sie zu
+        // verweigern.
+        let json = """
+        {"data": {"type": "status-groups", "id": "g1", "attributes": {
+            "name": "Tutorium A", "full-name": "Kurs > Tutorium A",
+            "position": 3, "size": 0,
+            "description": null, "selfassign": false,
+            "selfassign-start": null, "selfassign-end": null}}}
+        """
+        let doc = try JSONAPIDocument(data: Data(json.utf8))
+        let resource = try #require(doc.first)
+        let group = try #require(StatusGroup(resource: resource))
+        #expect(group.name == "Tutorium A")
+        #expect(group.fullName == "Kurs > Tutorium A")
+        #expect(group.description == nil)
+        #expect(group.size == 0)
+        #expect(!group.isSelfassignable)
+        #expect(group.selfassignStart == nil)
+        #expect(group.selfassignEnd == nil)
+    }
+
     @Test("Forum: Beiträge und Antworten darunter")
     func forum() async throws {
         let course = try #require(DemoData.course("demo-prog2"))

@@ -78,8 +78,13 @@ struct CourseParticipantsView: View {
     @EnvironmentObject private var auth: AuthStore
 
     @StateObject private var participants = Loadable<[Participant]>()
+    @StateObject private var groups = Loadable<[StatusGroup]>()
     @State private var search = ""
     @State private var selected: Participant?
+    /// „Gruppen“ statt „Teilnehmende“ zeigen - erreicht, wer die Umschaltung
+    /// antippt; sie erscheint nur, wenn der Kurs wirklich Gruppen hat.
+    @State private var showsGroups = false
+    @State private var webTarget: WebTarget?
 
     private var filtered: [Participant] {
         let all = participants.value ?? []
@@ -98,27 +103,51 @@ struct CourseParticipantsView: View {
             .sorted { ($0.people.first?.roleRank ?? 9) < ($1.people.first?.roleRank ?? 9) }
     }
 
+    /// Zeigt die Umschaltung nur, wenn der Kurs Gruppen hat. Ein Fehlschlag
+    /// dieses Abrufs (etwa eine 403 ohne das Recht `canShowCourse`) ist kein
+    /// Grund, die Teilnehmenden damit zu verlieren - er zeigt sich einfach
+    /// nicht, die Liste läuft unberührt weiter.
+    private var showsToggle: Bool { !(groups.value ?? []).isEmpty }
+
     var body: some View {
         List {
-            ForEach(grouped, id: \.role) { group in
-                Section("\(group.role) (\(group.people.count))") {
-                    ForEach(group.people) { member in
-                        Button {
-                            selected = member
-                        } label: {
-                            ParticipantRow(member: member)
+            if showsToggle {
+                Section {
+                    Picker("Ansicht", selection: $showsGroups) {
+                        Text("Teilnehmende").tag(false)
+                        Text("Gruppen").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                    .accessibilityLabel("Ansicht wechseln")
+                }
+            }
+
+            if showsToggle, showsGroups {
+                groupsSection
+            } else {
+                ForEach(grouped, id: \.role) { group in
+                    Section("\(group.role) (\(group.people.count))") {
+                        ForEach(group.people) { member in
+                            Button {
+                                selected = member
+                            } label: {
+                                ParticipantRow(member: member)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(member.userID == nil)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(member.userID == nil)
                     }
                 }
             }
         }
         .listStyle(.insetGrouped)
         .overlay {
+            // Die Leere-Anzeige betrifft die Teilnehmendenliste; in der
+            // Gruppenansicht wäre sie fehl am Platz.
             StateOverlay(isLoading: participants.isLoading,
                          errorMessage: participants.errorMessage,
-                         isEmpty: filtered.isEmpty,
+                         isEmpty: !showsGroups && filtered.isEmpty,
                          emptyText: search.isEmpty ? "Keine Teilnehmendenliste" : "Nichts gefunden",
                          emptySymbol: search.isEmpty ? "person.2" : "magnifyingglass",
                          retry: { Task { await reload(fresh: true) } })
@@ -136,13 +165,91 @@ struct CourseParticipantsView: View {
                             subtitle: participant.label ?? participant.role)
             }
         }
+        .sheet(item: $webTarget) { target in
+            WebSheet(url: target.url).ignoresSafeArea()
+        }
         .refreshable { await reload(fresh: true) }
-        .task { if participants.value == nil { await reload(fresh: false) } }
+        .task {
+            if participants.value == nil { await reload(fresh: false) }
+        }
+    }
+
+    /// Die Gruppen des Kurses: Name, Beschreibung, Kapazität, Zeitraum.
+    /// Mitglieder und das Eintragen führt die App auf die Weboberfläche -
+    /// die Schnittstelle liefert beides nicht (siehe `StatusGroup`).
+    private var groupsSection: some View {
+        Section {
+            ForEach(groups.value ?? []) { group in
+                StatusGroupRow(group: group)
+            }
+            Button {
+                webTarget = WebTarget(url: WebLinks.courseGroups(course.id))
+            } label: {
+                RowLabel(symbol: "safari",
+                        title: "Mitglieder ansehen und eintragen",
+                        subtitle: "Öffnet die Weboberfläche von Stud.IP")
+            }
+            .buttonStyle(.plain)
+        } header: {
+            Text("Gruppen")
+        } footer: {
+            Text("Die Liste nennt keine Mitglieder. In der Weboberfläche stehen sie - dort lässt sich auch ein- und austragen, soweit die Gruppe das erlaubt.")
+        }
     }
 
     private func reload(fresh: Bool) async {
         let client = fresh ? auth.freshClient : auth.client
         await participants.load { try await client.participants(of: course) }
+        // Gruppen still nachziehen: Ein Fehlschlag dieses Abrufs darf die
+        // Teilnehmendenliste nicht beeinträchtigen (siehe `showsToggle`).
+        await groups.load { try await client.statusGroups(of: course) }
+    }
+}
+
+/// Zeile einer Statusgruppe.
+private struct StatusGroupRow: View {
+    let group: StatusGroup
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(group.shortName)
+                .font(.headline)
+                .foregroundStyle(.primary)
+            HStack(spacing: 12) {
+                Label(capacity, systemImage: "person.2")
+                if let window = window { Label(window, systemImage: "calendar") }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            if let description = group.description {
+                FormattedText(raw: description, font: .callout, blockLimit: 3)
+            }
+        }
+        .padding(.vertical, 3)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// **0 heißt unbegrenzt** - es ist die Kapazität der Gruppe, keine
+    /// Belegung, und auch nicht „voll“.
+    private var capacity: String {
+        group.size > 0
+            ? String(localized: "maximal \(group.size) Plätze")
+            : String(localized: "ohne Kapazitätsgrenze")
+    }
+
+    /// Der Eintragungszeitraum von Gruppen mit freier Einschreibung.
+    private var window: String? {
+        guard group.isSelfassignable else { return nil }
+        switch (group.selfassignStart, group.selfassignEnd) {
+        case let (start?, end?):
+            return String(localized: "Eintragen vom \(start.formatted(date: .abbreviated, time: .omitted)) bis \(end.formatted(date: .abbreviated, time: .omitted))")
+        case let (start?, nil):
+            return String(localized: "Eintragen ab \(start.formatted(date: .abbreviated, time: .omitted))")
+        case let (nil, end?):
+            return String(localized: "Eintragen bis \(end.formatted(date: .abbreviated, time: .omitted))")
+        case (nil, nil):
+            return String(localized: "Eintragen jederzeit möglich")
+        }
     }
 }
 

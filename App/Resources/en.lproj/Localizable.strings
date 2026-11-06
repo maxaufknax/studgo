@@ -74,6 +74,7 @@
 "Anmeldung, Notenspiegel, Bescheinigungen" = "Registration, grades, certificates";
 "Anmerkung (freiwillig)" = "Note (optional)";
 "Ansicht" = "View";
+"Ansicht wechseln" = "Change view";
 "Anstehend" = "Upcoming";
 "Anstößige Inhalte verdecken" = "Hide objectionable content";
 "Antwort absenden" = "Send reply";
@@ -173,6 +174,7 @@
 "Di" = "Tue";
 "Dichtere Listen" = "Denser lists";
 "Die Anmelde-Adresse konnte nicht gebildet werden." = "The sign-in address could not be created.";
+"Die Liste nennt keine Mitglieder. In der Weboberfläche stehen sie - dort lässt sich auch ein- und austragen, soweit die Gruppe das erlaubt." = "The list does not tell the members. They are shown on the website - where you can also join and leave, as far as the group allows.";
 "Die Anmeldung läuft direkt bei studip.uni-hannover.de. StudGo speichert die Zugangstoken nur lokal auf diesem Gerät." = "You sign in directly at studip.uni-hannover.de. StudGo stores the access tokens only locally on this device.";
 "Die Anmeldung läuft in der Safari-Sitzung. Weil Stud.IP über Shibboleth anmeldet, bist du damit auch auf allen Seiten angemeldet, die StudGo öffnet: Eintragen, Profilbild, QIS. Wirkt ab der nächsten Anmeldung." = "Sign-in uses your Safari session. Because Stud.IP signs in via Shibboleth, you're then also signed in on every page StudGo opens: enrollment, profile picture, QIS. Takes effect from your next sign-in.";
 "Die Anmeldung läuft in einer eigenen Sitzung: Es bleibt kein Cookie in Safari zurück, dafür verlangt jede geöffnete Stud.IP-Seite eine eigene Anmeldung. Wirkt ab der nächsten Anmeldung." = "Sign-in uses a separate session: no cookie stays behind in Safari, but every Stud.IP page you open asks you to sign in again. Takes effect from your next sign-in.";
@@ -228,6 +230,10 @@
 "Eintragen / austragen" = "Enroll / unenroll";
 "Eintragen oder austragen" = "Enroll or unenroll";
 "Eintragen und austragen" = "Enroll and unenroll";
+"Eintragen vom %1$@ bis %2$@" = "Joining from %1$@ until %2$@";
+"Eintragen jederzeit möglich" = "Joining possible at any time";
+"Eintragen ab %@" = "Joining from %@";
+"Eintragen bis %@" = "Joining until %@";
 "Empfänger" = "Recipients";
 "Empfänger hinzufügen" = "Add recipient";
 "endet gleich" = "ending soon";
@@ -282,7 +288,9 @@
 "Globaler Blubber" = "Global Blubber";
 "Graphit" = "Graphite";
 "Grund" = "Reason";
+"Gruppe" = "Group";
 "Gruppe beitreten" = "Join group";
+"Gruppen" = "Groups";
 "Gruppenchat" = "Group chat";
 "Guten Abend, %@" = "Good evening, %@";
 "Guten Morgen, %@" = "Good morning, %@";
@@ -411,6 +419,7 @@
 "Mindestens drei Zeichen eingeben" = "Enter at least three characters";
 "Mindestens drei Zeichen eingeben und die Eingabetaste drücken." = "Enter at least three characters and press Return.";
 "Mindestens drei Zeichen; Stud.IP lehnt kürzere Anfragen ab." = "At least three characters; Stud.IP rejects shorter queries.";
+"Mitglieder ansehen und eintragen" = "View members and join";
 "Mit Stud.IP anmelden" = "Sign in with Stud.IP";
 "Mitteilungen sind gesperrt. Erlauben lassen sie sich in den Einstellungen des Geräts unter „StudGo“ → „Mitteilungen“." = "Notifications are turned off. You can allow them in your device's Settings under “StudGo” → “Notifications”.";
 "Mitternacht" = "Midnight";
@@ -419,6 +428,7 @@
 "Mo 10:15 – 11:45 · Raum 1101.B305" = "Mon 10:15 – 11:45 · Room 1101.B305";
 "Montag" = "Monday";
 "morgen" = "tomorrow";
+"maximal %lld Plätze" = "up to %lld places";
 "Morgen" = "Tomorrow";
 "Morgen, %@" = "Tomorrow, %@";
 "Mo–Fr" = "Mon–Fri";
@@ -463,6 +473,7 @@
 "Nutzungsbedingungen lesen und annehmen" = "Read and accept the Terms of Use";
 "Nächste Sitzung" = "Next session";
 "oder" = "or";
+"ohne Kapazitätsgrenze" = "no capacity limit";
 "Ohne Angabe" = "Not specified";
 "Ohne Titel" = "Untitled";
 "Orange, Koralle, Abendrot" = "Orange, coral, evening red";
@@ -583,6 +594,7 @@
 "Teilen / In Dateien sichern" = "Share / Save to Files";
 "Teilnahme" = "Participation";
 "Teilnehmend" = "Participant";
+"Teilnehmende" = "Participants";
 "Termin" = "Event";
 "Termin anlegen" = "Create event";
 "Termin buchen" = "Book a slot";
@@ -723,6 +735,7 @@
 "Öffnen" = "Open";
 "Öffnet die Einzelheiten" = "Opens the details";
 "Öffnet die Nutzungsbedingungen" = "Opens the Terms of Use";
+"Öffnet die Weboberfläche von Stud.IP" = "Opens the Stud.IP website";
 "Öffnet kalender.uni-hannover.de" = "Opens kalender.uni-hannover.de";
 "Öffnet sich im eingebauten Browser. Prüfungsanmeldung und Noten laufen über QIS und nicht über Stud.IP; dafür gibt es keine Schnittstelle." = "Opens in the built-in browser. Exam registration and grades go through QIS, not Stud.IP; there's no interface for them.";
 "Öffnet Stud.IP" = "Opens Stud.IP";

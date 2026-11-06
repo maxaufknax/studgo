@@ -127,6 +127,27 @@ struct StudIPClient {
             }
     }
 
+    /// Die Statusgruppen einer Veranstaltung - Tutorien, Übungsgruppen und
+    /// was sonst an Gruppen dazukommt.
+    ///
+    /// **Was hier bewusst fehlt:** Mitglieder und die Frage, ob man selbst in
+    /// einer Gruppe steckt - die Route liefert das nicht (siehe `StatusGroup`).
+    /// **Fehler hier sind folgelos für die App:** Eine 403 ist die normale
+    /// Antwort für alle ohne `canShowCourse`; die Teilnehmendenliste ist ein
+    /// eigenes Recht und darf von hier nicht mitgenommen werden. Deshalb
+    /// wirft diese Methode jeden Fehler aus und lässt der Ansicht die
+    /// Entscheidung, ihn still zu behandeln.
+    func statusGroups(of course: Course) async throws -> [StatusGroup] {
+        try await get("/v1/courses/\(course.id)/status-groups", limit: 200)
+            .resources
+            .compactMap(StatusGroup.init)
+            .sorted {
+                $0.position != $1.position
+                    ? $0.position < $1.position
+                    : $0.name.localizedStandardCompare($1.name) == .orderedAscending
+            }
+    }
+
     // MARK: - Termine
 
     /// **Ohne `page[limit]`.** `/v1/users/{id}/schedule` ist in Stud.IP ein

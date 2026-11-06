@@ -276,6 +276,47 @@ enum DemoData {
 
     static func course(_ id: String) -> DemoCourse? { courses.first { $0.id == id } }
 
+    // MARK: - Statusgruppen
+
+    struct DemoStatusGroup {
+        let id: String
+        let courseID: String
+        let name: String
+        let description: String?
+        let position: Int
+        /// Kapazität; 0 heißt unbegrenzt - dieselbe Lesart wie am Server.
+        let size: Int
+        let selfassign: Bool
+        let selfassignStart: Date?
+        let selfassignEnd: Date?
+    }
+
+    /// Tutoriengruppen zur Analysis - der Fall, für den die Gruppenansicht
+    /// gebaut ist: eine Vorlesung mit parallelen Übungen, die sich selbst
+    /// einteilen.
+    static let statusGroups: [DemoStatusGroup] = [
+        DemoStatusGroup(id: "demo-grp-tut1", courseID: "demo-analysis",
+                        name: "Tutorium 1 (Montag)",
+                        description: "Übung zur Vorlesung mit **Marek Sobczak**. \\\nBringt das aktuelle Übungsblatt mit.",
+                        position: 0,
+                        size: 25, selfassign: true,
+                        selfassignStart: days(-14), selfassignEnd: days(30)),
+        DemoStatusGroup(id: "demo-grp-tut2", courseID: "demo-analysis",
+                        name: "Tutorium 2 (Mittwoch)",
+                        description: "Übung zur Vorlesung mit **Lena Behrens**.",
+                        position: 1,
+                        size: 25, selfassign: true,
+                        selfassignStart: days(-14), selfassignEnd: days(30)),
+        DemoStatusGroup(id: "demo-grp-tut3", courseID: "demo-analysis",
+                        name: "Tutorium 3 (Freitag)",
+                        description: nil,
+                        position: 2,
+                        // Ohne Kapazitätsgrenze und ohne Selbsteintragung -
+                        // Einteilung über die Veranstaltungsleitung.
+                        size: 0, selfassign: false,
+                        selfassignStart: nil, selfassignEnd: nil),
+    ]
+
     // MARK: - Stundenplan
 
     struct DemoSlot {

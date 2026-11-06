@@ -582,3 +582,53 @@ struct Participant: Identifiable, Equatable {
         return parts.isEmpty ? "?" : parts.joined()
     }
 }
+
+/// Eine Statusgruppe einer Veranstaltung - etwa ein Tutorium.
+///
+/// **Was sie NICHT ist:** die `gruppe` an einer Kursmitgliedschaft (`course-
+/// memberships`) benennt nur die Farbgruppe in der Weboberfläche; beide haben
+/// nichts miteinander zu tun. Und die Schnittstelle liefert **keine** Mitglieder
+/// und nicht, ob man selbst drin ist - dazu führt die App in die Weboberfläche
+/// (siehe `WebLinks.courseGroups`).
+///
+/// Route: `GET /v1/courses/{id}/status-groups`, geprüft am Stud.IP-6.0-Quelltext
+/// (`Routes\Courses\StatusGroupsOfCourses`): erlaubt sind `page[offset]` und
+/// `page[limit]`, Berechtigung `canShowCourse` mit Scope basic. Das Schema
+/// (`Schemas\StatusGroup`) liefert name, full-name, description, position,
+/// size, selfassign, selfassign-start und selfassign-end - `size` ist die
+/// **Kapazität**, und 0 heißt unbegrenzt (`lib/models/Statusgruppen.php`:
+/// „max number of members or 0 if unlimited“).
+struct StatusGroup: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let fullName: String
+    /// Beschreibung der Gruppe, in Stud.IP-Auszeichnung.
+    let description: String?
+    /// Sortierreihenfolge, wie in der Weboberfläche.
+    let position: Int
+    /// Kapazität der Gruppe; **0 heißt unbegrenzt** - sie ist keine Belegung
+    /// und auch nicht „voll“.
+    let size: Int
+    /// Ob Ein- und Austragen in der Weboberfläche offenstehen - der
+    /// Zeitraum sagt, bis wann.
+    let isSelfassignable: Bool
+    let selfassignStart: Date?
+    let selfassignEnd: Date?
+
+    init?(resource: Resource) {
+        guard resource.type == "status-groups" else { return nil }
+        id = resource.id
+        name = resource.string("name")?.nilIfEmpty ?? String(localized: "Gruppe")
+        fullName = resource.string("full-name")?.nilIfEmpty ?? name
+        description = resource.string("description")?.nilIfEmpty
+        position = resource.int("position") ?? 0
+        size = resource.int("size") ?? 0
+        isSelfassignable = resource.bool("selfassign")
+        selfassignStart = resource.date("selfassign-start")
+        selfassignEnd = resource.date("selfassign-end")
+    }
+
+    /// „Analysis > Tutorien > Tutorium 3“ ist der vollständige Pfad; der ist
+    /// für die Zeile zu lang - dort steht `name`.
+    var shortName: String { name }
+}
