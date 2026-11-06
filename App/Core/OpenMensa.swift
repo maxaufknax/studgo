@@ -225,3 +225,18 @@ private extension MensaMeal {
                   prices: ["students": meal.price], notes: meal.notes)
     }
 }
+
+// MARK: - Widget-Brücke
+
+/// Das Gericht im Widget-Schnappschuss. Steht hier und nicht bei
+/// `WidgetSnapshot`, weil die Erweiterung weder `OpenMensa` noch `DemoData`
+/// übersetzt - der Schnappschuss bleibt für beide Seiten schlicht.
+extension WidgetSnapshot.Meal {
+    init(_ meal: MensaMeal) {
+        self.init(name: meal.name,
+                  category: meal.category.nilIfEmpty,
+                  studentPrice: meal.studentPrice,
+                  isVegan: meal.isVegan,
+                  isVegetarian: meal.isVegetarian)
+    }
+}

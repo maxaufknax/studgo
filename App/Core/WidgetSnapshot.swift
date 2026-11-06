@@ -18,6 +18,18 @@ struct WidgetSnapshot: Codable, Equatable {
         var location: String?
     }
 
+    /// Ein Gericht des heutigen Speiseplans - so schlicht, dass die
+    /// Widget-Erweiterung dafür nichts weiter zu übersetzen braucht.
+    struct Meal: Codable, Equatable {
+        let name: String
+        let category: String?
+        /// Der Studierendenpreis, ungeformt - die Ansicht formatiert nach
+        /// Gebiet, nicht der Schnappschuss.
+        let studentPrice: Double?
+        let isVegan: Bool
+        let isVegetarian: Bool
+    }
+
     /// Bis 1.8.1 der **einzige** Termin im Schnappschuss. Bleibt stehen, damit
     /// ein Stand, den eine ältere Fassung geschrieben hat, nach dem Update
     /// lesbar bleibt - bis die App ihn beim nächsten Öffnen ersetzt.
@@ -33,14 +45,42 @@ struct WidgetSnapshot: Codable, Equatable {
     var unreadMessages: Int
     var updatedAt: Date
 
+    /// Der heutige Speiseplan der gewählten Mensa - seit 1.9, optional wie
+    /// `upcoming`, damit Fassungen vor 1.9 den Schnappschuss weiter lesen.
+    /// `mealsDate` sagt, **welcher** Tag das ist: Alte Daten werden nie als
+    /// „heute“ gezeigt (`mealsForToday(at:)`).
+    var meals: [Meal]?
+    var mealsDate: Date?
+    var canteenName: String?
+
     init(nextEvent: NextEvent? = nil,
          upcoming: [NextEvent]? = nil,
          unreadMessages: Int,
-         updatedAt: Date) {
+         updatedAt: Date,
+         meals: [Meal]? = nil,
+         mealsDate: Date? = nil,
+         canteenName: String? = nil) {
         self.nextEvent = nextEvent
         self.upcoming = upcoming
         self.unreadMessages = unreadMessages
         self.updatedAt = updatedAt
+        self.meals = meals
+        self.mealsDate = mealsDate
+        self.canteenName = canteenName
+    }
+
+    /// Der Speiseplan für „heute“ - oder nichts, wenn es im Schnappschuss
+    /// ein anderer Tag ist.
+    ///
+    /// **Warum das hier steht:** Ein Datum ist der Tag dort, wo das Gerät
+    /// steht; die Widget-Erweiterung liest diesen Schnappschuss auch nach
+    /// Mitternacht, ohne dass die App lief. Dann wäre der Plan von gestern
+    /// als „heute“ falsch - gezeigt wird stattdessen der Hinweis, die App
+    /// zu öffnen.
+    func mealsForToday(at date: Date, calendar: Calendar = .current) -> [Meal]? {
+        guard let meals, let mealsDate,
+              calendar.isDate(mealsDate, inSameDayAs: date) else { return nil }
+        return meals
     }
 
     /// Erneuert nur die Zahl der ungelesenen Nachrichten - der Weg des

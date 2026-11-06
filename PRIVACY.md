@@ -177,12 +177,14 @@ Attrappe. Die erfundenen Beispieldaten stehen dann darin, keine echten.
 
 ## Widgets
 
-Die beiden Widgets (nächster Termin, ungelesene Nachrichten) lesen einen
+Die drei Widgets (nächster Termin, ungelesene Nachrichten, Mensa) lesen einen
 Schnappschuss, den die App selbst auf dem Gerät hinterlegt - über eine
 **App-Group**, den einzigen gemeinsam nutzbaren Ablageort von App und
 Widget-Erweiterung. Die Widgets fragen **nie** selbst einen Server an; im
 Schnappschuss stehen nur Titel, Uhrzeit und Raum der Termine der nächsten
-sieben Tage sowie eine Zahl. Beim Abmelden wird er gelöscht.
+sieben Tage, eine Zahl und - seit 1.9 - Name, Studierendenpreis und
+Kennzeichnung der Gerichte des heutigen Speiseplans. Beim Abmelden wird er
+gelöscht.
 
 Widgets auf dem **Sperrbildschirm** sind auch bei gesperrtem Gerät zu sehen.
 Wer das für den nächsten Termin nicht möchte, legt das Widget nur auf den

@@ -124,4 +124,55 @@ struct WidgetSnapshotTests {
         snapshot.updateUnread(-4)
         #expect(snapshot.unreadMessages == 0)
     }
+
+    @Test("Der Speiseplan übersteht die Rundreise")
+    func mensaRundreise() throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let snapshot = WidgetSnapshot(
+            unreadMessages: 0, updatedAt: Self.base,
+            meals: [WidgetSnapshot.Meal(name: "Nudeln mit Soße", category: "Essen 1",
+                                         studentPrice: 2.3, isVegan: false, isVegetarian: true)],
+            mealsDate: Self.base, canteenName: "Hauptmensa")
+        let back = try decoder.decode(WidgetSnapshot.self,
+                                       from: try encoder.encode(snapshot))
+        #expect(back.canteenName == "Hauptmensa")
+        #expect(back.meals?.count == 1)
+        #expect(back.meals?.first?.isVegetarian == true)
+    }
+
+    @Test("Ein Schnappschuss vor dem Mensa-Widget bleibt lesbar")
+    func alteOhneMensa() throws {
+        let json = """
+        {"unreadMessages":4,"updatedAt":"2026-09-21T08:00:00Z"}
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let snapshot = try decoder.decode(WidgetSnapshot.self, from: Data(json.utf8))
+        #expect(snapshot.meals == nil)
+        #expect(snapshot.mealsDate == nil)
+        #expect(snapshot.canteenName == nil)
+        #expect(snapshot.unreadMessages == 4)
+    }
+
+    @Test("Alte Tagesdaten werden nie als heute gezeigt")
+    func nurHeute() {
+        let today = Self.base
+        let yesterday = Self.base.addingTimeInterval(-24 * 3600)
+        var snapshot = WidgetSnapshot(unreadMessages: 0, updatedAt: today,
+                                       meals: [.init(name: "Gulasch", category: nil,
+                                                     studentPrice: 2.9,
+                                                     isVegan: false, isVegetarian: false)],
+                                       mealsDate: yesterday, canteenName: nil)
+        // Der Plan ist von gestern: Heute zeigt das Widget den Hinweis.
+        #expect(snapshot.mealsForToday(at: today) == nil)
+        #expect(snapshot.mealsForToday(at: yesterday)?.count == 1)
+        // Der Kalender rechnet geräteort-echt, nicht Sekunden-echt: Ein Plan
+        // vom heutigen Morgen gilt am Abend immer noch.
+        let day = Calendar.current.startOfDay(for: Self.base)
+        snapshot.mealsDate = day
+        #expect(snapshot.mealsForToday(at: day.addingTimeInterval(23 * 3600))?.count == 1)
+    }
 }

@@ -268,6 +268,15 @@ struct MensaView: View {
         guard let id = canteen?.id else { return }
         let day = selectedDay
         await meals.load { try await source.meals(of: id, on: day) }
+        publishTodayIfLoaded(day: day)
+    }
+
+    /// Was das Mensa-Widget zeigt - der Plan des **heutigen** Tages. Ein
+    /// anderer gewählter Tag überschreibt ihn nicht: Der Blick auf morgen
+    /// in der App heißt nicht, dass morgen der Plan von heute gehört.
+    private func publishTodayIfLoaded(day: Date) {
+        guard Calendar.current.isDateInToday(day), let list = meals.value else { return }
+        WidgetBridge.publish(meals: list, day: day, canteenName: canteen?.name)
     }
 
     /// Sieben Tage parallel statt nacheinander: Jeder Einzeltag bleibt
@@ -291,6 +300,13 @@ struct MensaView: View {
             }
         }
         weekMeals = result
+        // Auch aus der Wochenansicht zeigt das Widget den heutigen Stand.
+        let today = MensaSource.iso(Date())
+        if let list = weekMeals[today] {
+            WidgetBridge.publish(meals: list,
+                                 day: Calendar.current.startOfDay(for: Date()),
+                                 canteenName: canteen?.name)
+        }
     }
 }
 

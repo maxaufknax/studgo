@@ -8,6 +8,9 @@
 "1 ungelesene Nachricht" = "1 unread message";
 "Alles gelesen" = "All read";
 "App öffnen" = "Open the app";
+"Heute kein Speiseplan" = "No menu today";
+"Mensa" = "Canteen";
+"Mensa einmal öffnen, dann steht hier der Plan." = "Open the canteen once, and the menu appears here.";
 "Danach" = "Then";
 "Dann steht hier, was im Postfach offen ist." = "This will then show what's unread in your inbox.";
 "Datenbanksysteme" = "Database Systems";
@@ -17,10 +20,13 @@
 "Gebäude 1101, Raum B305" = "Building 1101, Room B305";
 "Gebäude 3703, Raum 023" = "Building 3703, Room 023";
 "In den nächsten sieben Tagen steht nichts an" = "Nothing scheduled for the next seven days";
+"Speiseplan in der App" = "Menu in the app";
 "Keine neuen Nachrichten" = "No new messages";
 "Keine Termine" = "No events";
 "Läuft gerade" = "Happening now";
 "Nächster Termin" = "Next Event";
+"Der heutige Speiseplan deiner Mensa." = "Today's menu of your canteen.";
+"… und %lld weitere" = "… and %lld more";
 "Postfach" = "Inbox";
 "Postfach gelesen" = "Inbox read";
 "Programmieren 2" = "Programming 2";

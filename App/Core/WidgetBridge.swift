@@ -52,6 +52,21 @@ enum WidgetBridge {
         reload()
     }
 
+    /// Den Speiseplan hinterlegen - der Weg des Mensa-Widgets, das nie selbst
+    /// nachfragt (siehe `MensaWidget`). Gerufen wird er, sobald die
+    /// Mensa-Ansicht den Plan des heutigen Tages geladen hat. Rausgekehrt
+    /// wird er mit dem ganzen Schnappschuss - am Sitzungsende und beim
+    /// Demo-Wechsel, dort verbirgt `clear()` auch den erfundenen Plan.
+    static func publish(meals: [MensaMeal], day: Date, canteenName: String?) {
+        var snapshot = WidgetSnapshotStore.load()
+            ?? WidgetSnapshot(unreadMessages: 0, updatedAt: Date())
+        snapshot.meals = meals.map(WidgetSnapshot.Meal.init)
+        snapshot.mealsDate = day
+        snapshot.canteenName = canteenName
+        WidgetSnapshotStore.save(snapshot)
+        reload()
+    }
+
     /// Alle Widget-Zeitlinien neu rechnen - im Demo-Modus bewusst auch: Das
     /// Widget zeigt dann Beispieldaten, genau wie der Startbildschirm.
     static func reload() {

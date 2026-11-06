@@ -46,6 +46,15 @@ struct SnapshotProvider: TimelineProvider {
         for date in snapshot?.changeDates(after: now) ?? [] {
             entries.append(StudGoEntry(date: date, snapshot: snapshot))
         }
+        // Um Mitternacht endet die Gültigkeit des Speiseplans - dort steht
+        // dann der Hinweis, die App zu öffnen, statt dem Plan von gestern.
+        let calendar = Calendar.current
+        if let midnight = calendar.nextDate(after: now,
+                                             matching: DateComponents(hour: 0, minute: 0),
+                                             matchingPolicy: .nextTime) {
+            entries.append(StudGoEntry(date: midnight, snapshot: snapshot))
+        }
+        entries.sort { $0.date < $1.date }
 
         // Spätestens in zwei Stunden neu lesen - dann steht meist ein neuer
         // Schnappschuss der App bereit.
@@ -422,6 +431,114 @@ private struct UnreadMessagesView: View {
     }
 }
 
+// MARK: - Mensa
+
+/// Der heutige Speiseplan der gewählten Mensa - aus dem Schnappschuss, nie
+/// selbst gefragt (siehe `SnapshotProvider`). Zeigt er keinen Plan, liegt
+/// das daran, dass die App heute noch keinen geladen hat - dann führt ein
+/// Tipp in den Campus-Bereich.
+struct MensaWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "StudGo.Mensa",
+                            provider: SnapshotProvider()) { entry in
+            MensaView(entry: entry)
+                .widgetURL(URL(string: "studgo://campus"))
+        }
+        .configurationDisplayName("Mensa")
+        .description("Der heutige Speiseplan deiner Mensa.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+private struct MensaView: View {
+    let entry: StudGoEntry
+    @Environment(\.widgetFamily) private var family
+
+    /// Der Plan für heute - alte Tagesdaten werden nie als „heute“ gezeigt
+    /// (siehe `WidgetSnapshot.mealsForToday(at:)`).
+    private var meals: [WidgetSnapshot.Meal]? {
+        entry.snapshot?.mealsForToday(at: entry.date)
+    }
+
+    private var limit: Int { family == .systemMedium ? 6 : 4 }
+
+    var body: some View {
+        content
+            .containerBackgroundCompat(family: family)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: "takeoutbag.and.cup.and.spoon")
+                    .font(.caption2)
+                Text(entry.snapshot?.canteenName ?? String(localized: "Mensa"))
+                    .font(.caption2.weight(.semibold))
+                    .textCase(.uppercase)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.secondary)
+
+            if let meals, !meals.isEmpty {
+                ForEach(meals.prefix(limit).indices, id: \.self) { index in
+                    row(meals[index])
+                }
+                if meals.count > limit {
+                    Text(String(localized: "… und \(meals.count - limit) weitere"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else if let meals {
+                // Der heutige Stand ist bekannt und leer - geschlossen oder
+                // kein Plan veröffentlicht.
+                Text(String(localized: "Heute kein Speiseplan"))
+                    .font(.subheadline.weight(.medium))
+                Spacer(minLength: 0)
+            } else {
+                Text(String(localized: "Speiseplan in der App"))
+                    .font(.subheadline.weight(.medium))
+                Text(String(localized: "Mensa einmal öffnen, dann steht hier der Plan."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    /// Gericht mit Studierendenpreis - die Zeile, die an der Tür hängt.
+    private func row(_ meal: WidgetSnapshot.Meal) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: meal.isVegan ? "leaf.fill" : (meal.isVegetarian ? "leaf" : "fork.knife"))
+                .font(.caption2)
+                .foregroundStyle(meal.isVegan || meal.isVegetarian ? Color.green : .secondary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(meal.name)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(family == .systemMedium ? 2 : 1)
+                    .minimumScaleFactor(0.8)
+                if let category = meal.category {
+                    Text(category)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 4)
+            if let price = meal.studentPrice {
+                Text(price.formatted(.currency(code: "EUR")))
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // MARK: - Bundle
 
 @main
@@ -429,6 +546,7 @@ struct StudGoWidgets: WidgetBundle {
     var body: some Widget {
         NextEventWidget()
         UnreadMessagesWidget()
+        MensaWidget()
     }
 }
 
