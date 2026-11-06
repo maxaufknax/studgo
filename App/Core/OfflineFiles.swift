@@ -184,8 +184,14 @@ struct OfflineFiles {
     /// Testsatz unter Linux braucht kein Backup-Merkmal.
     private func excludeFromBackup(_ url: URL) {
         #if canImport(UIKit)
+        // Über `URLResourceValues` statt `setResourceValue(_:forKey:)`: Das
+        // ältere Paar ist in der neuen Foundation ersatzlos entfallen, die
+        // Werte-Variante gibt es dort wie unter iOS 16. Der Fehler fällt nur
+        // im Xcode-Bau auf - der Linux-Testsatz compiliert diesen Zweig nicht.
         var mutable = url
-        try? mutable.setResourceValue(true, forKey: .isExcludedFromBackupKey)
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? mutable.setResourceValues(values)
         #endif
     }
 
