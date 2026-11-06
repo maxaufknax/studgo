@@ -183,6 +183,11 @@ final class Preferences: ObservableObject {
         sharesWebSession = defaults.object(forKey: Key.webSession) as? Bool ?? true
         eventReminders = defaults.object(forKey: Key.eventReminders) as? Bool ?? false
         mailboxAlerts = defaults.object(forKey: Key.mailbox) as? Bool ?? false
+        // Ohne diese Zeile wäre die Initialisierung unvollständig - ein Fehler,
+        // den nur der echte Swift-Compiler sieht, weil diese Datei im
+        // Linux-Testsatz ausgeschlossen ist. Zur gleichen Stelle wie `mailboxAlerts`,
+        // damit künftige Mitteilungsarten daneben weiterwachsen.
+        courseNewsAlerts = defaults.object(forKey: Key.courseNews) as? Bool ?? false
         quietWeekend = defaults.object(forKey: Key.quietWeekend) as? Bool ?? false
         leadMinutes = defaults.object(forKey: Key.leadMinutes) as? Int ?? 20
         lastNotifiedMessage = Date(timeIntervalSince1970:
