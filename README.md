@@ -11,15 +11,15 @@ Website: [studgo.de](https://studgo.de) · [App Store](https://apps.apple.com/de
 
 | Bereich | Inhalt |
 | --- | --- |
-| **Heute** | Was gerade läuft oder als Nächstes ansteht, mit Countdown; der restliche Tag, die wirklich nächsten Termine - nach Tagen gruppiert, auch mehrere am selben Tag -, ungelesene Nachrichten, neue Ankündigungen; Feiertage stehen am Datum |
+| **Heute** | Was gerade läuft oder als Nächstes ansteht, mit Countdown; der restliche Tag, die wirklich nächsten Termine - nach Tagen gruppiert, auch mehrere am selben Tag -, ungelesene Nachrichten, neue Ankündigungen, „Neu seit deinem letzten Besuch“ (neue Dateien, Foren- und Wikibeiträge, Ankündigungen aus deinen Kursen); Feiertage stehen am Datum |
 | **Plan** | Tag, Woche und Liste: Wochenraster mit Kursfarben und Überschneidungen, Tagesansicht mit Datumsleiste, datierte Terminliste; Feiertage (Niedersachsen) stehen in Tages- und Listenansicht. Eigene Termine gelten ganzjährig; anlegen und ändern führt an die richtige Stelle in Stud.IP. Einzelne Turnusfenster - etwa die Übungsgruppe, die nicht die eigene ist - lassen sich überall ausblenden und in den Einstellungen wiederfinden |
-| **Kurse** | Veranstaltungen des laufenden Semesters (umschaltbar) mit Suche; je Kurs Info, Termine, Aushang, Dateien, Teilnehmende und Courseware |
-| **Dateien** | Ordner durchblättern, herunterladen, in der Systemvorschau öffnen und teilen |
+| **Kurse** | Veranstaltungen des laufenden Semesters (umschaltbar) mit Suche; je Kurs Info, Termine, Aushang, Dateien, Teilnehmende samt Gruppen (etwa Tutorien, mit Kapazität und Eintragungszeitraum) und Courseware |
+| **Dateien** | Ordner durchblättern, herunterladen, in der Systemvorschau öffnen und teilen; lassen sich Dateien und ganze Ordner dauerhaft offline behalten, mit Größenangabe vorab, Fortschritt und Abbruch; Suche im Dateibereich des Kurses |
 | **Postfach** | Nachrichten (Posteingang, Gesendet, Suche, Antworten, Verfassen mit Personensuche, Löschen) und **Blubber**: globaler Strom, Direktnachrichten und die Ströme der Veranstaltungen und Studiengruppen in einer Liste; Antippen einer Person öffnet ihr Profil |
 | **Campus** | Eigene Zahlen, Aktivitätenstrom, Verzeichnis: Veranstaltungs- und Personensuche, Kontakte, Studiengruppen, Einrichtungen, Ankündigungen, Mensa & Speisepläne (über OpenMensa) - mit Tag- und Wochenansicht und einem Detailblatt je Gericht |
-| **Widgets** | Nächster Termin und ungelesene Nachrichten auf Home- und Sperrbildschirm (klein, mittel mit „Danach“, rechteckig, rund, in der Zeile); nach dem Ende eines Termins springt das Widget selbst zum nächsten; antippen führt in den Reiter |
+| **Widgets** | Nächster Termin, ungelesene Nachrichten und der heutige Mensaplan auf Home- und Sperrbildschirm (klein, mittel mit „Danach“, rechteckig, rund, in der Zeile); nach dem Ende eines Termins springt das Widget selbst zum nächsten; antippen führt in den Reiter |
 | **Kalender** | Auf Wunsch die nächsten acht Wochen in einem eigenen iOS-Kalender „StudGo“ - damit auch auf Apple Watch, in CarPlay und bei Siri; Stundenplan als Bild teilen |
-| **Profil** | Darstellung, Benachrichtigungen, Kalender-Abgleich, Semesterübersicht, Uni-Mail, Zwischenspeicher, Einführung, Datenschutzhinweise, Abmelden |
+| **Profil** | Darstellung, Benachrichtigungen (Termine, Postfach, Neuigkeiten aus Kursen mit Stummschaltung je Kurs, Ausfälle), Kalender-Abgleich, Semesterübersicht, Uni-Mail, Zwischenspeicher, offline behaltene Dateien, Einführung, Datenschutzhinweise, Abmelden |
 
 Die Oberfläche gibt es auf **Deutsch und Englisch** (Gerätesprache); die
 Schrift folgt der eingestellten Textgröße. Nach der ersten Anmeldung führt
@@ -80,7 +80,7 @@ lokal übersetzen und testen - die Swift-Toolchain läuft dafür im Container.
 
 ```bash
 ./tools/swift-lint.sh     # ~8 s - Syntax aller Quellen, auch der Ansichten und Widgets
-./tools/swift.sh test     # ~10 s - 194 Tests gegen App/Core, App/Models und die Übersetzungen
+./tools/swift.sh test     # ~10 s - 229 Tests gegen App/Core, App/Models und die Übersetzungen
 ```
 
 Beides zusammen fängt ab, was sonst erst nach Minuten bei Codemagic auffiele.

@@ -1,6 +1,6 @@
 # Wie vollständig ist StudGo?
 
-Stand: **2026-09-27**, Fassung 1.8.0. Gegenübergestellt werden drei Dinge:
+Stand: **2026-11-06**, Fassung 1.9.0. Gegenübergestellt werden drei Dinge:
 was die **Stud.IP-Weboberfläche** an der LUH kann, was die **JSON:API**
 überhaupt hergibt, und was **StudGo** heute daraus macht.
 
@@ -22,8 +22,11 @@ Sprechstunden. Das sind die Bereiche, die man mehrmals pro Woche anfasst.
 Nicht abgedeckt sind vor allem drei Dinge, und sie unterscheiden sich in der
 Ursache:
 
-1. **Courseware** - der größte offene Bereich. Die Schnittstelle kann es
-   (rund 50 Routen), StudGo noch nicht. Das ist Arbeit, kein Hindernis.
+1. **Persönliche Dateiablage** - der größte offene Bereich. Die
+   Schnittstelle kann ihn (`/users/{id}/folders`), StudGo noch nicht. Das
+   ist Arbeit, kein Hindernis. Die Courseware dagegen ist seit 1.7/1.8
+   lesend drin, inklusive der dateibasierten Blöcke - von der Kurzfassung
+   früher als offen geführt, längst überholt.
 2. **Alles Verwaltende** - Profil bearbeiten, Passwort, Zwei-Faktor,
    Einstellungen, Ein- und Austragen in Veranstaltungen. Die JSON:API bietet
    dafür schlicht **keine** Routen. Diese Wege führen dauerhaft über die
@@ -40,11 +43,11 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 
 | Stud.IP | JSON:API | StudGo |
 | --- | --- | --- |
-| Übersicht / Startseite | – | ✅ Reiter **Heute**: laufender und nächster Termin mit Countdown, was heute noch kommt, demnächst, ungelesene Nachrichten, Ankündigungen |
+| Übersicht / Startseite | – | ✅ Reiter **Heute**: laufender und nächster Termin mit Countdown, was heute noch kommt, demnächst, ungelesene Nachrichten, Ankündigungen - und seit 1.9 der Bereich „Neu seit deinem letzten Besuch“ (Dateien, Forum, Wiki, Ankündigungen aus deinen Kursen) |
 | Ankündigungen lesen | `GET /users/{id}/news`, `/studip/news`, `/courses/{id}/news` | ✅ eigene und universitätsweite, mit Auszeichnung gesetzt |
 | Ankündigungen **verfassen** | `POST /users/{id}/news`, `/courses/{id}/news` | ⬜ möglich, noch nicht gebaut |
 | Ankündigungen kommentieren | `GET`/`POST /news/{id}/comments` | ⬜ Lesen im Client vorhanden, ohne Oberfläche |
-| Dateien: Veranstaltungsordner | `/courses/{id}/folders` → `/folders/{id}/file-refs` | ✅ Ordnerbaum, Vorschau, Teilen, Download |
+| Dateien: Veranstaltungsordner | `/courses/{id}/folders` → `/folders/{id}/file-refs` | ✅ Ordnerbaum, Vorschau, Teilen, Download - und seit 1.9 **offline behalten** je Datei oder ganzem Ordner (dauerhaft, verschlüsselt, vom Backup ausgeschlossen) samt **Suche im Dateibereich** und Nachziehen bei geändertem `chdate` |
 | Dateien: **persönliche Ablage** | `/users/{id}/folders`, `/users/{id}/file-refs` | ⬜ Route vorhanden, noch nicht gebaut |
 | Dateien **hochladen**, Ordner anlegen | `POST /folders/{id}/file-refs`, `POST .../folders` | ⬜ möglich, noch nicht gebaut |
 | Courseware (Lernmaterialien) | ~50 Routen (`/courseware-*`) | ◐ seit 1.7.0: Kapitelbaum und textnahe Blöcke lesend; seit 1.8.0 auch dateibasierte Blöcke - Datei nach Kennung aufgelöst, mit Größe und Systemvorschau. Der Editor bleibt außen vor |
@@ -59,6 +62,7 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Veranstaltung: Übersicht, Beschreibung | `GET /courses/{id}` | ✅ inklusive korrekt gesetzter Beschreibung (Stud.IP-Auszeichnung) |
 | Ablaufplan / Termine | `GET /courses/{id}/events` | ✅ anstehend und vergangen, **jede Sitzung einzeln zu öffnen** |
 | Teilnehmende | `GET /courses/{id}/memberships` | ✅ nach Rolle gruppiert, mit Nachricht/Sprechstunde/Kontakt |
+| Gruppen (Tutorien, Übungsgruppen) | `GET /courses/{id}/status-groups` | ✅ seit 1.9 in der Personenansicht: Name, Beschreibung, Kapazität, Eintragungszeitraum. Die Route nennt keine Mitglieder - Mitglieder sehen und Eintragen führt über einen Knopf in die Weboberfläche (Befund 26) |
 | Dateien | s. o. | ✅ |
 | Forum lesen und antworten | `/forum-categories`, `/entries` | ✅ Bereich → Thema → Antwort |
 | Forum: **neues Thema** | `POST /forum-categories/{id}/entries` | ⬜ Antworten geht, neues Thema noch nicht |
@@ -82,6 +86,7 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Tagesansicht | abgeleitet | ✅ Datumsleiste mit Punkten an belegten Tagen; **eigene Termine gelten ganzjährig**, Kurssitzungen nur in der Vorlesungszeit |
 | Eigene Termine ansehen | `GET /users/{id}/schedule` | ✅ eigener Bereich „Eigene Termine", nach Wochentag gruppiert |
 | Termin **anlegen, ändern, löschen** | – | 🚫 Zu `schedule-entries` gibt es **nur** `GET` (Befund 18). StudGo führt an Ort und Stelle in die Weboberfläche - beim Anlegen aus dem Kalender heraus mit vorbelegtem Wochentag und Uhrzeit. |
+| Erinnerungen an Termine | lokal (keine API) | ✅ im Voraus geplant, ohne Netz zuverlässig; seit 1.9 gleicht ein Hintergrundlauf höchstens einmal am Tag ab, ob eine Sitzung **ausfällt oder verschoben** wurde, und räumt die Erinnerung dann beiseite - ohne je den Bestand zu gefährden. Mitteilung „Fällt aus“ optional (nächste sieben Tage, je Sitzung einmal) |
 | Kalender abonnieren (iCal) | `GET /users/{id}/events.ics` | ✅ seit 1.8.2 als **Abgleich mit dem iOS-Kalender**: die nächsten acht Wochen in einem eigenen Kalender „StudGo“, bei jedem Öffnen aktualisiert (`CalendarSync`, Entscheidung in `CalendarSyncPlan`, geprüft). Ein echtes `webcal://`-Abo geht nicht - die Route verlangt den OAuth-Token im Kopf, den die Kalender-App nicht mitschicken kann. Daneben bleibt der einmalige Export als `.ics` |
 | Stundenplan teilen | – | ✅ seit 1.8.2 als Bild (eigene Fassung des Rasters, auf dem Gerät gerendert) |
 | Feiertage | `GET /holidays` | ✅ seit 1.8.0 - **lokal berechnet** für Niedersachsen (feste Tage plus die osterabhängigen), mit Anzeige in Heute, Tagesansicht und Liste. Die API-Route bliebe eine deutschlandweite Quelle; für den Hochschulort genügt der Landesstand, und die Rechnung funktioniert auch offline |
@@ -124,12 +129,12 @@ will, geht.** Was man einmal im Semester am Rechner erledigt, geht nicht.
 | Wunsch | Stand |
 | --- | --- |
 | Uni-Mail im Posteingang | 🚫 bewusst nicht. Dovecot an der LUH bietet nur `AUTH=PLAIN`, SOGo nur HTTP Basic - es gäbe keinen Weg ohne das zentrale Uni-Passwort in der App. StudGo verlinkt SOGo und zeigt die Serverdaten für die Mail-App des Geräts. |
-| Push-Benachrichtigungen | ◐ **kein echtes Push** (dafür bräuchte es einen Server, der für dich pollt - StudGo hat bewusst kein Backend). Stattdessen seit 1.3.0: Terminerinnerungen als lokale Mitteilung, im Voraus geplant und ohne Netz zuverlässig, plus ein `BGAppRefreshTask` fürs Postfach, den iOS mehrmals täglich weckt. Siehe `App/Core/Notifications.swift`. |
+| Push-Benachrichtigungen | ◐ **kein echtes Push** (dafür bräuchte es einen Server, der für dich pollt - StudGo hat bewusst kein Backend). Stattdessen seit 1.3.0: Terminerinnerungen als lokale Mitteilung, im Voraus geplant und ohne Netz zuverlässig, plus ein `BGAppRefreshTask` fürs Postfach, den iOS mehrmals täglich weckt. Seit 1.9 fasst derselbe Lauf jede Mitteilungsart **einzeln** ins Auge: Postfach, „Neu in deinen Kursen“ (optional, je Kurs stummschaltbar, eine Sammelmitteilung) und der Ausfallsabgleich. Siehe `App/Core/Notifications.swift`. |
 | Datei hochladen / umbenennen / löschen | ✅ seit 1.3.0 - `POST /folders/{id}/file-refs` mit `multipart/form-data`, dazu Mehrfachauswahl und „In Dateien sichern“. Angeboten wird es nur, wo `is-writable` am Ordner steht. |
 | Echte Sitzungstermine mit Ausfällen | ✅ seit 1.3.0 über `GET /users/{id}/events.ics` - bis 2037, samt Raum, Thema und abgesagten Terminen. Vorher aus dem Wochenraster abgeleitet und deshalb außerhalb der Vorlesungszeit leer. |
-| Offline-Betrieb | ✅ die zuletzt geladenen Listen liegen auf dem Gerät, die App startet ohne Empfang mit dem letzten Stand |
+| Offline-Betrieb | ✅ die zuletzt geladenen Listen liegen auf dem Gerät, die App startet ohne Empfang mit dem letzten Stand - und seit 1.9 lassen sich Dateien dauerhaft offline behalten |
 | Mensa & Speisepläne | ✅ seit 1.7.0 - über die offene OpenMensa-Schnittstelle: alle Hannoveraner Mensen, Preise nach Gruppe, Kennzeichnungen; die gewählte Mensa bleibt eingestellt. Seit 1.8.0: Tag- **und** Wochenansicht, ein Detailblatt je Gericht mit allen Preisen und der vollen Kennzeichnung - und der Speiseplan gilt ohne Empfang wie der Rest der App (alter Cache-Stand statt Fehlermeldung). Im Demo-Modus mit erfundenen Gerichten. |
-| Widgets (Sperrbildschirm) | ✅ seit 1.8.0 - nächster Termin und ungelesene Nachrichten als WidgetKit-Kacheln. Die Widgets fragen nie selbst beim Server an; sie lesen einen Schnappschuss, den die App über eine App-Group hinterlegt (siehe `Widgets/StudGoWidgets.swift`) |
+| Widgets (Sperrbildschirm) | ✅ seit 1.8.0 - nächster Termin und ungelesene Nachrichten als WidgetKit-Kacheln, seit 1.9 dazu der **heutige Speiseplan der gewählten Mensa**. Die Widgets fragen nie selbst beim Server an; sie lesen einen Schnappschuss, den die App über eine App-Group hinterlegt (siehe `Widgets/StudGoWidgets.swift`) |
 | Bewertung im App Store | ✅ seit 1.7.0 - die App bittet nach ein paar Tagen Nutzung selbst um eine Bewertung (Systemdialog, von iOS gedrosselt). |
 | Inhalte an die ZQS melden | ✅ seit 1.7.0 - vorbereitete Mail an die ZQS-elsa aus der Veranstaltung und den Einstellungen, für alles, was in Stud.IP selbst falsch ist. |
 
@@ -144,8 +149,10 @@ In dieser Reihenfolge, nach Nutzen je Aufwand:
    *die* Terminquelle - echte Sitzungen bis 2037, samt Ausfällen. Siehe
    `API-NOTES.md`, Befund 6.
 2. ~~**Datei-Upload**~~ - **erledigt in 1.3.0** (Befund 8).
-3. **Ankündigung verfassen und Forenthema eröffnen** - kleine Ergänzungen,
-   machen die App vom Lesegerät zum Arbeitsgerät.
+3. **Forenthema eröffnen** - kleine Ergänzung, die die App vom Lesegerät
+   zum Arbeitsgerät macht. („Ankündigung verfassen“ ist von der Liste
+   genommen: Ankündigungen schreiben fast ausschließlich Lehrende, und
+   für sie bleibt die Weboberfläche das Werkzeug.)
 4. **Persönliche Dateien** (`/users/{id}/folders`) - der eigene Dateibereich
    in Stud.IP, denselben Routen folgend wie der einer Veranstaltung.
 5. **Courseware** - der große Brocken. Lohnt nur, wenn deine Veranstaltungen

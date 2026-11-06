@@ -54,9 +54,12 @@ Knopf direkt dorthin.
 ### Bekomme ich Push-Nachrichten?
 
 Nein - Stud.IP bietet dafür nichts an, und StudGo betreibt keinen eigenen
-Server. Stattdessen plant die App **lokale** Erinnerungen an Termine und sieht
-im Hintergrund gelegentlich nach neuen Nachrichten. Einstellbar unter
-*Profil → Benachrichtigungen*.
+Server. Stattdessen plant die App **lokale** Erinnerungen an Termine (an
+kurzfristigen Ausfällen führt ein seltener Hintergrundabgleich vorbei) und
+sieht im Hintergrund gelegentlich nach neuen Nachrichten. Neuigkeiten aus
+deinen Kursen - neue Dateien, Foren- und Wikibeiträge, Ankündigungen - sind
+ebenfalls möglich, aber standardmäßig aus und je Kurs stummschaltbar.
+Einstellbar unter *Profil → Benachrichtigungen*.
 
 ### Ich möchte einen unangemessenen Beitrag melden
 

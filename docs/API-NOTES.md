@@ -1,14 +1,15 @@
 # Stud.IP LUH - API- & OAuth2-Befunde
 
-Stand: 2026-08-25. Alle Angaben durch direkte Requests gegen den Live-Server
-sowie gegen die Schema- und Route-Quellen von Stud.IP 6.0 verifiziert.
+Stand: 2026-11-06. Angaben an den Schema- und Route-Quellen von Stud.IP 6.0
+(Branch 6.0) geprüft; die Version des Live-Servers liegt fest über die Route
+`GET /studip/properties` (ohne Auth): **6.0.6** (Stand: 6. November 2026).
 
 ## Server
 
 | | |
 | --- | --- |
 | Base URL | `https://studip.uni-hannover.de` |
-| Stud.IP-Version | **6.0.4** (`GET /jsonapi.php/v1/studip/properties`, ohne Auth abrufbar) |
+| Stud.IP-Version | **6.0.6** (`GET /jsonapi.php/v1/studip/properties`, ohne Auth abrufbar; 6.0.4 stand hier bis Fassung 1.8) |
 | JSON:API | `https://studip.uni-hannover.de/jsonapi.php/v1/...` |
 | Alte REST-API (`/api.php`) | **404 - abgeschaltet**, deprecated, nicht verwenden |
 | Route-Discovery | `GET /jsonapi.php/v1/discovery` → 343 Routen, ohne Auth abrufbar |
