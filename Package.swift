@@ -56,6 +56,7 @@ let package = Package(
             sources: [
                 "Core/AccountState.swift",
                 "Core/AppConfig.swift",
+                "Core/CancellationReview.swift",
                 "Core/CourseNews.swift",
                 "Core/CalendarSyncPlan.swift",
                 "Core/DemoData.swift",

@@ -29,7 +29,9 @@ enum BackgroundSync {
         // Schalter, der sie nichts anging.
         let wantsMailbox = preferences.mailboxAlerts
         let wantsCourseNews = preferences.courseNewsAlerts
-        guard wantsMailbox || wantsCourseNews, await Notifications.isAuthorized() else { return }
+        let wantsCancellations = preferences.eventReminders || preferences.cancellationAlerts
+        guard wantsMailbox || wantsCourseNews || wantsCancellations,
+              await Notifications.isAuthorized() else { return }
         if preferences.quietWeekend, Calendar.current.isDateInWeekend(Date()) { return }
 
         // Passiv: Dieser Lauf erneuert Tokens, meldet aber nie ab - auch
@@ -56,6 +58,66 @@ enum BackgroundSync {
         if wantsCourseNews {
             await notifyNewCourseNews(client: client, userID: user.id,
                                       preferences: preferences)
+        }
+
+        // Der Ausfallsabgleich: letzter Schritt, selten (etwa einmal am Tag)
+        // und für jeden Abbruch gefeit - die `events.ics` kann groß sein, und
+        // das Zeitfenster ist auch dann zu Ende gegangen, wenn sie gerade
+        // unterwegs war. Was nicht mehr geschafft wird, bleibt für den
+        // nächsten Lauf.
+        if wantsCancellations {
+            await reviewCancellations(client: client, userID: user.id,
+                                      preferences: preferences)
+        }
+    }
+
+    // MARK: - Ausfälle
+
+    /// Vergleicht die geplanten Erinnerungen mit dem frischen Kalender und
+    /// nimmt Absagen heraus - sie würden sonst klingeln, obwohl die
+    /// Sitzung nicht stattfindet.
+    ///
+    /// **Abbruchfest durch die Bauerweise:** Der Abgleich räumt nie alles
+    /// und plant dann neu, sondern entfernt und ergänzt einzeln, nach einer
+    /// Entscheidung in purem Code (`CancellationReview`). Schlägt der
+    /// Kalenderabruf fehl oder läuft die App in die Zeitgrenze, bleibt der
+    /// Bestand einfach stehen - still liegen ist besser als Erinnerungen
+    /// verlieren.
+    private static func reviewCancellations(client: StudIPClient,
+                                            userID: String,
+                                            preferences: Preferences) async {
+        // Nicht öfter als etwa einmal am Tag; `max` für den Fall, dass die
+        // Uhr einmal verrückt gespielt hat.
+        let interval = max(0, Date().timeIntervalSince(preferences.lastCancellationReview))
+        guard interval > 20 * 3600 else { return }
+        defer { preferences.lastCancellationReview = Date() }
+
+        // Fehler überlebt hier still: Kein Kalender, kein Abgleich - der
+        // nächste Lauf versucht es erneut (siehe `AuthStore.isPassive` für
+        // den Grund, warum ein Fehlschlag keine Sitzung beendet).
+        guard let events = try? await client.calendarEvents(for: userID),
+              !events.isEmpty else { return }
+
+        let planned = await Notifications.plannedReminders()
+        let adjustment = CancellationReview.review(planned: planned,
+                                                   announced: preferences.announcedCancellations,
+                                                   fresh: events,
+                                                   leadMinutes: preferences.leadMinutes,
+                                                   quietWeekend: preferences.quietWeekend,
+                                                   now: Date())
+        await Notifications.applyCancellationAdjustment(adjustment,
+                                                        leadMinutes: preferences.leadMinutes,
+                                                        quietWeekend: preferences.quietWeekend)
+        preferences.replaceAnnouncedCancellations(adjustment.announced)
+
+        // Die Mitteilung über einen Ausfall: optional, nur die nächsten
+        // sieben Tage (der Rest der Liste ist ohnehin raus), je Sitzung
+        // einmal - `announced` hält es fest.
+        guard preferences.cancellationAlerts else { return }
+        for event in adjustment.newlyCancelled {
+            await Notifications.post(title: String(localized: "Fällt aus"),
+                                     body: "\(event.displayTitle)\n\(event.start.formatted(date: .abbreviated, time: .shortened))",
+                                     thread: "studgo.calendar")
         }
     }
 

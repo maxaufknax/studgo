@@ -574,11 +574,15 @@ struct NotificationSettingsView: View {
                             Text(Preferences.leadLabel(minutes)).tag(minutes)
                         }
                     }
+                    Toggle(isOn: $preferences.cancellationAlerts) {
+                        RowLabel(symbol: "calendar.badge.exclamationmark",
+                                 title: "Über kurzfristige Ausfälle informieren")
+                    }
                 }
             } header: {
                 Text("Termine")
             } footer: {
-                Text(String(localized: "Wird auf dem Gerät geplant und funktioniert auch ohne Empfang. Fällt eine Sitzung aus, verschwindet die Erinnerung beim nächsten Laden des Kalenders.")
+                Text(String(localized: "Wird auf dem Gerät geplant und funktioniert auch ohne Empfang. Der Hintergrundabgleich sieht höchstens einmal am Tag nach, ob etwas abgesagt oder verschoben wurde - eine Mitteilung darüber kommt nur für die nächsten sieben Tage und je Sitzung einmal. Beim Laden des Kalenders wird ohnehin alles neu geplant.")
                      + (pendingCount > 0 ? String(localized: " Zurzeit sind \(pendingCount) Erinnerungen vorgemerkt.") : ""))
             }
 

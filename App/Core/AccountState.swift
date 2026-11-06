@@ -47,6 +47,12 @@ enum AccountState {
         /// deinem letzten Besuch“.
         static let lastVisit = "studgo.today.lastVisit"
 
+        /// Ausfallsabgleich: wann er zuletzt gelaufen ist und über welche
+        /// abgesagten Sitzungen schon informiert wurde - Aussagen über die
+        /// Termine des Kontos.
+        static let lastCancellationReview = "studgo.notify.cancellationReview"
+        static let announcedCancellations = "studgo.notify.announcedCancellations"
+
         /// Der Schalter des Kalender-Abgleichs. Sein Kalender wird am
         /// Sitzungsende gelöscht - ein stehengelassener Schalter würde beim
         /// nächsten Konto ohne Rückfrage wieder einsynchronisieren.
@@ -65,6 +71,8 @@ enum AccountState {
          Key.lastNotifiedCourseNews,
          Key.mutedCourses,
          Key.lastVisit,
+         Key.lastCancellationReview,
+         Key.announcedCancellations,
          Key.calendarSync]
     }
 

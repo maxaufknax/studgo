@@ -140,7 +140,17 @@ enum Notifications {
                                        leadMinutes: Int,
                                        quietWeekend: Bool) async {
         await clearEventReminders()
+        await addEventReminders(events, leadMinutes: leadMinutes, quietWeekend: quietWeekend)
+    }
 
+    /// Legt die Erinnerungen selbst an - ohne etwas wegzuräumen. Das nutzt
+    /// das Planen von „Heute“ wie der Ausfallsabgleich im Hintergrund
+    /// (siehe `applyCancellationAdjustment` und `CancellationReview`):
+    /// Letzterer räumt nur einzelne, einzeln berechnete Einträge weg,
+    /// damit ein Abbruch dazwischen niemals den ganzen Bestand kostet.
+    static func addEventReminders(_ events: [CourseEvent],
+                                 leadMinutes: Int,
+                                 quietWeekend: Bool) async {
         let now = Date()
         let lead = TimeInterval(leadMinutes * 60)
         let calendar = Calendar.current
@@ -153,25 +163,59 @@ enum Notifications {
             .prefix(maxScheduledEvents)
 
         for event in upcoming {
-            let content = UNMutableNotificationContent()
-            // Derselbe geglättete Titel wie in der Terminliste - mit
-            // Nummer und Doppel-Leerzeichen sähe die Mitteilung anders aus
-            // als die App, aus der sie kommt.
-            content.title = event.displayTitle
-            content.body = reminderBody(for: event, leadMinutes: leadMinutes)
-            content.sound = .default
-            content.threadIdentifier = "studgo.calendar"
-            content.categoryIdentifier = "STUDGO_EVENT"
-
-            let fireDate = event.start.addingTimeInterval(-lead)
-            let components = calendar.dateComponents(
-                [.year, .month, .day, .hour, .minute], from: fireDate)
-            let request = UNNotificationRequest(
-                identifier: eventPrefix + event.id,
-                content: content,
-                trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false))
-            try? await center.add(request)
+            await addReminder(for: event, leadMinutes: leadMinutes)
         }
+    }
+
+    /// Eine einzelne Erinnerung anlegen - der gemeinsame Weg von Planen und
+    /// Nachschieben.
+    private static func addReminder(for event: CourseEvent, leadMinutes: Int) async {
+        let content = UNMutableNotificationContent()
+        // Derselbe geglättete Titel wie in der Terminliste - mit
+        // Nummer und Doppel-Leerzeichen sähe die Mitteilung anders aus
+        // als die App, aus der sie kommt.
+        content.title = event.displayTitle
+        content.body = reminderBody(for: event, leadMinutes: leadMinutes)
+        content.sound = .default
+        content.threadIdentifier = "studgo.calendar"
+        content.categoryIdentifier = "STUDGO_EVENT"
+
+        let fireDate = event.start.addingTimeInterval(-TimeInterval(leadMinutes * 60))
+        let components = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute], from: fireDate)
+        let request = UNNotificationRequest(
+            identifier: eventPrefix + event.id,
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false))
+        try? await center.add(request)
+    }
+
+    /// Der Abgleich sieht, welche Erinnerungen mit welcher Weckzeit stehen -
+    /// ohne die Mitteilung selbst zu ändern.
+    static func plannedReminders() async -> [CancellationReview.PlannedReminder] {
+        await center.pendingNotificationRequests()
+            .filter { $0.identifier.hasPrefix(eventPrefix) }
+            .compactMap { request in
+                let eventID = String(request.identifier.dropFirst(eventPrefix.count))
+                guard let trigger = request.trigger as? UNCalendarNotificationTrigger,
+                      let date = trigger.nextTriggerDate() else {
+                    return CancellationReview.PlannedReminder(eventID: eventID, fireDate: nil)
+                }
+                return CancellationReview.PlannedReminder(eventID: eventID, fireDate: date)
+            }
+    }
+
+    /// Wendet den Abgleich an: einzelne Einträge weg, einzelne nachschieben.
+    /// Bestehende Erinnerungen bleiben unangetastet - anders als beim
+    /// Neuplanen wird hier nichts pauschal geräumt, genau damit ein Abbruch
+    /// nichts kostet.
+    static func applyCancellationAdjustment(_ adjustment: CancellationReview.Adjustment,
+                                            leadMinutes: Int,
+                                            quietWeekend: Bool) async {
+        center.removePendingNotificationRequests(
+            withIdentifiers: adjustment.retireEventIDs.map { eventPrefix + $0 })
+        await addEventReminders(adjustment.missing, leadMinutes: leadMinutes,
+                                quietWeekend: quietWeekend)
     }
 
     private static func reminderBody(for event: CourseEvent, leadMinutes: Int) -> String {

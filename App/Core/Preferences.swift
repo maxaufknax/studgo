@@ -28,6 +28,10 @@ final class Preferences: ObservableObject {
         static let lastCourseNewsDate = AccountState.Key.lastNotifiedCourseNews
         static let mutedCourses = AccountState.Key.mutedCourses
         static let lastVisit = AccountState.Key.lastVisit
+        // Ausfallsabgleich: Schalter reine Vorliebe, Merker konto­gebunden.
+        static let cancellations = "studgo.notify.cancellations"
+        static let cancellationReview = AccountState.Key.lastCancellationReview
+        static let announcedCancellations = AccountState.Key.announcedCancellations
     }
 
     // MARK: - Weboberfläche
@@ -67,6 +71,31 @@ final class Preferences: ObservableObject {
     /// nachsehen darf.
     @Published var mailboxAlerts: Bool {
         didSet { defaults.set(mailboxAlerts, forKey: Key.mailbox) }
+    }
+
+    /// Über frisch abgesagte Sitzungen informieren, wenn der seltene
+    /// Ausfallsabgleich im Hintergrund läuft. **Vorgabe aus** (neue Art von
+    /// Mitteilung) und nur für die nächsten sieben Tage, je Sitzung einmal.
+    @Published var cancellationAlerts: Bool {
+        didSet { defaults.set(cancellationAlerts, forKey: Key.cancellations) }
+    }
+
+    /// Wann der Ausfallsabgleich zuletzt gelaufen ist - Drossel auf etwa
+    /// einmal am Tag. Wird gesetzt, sobald der Lauf *beendet* ist (mit oder
+    /// ohne Befund): Ein gescheiterter Abruf soll beim nächsten Wecken
+    /// erneut probieren, aber nicht jede Stunde.
+    var lastCancellationReview: Date {
+        didSet { defaults.set(lastCancellationReview.timeIntervalSince1970, forKey: Key.cancellationReview) }
+    }
+
+    /// Bereits über den Ausfall informierte Sitzungen, gesäubert um alles,
+    /// was der Kalender nicht mehr kennt.
+    @Published private(set) var announcedCancellations: Set<String> {
+        didSet { defaults.set(announcedCancellations.sorted(), forKey: Key.announcedCancellations) }
+    }
+
+    func replaceAnnouncedCancellations(_ ids: Set<String>) {
+        announcedCancellations = ids
     }
 
     /// Am Wochenende still bleiben. Für Kursfäden, die samstags weiterlaufen.
@@ -165,6 +194,10 @@ final class Preferences: ObservableObject {
             defaults.double(forKey: Key.lastCourseNewsDate))
         lastVisit = Date(timeIntervalSince1970:
             defaults.double(forKey: Key.lastVisit))
+        cancellationAlerts = defaults.object(forKey: Key.cancellations) as? Bool ?? false
+        lastCancellationReview = Date(timeIntervalSince1970:
+            defaults.double(forKey: Key.cancellationReview))
+        announcedCancellations = Set(defaults.stringArray(forKey: Key.announcedCancellations) ?? [])
         mensaCanteenID = defaults.object(forKey: Key.mensaCanteen) as? Int ?? 6
         calendarSync = defaults.object(forKey: Key.calendarSync) as? Bool ?? false
         sessionReset = NotificationCenter.default.addObserver(
@@ -198,6 +231,9 @@ final class Preferences: ObservableObject {
         lastVisit = Date(timeIntervalSince1970:
             defaults.double(forKey: Key.lastVisit))
         mutedCourseIDs = Set(defaults.stringArray(forKey: Key.mutedCourses) ?? [])
+        lastCancellationReview = Date(timeIntervalSince1970:
+            defaults.double(forKey: Key.cancellationReview))
+        announcedCancellations = Set(defaults.stringArray(forKey: Key.announcedCancellations) ?? [])
     }
 
     /// Ob eine Funktion überhaupt den Hintergrundlauf braucht - beim Start

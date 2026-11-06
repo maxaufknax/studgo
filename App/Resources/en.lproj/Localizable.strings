@@ -704,7 +704,7 @@
 "Wikiseite" = "Wiki page";
 "Willkommen bei StudGo" = "Welcome to StudGo";
 "Wir sehen uns jede Meldung an und entfernen anstößige Inhalte innerhalb von 24 Stunden aus der App. Verfasser, die wiederholt auffallen, werden dauerhaft ausgeschlossen." = "We review every report and remove objectionable content from the app within 24 hours. Authors who repeatedly violate the terms are permanently excluded.";
-"Wird auf dem Gerät geplant und funktioniert auch ohne Empfang. Fällt eine Sitzung aus, verschwindet die Erinnerung beim nächsten Laden des Kalenders." = "Scheduled on the device and works without reception. If a session is cancelled, the reminder disappears the next time the calendar loads.";
+"Wird auf dem Gerät geplant und funktioniert auch ohne Empfang. Der Hintergrundabgleich sieht höchstens einmal am Tag nach, ob etwas abgesagt oder verschoben wurde - eine Mitteilung darüber kommt nur für die nächsten sieben Tage und je Sitzung einmal. Beim Laden des Kalenders wird ohnehin alles neu geplant." = "Scheduled on your device and works without reception. A background check - at most once a day - looks whether anything was cancelled or moved; a notification about it only covers the next seven days and happens once per session. When the calendar loads, everything is re-scheduled anyway.";
 "Wird geladen…" = "Loading…";
 "Wird mitgeschickt" = "Will be included";
 "Wirklich abmelden?" = "Sign out?";
@@ -747,6 +747,7 @@
 "Öffnet Stud.IP" = "Opens Stud.IP";
 "Öffnet Stud.IP: Das Ein- und Austragen bietet die Schnittstelle nicht an. Danach hier nach unten ziehen." = "Opens Stud.IP: the interface doesn't support enrolling and unenrolling. Pull down here afterwards to refresh.";
 "Über StudGo" = "About StudGo";
+"Über kurzfristige Ausfälle informieren" = "Notify about short-notice cancellations";
 "Überall" = "Everywhere";
 "Überspringen" = "Skip";
 "„Automatisch“ folgt der Einstellung des Geräts und wechselt abends von selbst." = "“Automatic” follows your device setting and switches by itself in the evening.";
