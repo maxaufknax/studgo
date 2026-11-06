@@ -142,8 +142,13 @@ cmd_errors() {
 }
 
 cmd_list() {
-    api "$API/builds?appId=$APP_ID&limit=${1:-10}" \
-      | jq -r '.builds[] | "\(.startedAt // "-")  \(.status)\t\(.workflowId // "?")\t\(.branch // "?")\t\(._id)"'
+    local out
+    out=$(api "$API/builds?appId=$APP_ID&limit=${1:-10}" \
+      | jq -r '.builds[] | "\(.startedAt // "-")  \(.status)\t\(.workflowId // "?")\t\(.branch // "?")\t\(._id)"')
+    # Eine App ohne Builds (frisch eingerichtet) druckt sonst nichts - für
+    # den Aufrufer nicht von einem falschen Token zu unterscheiden.
+    [ -n "$out" ] || echo "Keine Builds für App $APP_ID (appId falsch? Token ohne Zugriff?)." >&2
+    printf '%s\n' "$out"
 }
 
 cmd_build() {
