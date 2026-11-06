@@ -1,6 +1,6 @@
 # Datenschutzerklärung für StudGo
 
-**Stand: 4. Oktober 2026**
+**Stand: 6. November 2026**
 
 > **In short (English):** StudGo signs you in to `studip.uni-hannover.de` with
 > your own account and talks to it directly. Access tokens stay in the iOS
@@ -19,7 +19,10 @@
 > StudGo writes the next eight weeks of your timetable into a separate
 > “StudGo” calendar on your device and reads nothing but that calendar; the
 > calendar syncs wherever your calendars sync (for example iCloud), and turning
-> the option off or signing out deletes it.
+> the option off or signing out deletes it. Signing out (since version 1.9)
+> deletes every piece of account data on the device: tokens, cache, downloads,
+> block list, hidden events, background markers, widget snapshot and the
+> “StudGo” calendar; pure settings such as the colour scheme remain.
 > Contact: <maximilian.elias.paasch@gmail.com>.
 
 ## Wer ist verantwortlich?
@@ -225,9 +228,17 @@ Datenschutzbestimmungen der jeweiligen Einrichtung.
 
 ## Deine Rechte
 
-Die auf dem Gerät gehaltenen Daten - Token, Zwischenspeicher, Einstellungen,
-Blockliste - löschst du vollständig, indem du dich in der App abmeldest oder
-die App entfernst. Der Entwickler kommt an keines davon heran.
+Die auf dem Gerät gehaltenen Daten des Kontos löschst du vollständig, indem
+du dich in der App abmeldest oder die App entfernst. Seit Version 1.9 sind
+das wirklich alle: die Zugangstoken aus dem Schlüsselbund, der
+Zwischenspeicher, heruntergeladene Dateien, die Blockliste, die
+ausgeblendeten Termine, die Merker der Hintergrund-Mitteilungen, der
+Widget-Schnappschuss, der Kalender „StudGo“ samt seinem Schalter und die
+Annahme der Nutzungsbedingungen. Auch geplante und bereits zugestellte
+Mitteilungen werden dabei storniert - endet eine Sitzung von selbst, gilt
+dasselbe. Reine Einstellungen wie die Farbwelt, die Mensa-Wahl oder die
+Vorlaufzeit der Erinnerungen bleiben; sie sagen nichts über ein Konto.
+Der Entwickler kommt an keines davon heran.
 
 Beim Entwickler liegen ausschließlich die Meldungen, die jemand selbst
 abgeschickt hat. Wer wissen will, ob und was über ihn dort steht, oder wer

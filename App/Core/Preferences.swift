@@ -17,10 +17,11 @@ final class Preferences: ObservableObject {
         static let leadMinutes = "studgo.notify.leadMinutes"
         static let mailbox = "studgo.notify.mailbox"
         static let quietWeekend = "studgo.notify.quietWeekend"
-        static let lastMessageDate = "studgo.notify.lastMessage"
-        static let lastActivityDate = "studgo.notify.lastActivity"
+        // Konto­gebunden - beim Sitzungsende weg (siehe `AccountState`).
+        static let lastMessageDate = AccountState.Key.lastNotifiedMessage
+        static let lastActivityDate = AccountState.Key.lastNotifiedActivity
         static let mensaCanteen = "studgo.mensa.canteen"
-        static let calendarSync = "studgo.calendar.sync"
+        static let calendarSync = AccountState.Key.calendarSync
     }
 
     // MARK: - Weboberfläche
@@ -98,6 +99,9 @@ final class Preferences: ObservableObject {
     var wantsNotifications: Bool { eventReminders || mailboxAlerts }
 
     private let defaults: UserDefaults
+    /// Sitzungsende: Merker und Kalender-Schalter zurückholen, sobald ihr
+    /// Konto endet - die Instanz der Oberfläche lebt darüber hinaus.
+    private var sessionReset: NSObjectProtocol?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -115,6 +119,39 @@ final class Preferences: ObservableObject {
             defaults.double(forKey: Key.lastActivityDate))
         mensaCanteenID = defaults.object(forKey: Key.mensaCanteen) as? Int ?? 6
         calendarSync = defaults.object(forKey: Key.calendarSync) as? Bool ?? false
+        sessionReset = NotificationCenter.default.addObserver(
+            forName: AccountState.dataDidReset, object: nil, queue: nil) { [weak self] _ in
+                Task { @MainActor in self?.applySessionReset() }
+            }
+    }
+
+    deinit {
+        // Der Beobachter hängt am globalen Zentrum; ohne das Abmelden lief er
+        // nach dem Wegwerfen der Instanz weiter.
+        if let sessionReset { NotificationCenter.default.removeObserver(sessionReset) }
+    }
+
+    /// Am Sitzungsende zurück auf den Stand der gelöschten Schlüssel: Der
+    /// Kalender-Abgleich ist aus (sein Kalender wurde gerade entfernt), die
+    /// Meldemerker stehen auf dem Anfang. Die übrigen Einstellungen sind
+    /// reine Vorlieben dieses Geräts und bleiben, wo sie stehen.
+    ///
+    /// **Kein Objektzugriff, sondern NeuLesen:** Die Schlüssel löscht
+    /// `AccountState.removeFrom`, nicht diese Runde - deshalb auch kein
+    /// Schreiben, nur das Zurückholen in die veröffentlichten Werte.
+    private func applySessionReset() {
+        calendarSync = defaults.object(forKey: Key.calendarSync) as? Bool ?? false
+        lastNotifiedMessage = Date(timeIntervalSince1970:
+            defaults.double(forKey: Key.lastMessageDate))
+        lastNotifiedActivity = Date(timeIntervalSince1970:
+            defaults.double(forKey: Key.lastActivityDate))
+    }
+
+    /// Ob eine Funktion überhaupt den Hintergrundlauf braucht - beim Start
+    /// und nach einer erneuten Anmeldung ohne Neustart die Bedingung dafür,
+    /// den Weckruf überhaupt zu planen (siehe `AuthStore`).
+    static var wantsBackgroundRefresh: Bool {
+        UserDefaults.standard.object(forKey: Key.mailbox) as? Bool ?? false
     }
 
     /// Mögliche Vorlaufzeiten für die Auswahl.

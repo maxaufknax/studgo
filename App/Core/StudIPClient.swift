@@ -398,6 +398,14 @@ struct StudIPClient {
         return destination
     }
 
+    /// Räumt den Downloadordner - am Sitzungsende, damit das nächste Konto
+    /// auf dem Gerät die geladenen Dateien des vorigen nicht vorfindet.
+    static func clearDownloads() {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("StudGo-Downloads", isDirectory: true)
+        try? FileManager.default.removeItem(at: directory)
+    }
+
     /// Legt fertige Daten so ab, als wären sie geladen worden - der Weg des
     /// Demo-Modus zur selben Vorschau.
     static func storeForPreview(_ data: Data, as name: String) throws -> URL {

@@ -25,11 +25,14 @@ import SwiftUI
 @MainActor
 final class HiddenEventsStore {
     private enum Key {
-        static let hidden = "studgo.calendar.hiddenEvents"
+        // Konto­gebunden - beim Sitzungsende weg (siehe `AccountState`).
+        static let hidden = AccountState.Key.hiddenEvents
         static let shows = "studgo.calendar.showHiddenEvents"
     }
 
     private let defaults: UserDefaults
+    /// Sitzungsende: ausgeblendete Termine weg, auch im Arbeitsspeicher.
+    private var sessionReset: NSObjectProtocol?
 
     /// Die ausgeblendeten Schlüssel - dauerhaft gesichert.
     ///
@@ -52,6 +55,16 @@ final class HiddenEventsStore {
         self.defaults = defaults
         hiddenKeys = Set(defaults.stringArray(forKey: Key.hidden) ?? [])
         showsHiddenEvents = defaults.object(forKey: Key.shows) as? Bool ?? false
+        sessionReset = NotificationCenter.default.addObserver(
+            forName: AccountState.dataDidReset, object: nil, queue: nil) { [weak self] _ in
+                Task { @MainActor in self?.resetForSessionEnd() }
+            }
+    }
+
+    deinit {
+        // Der Beobachter hängt am globalen Zentrum; ohne das Abmelden lief er
+        // nach dem Wegwerfen der Instanz weiter.
+        if let sessionReset { NotificationCenter.default.removeObserver(sessionReset) }
     }
 
     // MARK: - Schlüssel
@@ -154,6 +167,17 @@ final class HiddenEventsStore {
 
     func unhide(_ entry: ScheduleEntry) {
         hiddenKeys.remove(Self.key(of: entry))
+    }
+
+    /// Wirft die ausgeblendeten Termine weg. Ausgeblendete Turnusfenster
+    /// sind eine persönliche Meinung über Veranstaltungen dieses Kontos -
+    /// das nächste Konto auf dem Gerät geht ohne sie an.
+    ///
+    /// Gerufen über `AccountState.dataDidReset`, sobald eine Sitzung endet;
+    /// die Instanz der Oberfläche lebt über das Abmelden hinaus. Die
+    /// Umschaltung „ausgeblendete zeigen“ bleibt: Sie ist reine Optik.
+    func resetForSessionEnd() {
+        hiddenKeys = []
     }
 
     /// Sagt SwiftUI, dass sich etwas geändert hat. Unter Linux (Testsatz)

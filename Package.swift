@@ -54,6 +54,7 @@ let package = Package(
                 "Core/WebSheet.swift",
             ],
             sources: [
+                "Core/AccountState.swift",
                 "Core/AppConfig.swift",
                 "Core/CalendarSyncPlan.swift",
                 "Core/DemoData.swift",

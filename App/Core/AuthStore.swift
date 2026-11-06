@@ -180,6 +180,13 @@ final class AuthStore: ObservableObject {
             // Ein voriges Konto darf auf diesem Gerät nichts hinterlassen.
             ResponseCache.clear()
             state = .signedIn(try await freshClient.currentUser())
+            // Nach einer Anmeldung ohne App-Neustart wäre der Hintergrundlauf
+            // bis zum nächsten Start nicht mehr eingeplant - iOS plant immer
+            // nur einen Weckruf, und der wurde beim Sitzungsende storniert.
+            // In der Einführung und in den Einstellungen steht das Gleiche.
+            if Preferences.wantsBackgroundRefresh {
+                Notifications.scheduleBackgroundRefresh()
+            }
         } catch AuthError.cancelled {
             // Bewusster Abbruch durch den Nutzer, keine Fehlermeldung.
         } catch {
@@ -191,6 +198,51 @@ final class AuthStore: ObservableObject {
         discardSession()
     }
 
+    /// Wirft alles weg, was auf diesem Gerät vom Konto übrig bleibt:
+    /// Tokens aus der Keychain, Antworten aus dem Zwischenspeicher,
+    /// heruntergeladene Dateien, die konto­gebundenen Standardeinstellungen
+    /// (Blockliste, ausgeblendete Termine, Meldemerker, Annahme der
+    /// Nutzungsbedingungen - siehe `AccountState`), den Widget-Schnappschuss
+    /// und den Kalender „StudGo“. Danach meldet `dataDidReset` den lebenden
+    /// Speichern der Oberfläche, dass sie zurücksetzen.
+    ///
+    /// Auch geplante und zugestellte Mitteilungen gehören dazu. Bis 1.9
+    /// räumte sie nur der Abmelden-Knopf in den Einstellungen - endete die
+    /// Sitzung von selbst (abgelaufener Erneuerungstoken, 401), blieben
+    /// Termine des vorigen Kontos auf dem Sperrbildschirm klingeln.
+    ///
+    /// Geplante Erinnerungen einer *anderen*, noch laufenden Sitzung gibt es
+    /// hier nicht zu befürchten: Diese Instanz ist die der Oberfläche, und
+    /// die passive Instanz des Hintergrundlaufs ruft nichts davon
+    /// (`endSession` verzweigt vorher).
+    private func clearAccountTraces() {
+        Self.sessionGeneration &+= 1
+        KeychainStore.clear()
+        ResponseCache.clear()
+        StudIPClient.clearDownloads()
+        AccountState.removeFrom(UserDefaults.standard)
+        WidgetBridge.clear()
+        CalendarSync.removeCalendar()
+        Task { await Notifications.clearAll() }
+        Notifications.cancelBackgroundRefresh()
+        NotificationCenter.default.post(name: AccountState.dataDidReset, object: nil)
+    }
+
+    private func discardSession() {
+        clearAccountTraces()
+        if isDemo {
+            DemoStore.shared.reset()
+            isDemo = false
+            UserDefaults.standard.set(false, forKey: Self.demoKey)
+        }
+        tokens = nil
+        semTypes = [:]
+        studygroupKinds = .unknown
+        unreadCount = 0
+        mailboxRevision = 0
+        state = .signedOut
+    }
+
     // MARK: - Demo
 
     /// Die Demo betreten - ohne Anmeldung, ohne Netz.
@@ -198,10 +250,11 @@ final class AuthStore: ObservableObject {
         isWorking = true
         errorMessage = nil
         defer { isWorking = false }
-        // Ein voriges Konto darf in der Demo nicht durchscheinen, und
-        // umgekehrt dürfen die erfundenen Antworten später nicht als echte
-        // gelten: Der Zwischenspeicher wird an beiden Übergängen geleert.
-        KeychainStore.clear()
+        // Die Demo beendet eine echte Sitzung auf diesem Gerät (die Keychain
+        // wird ohnehin geleert) - deshalb dieselbe Aufräumarbeit wie beim
+        // Abmelden: Blockliste, ausgeblendete Termine, Merker, Mitteilungen.
+        // Die erfundenen Antworten dürfen später auch nicht als echte gelten.
+        clearAccountTraces()
         tokens = nil
         UserDefaults.standard.set(true, forKey: Self.demoKey)
         await enterDemo()
@@ -268,28 +321,6 @@ final class AuthStore: ObservableObject {
         }
         discardSession()
         if let message { errorMessage = message }
-    }
-
-    private func discardSession() {
-        Self.sessionGeneration &+= 1
-        KeychainStore.clear()
-        ResponseCache.clear()
-        if isDemo {
-            DemoStore.shared.reset()
-            isDemo = false
-            UserDefaults.standard.set(false, forKey: Self.demoKey)
-        }
-        tokens = nil
-        semTypes = [:]
-        studygroupKinds = .unknown
-        unreadCount = 0
-        mailboxRevision = 0
-        // Was auf dem Sperrbildschirm steht, darf das nächste Konto nicht
-        // sehen: Widgets zeigen Termine und Nachrichten des bisherigen.
-        WidgetBridge.clear()
-        // Dasselbe gilt für den Kalender „StudGo“ im Systemkalender.
-        CalendarSync.removeCalendar()
-        state = .signedOut
     }
 
     private static var expiredMessage: String {

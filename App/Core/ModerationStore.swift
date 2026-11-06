@@ -28,9 +28,10 @@ final class ModerationStore {
     static let termsVersion = 1
 
     private enum Key {
-        static let terms = "studgo.moderation.termsVersion"
-        static let blockedIDs = "studgo.moderation.blockedIDs"
-        static let blockedNames = "studgo.moderation.blockedNames"
+        // Konto­gebunden - beim Sitzungsende weg (siehe `AccountState`).
+        static let terms = AccountState.Key.termsVersion
+        static let blockedIDs = AccountState.Key.blockedIDs
+        static let blockedNames = AccountState.Key.blockedNames
         static let filter = "studgo.moderation.hidesObjectionable"
     }
 
@@ -48,6 +49,9 @@ final class ModerationStore {
 
     private let defaults: UserDefaults
     private let submitter: ReportSubmitter
+    /// Sitzungsende: Kontodaten weg, auch im Arbeitsspeicher (siehe
+    /// `resetForSessionEnd`).
+    private var sessionReset: NSObjectProtocol?
     let filter = ContentFilter()
 
     private(set) var blocklist: Blocklist
@@ -72,6 +76,17 @@ final class ModerationStore {
         // fehlenden Schlüssel `false` - der Filter wäre bei der ersten
         // Installation aus, obwohl er an sein soll.
         hidesObjectionable = defaults.object(forKey: Key.filter) as? Bool ?? true
+        sessionReset = NotificationCenter.default.addObserver(
+            forName: AccountState.dataDidReset, object: nil, queue: nil) { [weak self] _ in
+                Task { @MainActor in self?.resetForSessionEnd() }
+            }
+    }
+
+    deinit {
+        // Der Beobachter hängt am globalen Zentrum: Ohne das Abmelden hier
+        // liefe er nach dem Wegwerfen der Instanz weiter - jede Benachrichtigung
+        // löste dann einen Zugriff auf ein totes Objekt aus.
+        if let sessionReset { NotificationCenter.default.removeObserver(sessionReset) }
     }
 
     // MARK: - Nutzungsbedingungen
@@ -127,6 +142,26 @@ final class ModerationStore {
         notify()
         blocklist.unblock(id: id)
         persistBlocklist()
+    }
+
+    // MARK: - Sitzungsende
+
+    /// Wirft Blockliste und Annahme der Nutzungsbedingungen weg - die
+    /// Daten, die das nächste Konto auf diesem Gerät nichts angehen.
+    ///
+    /// Gerufen wird das über `AccountState.dataDidReset`, sobald eine
+    /// Sitzung endet: Die Instanz der Oberfläche lebt über das Abmelden
+    /// hinaus, und ohne Rücksetzung klänge sie nach einer neuen Anmeldung
+    /// ohne Neustart noch mit der Blockliste des vorigen Kontos.
+    ///
+    /// Dass der Wortfilter an ist, bleibt stehen: Es ist eine reine
+    /// Einstellung dieses Geräts, keine Aussage über Menschen des Kontos.
+    func resetForSessionEnd() {
+        notify()
+        blocklist = Blocklist(ids: [], names: [:])
+        persistBlocklist()
+        acceptedTermsVersion = 0
+        defaults.set(acceptedTermsVersion, forKey: Key.terms)
     }
 
     private func persistBlocklist() {

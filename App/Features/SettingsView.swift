@@ -292,7 +292,7 @@ struct SettingsView: View {
                 } footer: {
                     Text(auth.isDemo
                          ? "Führt zurück zur Anmeldung. Die Beispieldaten der Demo werden dabei verworfen."
-                         : "Beim Abmelden werden die Zugangstoken aus der Keychain und alle zwischengespeicherten Daten gelöscht.")
+                         : "Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht: Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben (seit 1.9).")
                 }
             }
             .listStyle(.insetGrouped)
@@ -315,12 +315,10 @@ struct SettingsView: View {
                                 titleVisibility: .visible) {
                 Button(auth.isDemo ? "Demo verlassen" : "Abmelden", role: .destructive) {
                     Task {
-                        await Notifications.clearAll()
-                        Notifications.cancelBackgroundRefresh()
-                        // Wer sich ausdrücklich abmeldet, will auch keinen
-                        // Kalender-Abgleich für das nächste Konto auf diesem
-                        // Gerät. Den Kalender selbst räumt `AuthStore` weg.
-                        preferences.calendarSync = false
+                        // Mitteilungen, Hintergrundlauf, Kalender-Abgleich und
+                        // alle konto­gebundenen Daten räumt die Sitzungslogik
+                        // selbst weg (siehe `AuthStore.discardSession`) - der
+                        // Knopf sagt nur noch, dass die Sitzung enden soll.
                         auth.signOut()
                     }
                 }
@@ -329,9 +327,11 @@ struct SettingsView: View {
                 if auth.isDemo {
                     Text("Die Beispieldaten werden verworfen und du landest wieder auf der Anmeldung.")
                 } else {
+                    // Neu seit Version 1.9: gelöscht wird alles, was zum Konto
+                    // gehört - nicht nur Tokens und Zwischenspeicher.
                     Text(preferences.sharesWebSession
-                         ? "Tokens und Zwischenspeicher werden gelöscht. Die Anmeldung im Browser bleibt bestehen; sie liegt bei Safari, nicht bei StudGo."
-                         : "Tokens und Zwischenspeicher werden gelöscht.")
+                         ? "Neu seit 1.9: Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht - Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben. Die Anmeldung im Browser bleibt bestehen; sie liegt bei Safari, nicht bei StudGo."
+                         : "Neu seit 1.9: Beim Abmelden werden alle Daten des Kontos auf diesem Gerät gelöscht - Tokens, Zwischenspeicher, Downloads, Blockliste, ausgeblendete Termine und geplante Mitteilungen. Reine Einstellungen wie die Farbwelt bleiben.")
                 }
             }
         }
