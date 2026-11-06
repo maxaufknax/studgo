@@ -55,6 +55,16 @@ struct PKCETests {
         let verifier = Set((0..<20).map { _ in PKCE().verifier })
         #expect(verifier.count == 20)
     }
+
+    @Test("Der Verifier besteht nicht aus Nullbytes")
+    func keineNullbytes() {
+        // 48 Nullbytes sehen als base64url wie 64-mal „A“ aus - genau das
+        // wäre passiert, wenn `SecRandomCopyBytes` still scheiterte. Bis 1.8
+        // stand der Fehler im Code und fiel nicht auf.
+        for _ in 0..<5 {
+            #expect(Set(PKCE().verifier) != ["A"])
+        }
+    }
 }
 
 /// Die Web-Rückfallebenen: wo die API nicht hinreicht, schickt StudGo in die
