@@ -30,6 +30,9 @@ final class NotificationRouter: ObservableObject {
         switch threadIdentifier {
         case "studgo.inbox", "studgo.blubber": target = .postfach
         case "studgo.calendar": target = .schedule
+        // Neue Dateien, Foren- und Wikibeiträge und Ankündigungen stehen im
+        // Bereich „Neu seit deinem letzten Besuch“ auf „Heute“.
+        case "studgo.coursenews": target = .today
         default: break
         }
     }

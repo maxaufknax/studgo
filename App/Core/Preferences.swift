@@ -22,6 +22,12 @@ final class Preferences: ObservableObject {
         static let lastActivityDate = AccountState.Key.lastNotifiedActivity
         static let mensaCanteen = "studgo.mensa.canteen"
         static let calendarSync = AccountState.Key.calendarSync
+        // „Neu in deinen Kursen“ - Schalter reine Vorlieben dieses Geräts,
+        // Merker und Stummschaltung konto­gebunden.
+        static let courseNews = "studgo.notify.courseNews"
+        static let lastCourseNewsDate = AccountState.Key.lastNotifiedCourseNews
+        static let mutedCourses = AccountState.Key.mutedCourses
+        static let lastVisit = AccountState.Key.lastVisit
     }
 
     // MARK: - Weboberfläche
@@ -68,6 +74,43 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(quietWeekend, forKey: Key.quietWeekend) }
     }
 
+    /// Auf Neuigkeiten aus den Kursen hinweisen, wenn der Hintergrundlauf
+    /// läuft. **Vorgabe aus** ( siehe „Neue Benachrichtigungsarten sind
+    /// standardmäßig aus“): Der Strom aus Dateien, Forum, Wiki und
+    /// Ankündigungen füllt eine Mitteilung schnell, und niemand hat darum
+    /// gebeten, bevor der erste Lauf kommt.
+    @Published var courseNewsAlerts: Bool {
+        didSet { defaults.set(courseNewsAlerts, forKey: Key.courseNews) }
+    }
+
+    /// Welche Veranstaltungen keine Mitteilung mehr auslösen dürfen - die
+    /// Stummschaltung pro Kurs. Der Bereich auf „Heute“ zeigt sie trotzdem.
+    private(set) var mutedCourseIDs: Set<String> {
+        didSet { defaults.set(mutedCourseIDs.sorted(), forKey: Key.mutedCourses) }
+    }
+
+    func isMuted(_ courseID: String) -> Bool {
+        mutedCourseIDs.contains(courseID)
+    }
+
+    func setMuted(_ muted: Bool, courseID: String) {
+        if muted { mutedCourseIDs.insert(courseID) } else { mutedCourseIDs.remove(courseID) }
+    }
+
+    /// Bis wohin der Hintergrundlauf über Kursnachrichten gemeldet hat. Wird
+    /// erst nach einem erfolgreichen Lauf weitergesetzt - ein gescheiterter
+    /// darf nichts als „gemeldet“ markieren.
+    var lastNotifiedCourseNews: Date {
+        didSet { defaults.set(lastNotifiedCourseNews.timeIntervalSince1970, forKey: Key.lastCourseNewsDate) }
+    }
+
+    /// Wann „Heute“ zuletzt geladen war - der Maßstab für „Neu seit deinem
+    /// letzten Besuch“. Vorgabe weit in der Vergangenheit: Der Bereich greift
+    /// dann auf `CourseNews.fallbackHorizon` zurück.
+    var lastVisit: Date {
+        didSet { defaults.set(lastVisit.timeIntervalSince1970, forKey: Key.lastVisit) }
+    }
+
     /// Bis wohin schon gemeldet wurde - verhindert, dass dieselbe Nachricht
     /// nach jedem Hintergrundlauf erneut aufpoppt.
     var lastNotifiedMessage: Date {
@@ -96,7 +139,7 @@ final class Preferences: ObservableObject {
     }
 
     /// Sind überhaupt Benachrichtigungen gewünscht?
-    var wantsNotifications: Bool { eventReminders || mailboxAlerts }
+    var wantsNotifications: Bool { eventReminders || mailboxAlerts || courseNewsAlerts }
 
     private let defaults: UserDefaults
     /// Sitzungsende: Merker und Kalender-Schalter zurückholen, sobald ihr
@@ -117,6 +160,11 @@ final class Preferences: ObservableObject {
             defaults.double(forKey: Key.lastMessageDate))
         lastNotifiedActivity = Date(timeIntervalSince1970:
             defaults.double(forKey: Key.lastActivityDate))
+        mutedCourseIDs = Set(defaults.stringArray(forKey: Key.mutedCourses) ?? [])
+        lastNotifiedCourseNews = Date(timeIntervalSince1970:
+            defaults.double(forKey: Key.lastCourseNewsDate))
+        lastVisit = Date(timeIntervalSince1970:
+            defaults.double(forKey: Key.lastVisit))
         mensaCanteenID = defaults.object(forKey: Key.mensaCanteen) as? Int ?? 6
         calendarSync = defaults.object(forKey: Key.calendarSync) as? Bool ?? false
         sessionReset = NotificationCenter.default.addObserver(
@@ -145,13 +193,20 @@ final class Preferences: ObservableObject {
             defaults.double(forKey: Key.lastMessageDate))
         lastNotifiedActivity = Date(timeIntervalSince1970:
             defaults.double(forKey: Key.lastActivityDate))
+        lastNotifiedCourseNews = Date(timeIntervalSince1970:
+            defaults.double(forKey: Key.lastCourseNewsDate))
+        lastVisit = Date(timeIntervalSince1970:
+            defaults.double(forKey: Key.lastVisit))
+        mutedCourseIDs = Set(defaults.stringArray(forKey: Key.mutedCourses) ?? [])
     }
 
     /// Ob eine Funktion überhaupt den Hintergrundlauf braucht - beim Start
     /// und nach einer erneuten Anmeldung ohne Neustart die Bedingung dafür,
     /// den Weckruf überhaupt zu planen (siehe `AuthStore`).
     static var wantsBackgroundRefresh: Bool {
-        UserDefaults.standard.object(forKey: Key.mailbox) as? Bool ?? false
+        let mailbox = UserDefaults.standard.object(forKey: Key.mailbox) as? Bool ?? false
+        let courseNews = UserDefaults.standard.object(forKey: Key.courseNews) as? Bool ?? false
+        return mailbox || courseNews
     }
 
     /// Mögliche Vorlaufzeiten für die Auswahl.

@@ -38,6 +38,15 @@ enum AccountState {
         static let lastNotifiedMessage = "studgo.notify.lastMessage"
         static let lastNotifiedActivity = "studgo.notify.lastActivity"
 
+        /// Dasselbe für „Neu in deinen Kursen“ samt Stummschaltung je
+        /// Veranstaltung - beides Aussagen über die belegten Kurse.
+        static let lastNotifiedCourseNews = "studgo.notify.courseNews.last"
+        static let mutedCourses = "studgo.notify.courseNews.muted"
+
+        /// Wann „Heute“ zuletzt geöffnet war - der Maßstab für „Neu seit
+        /// deinem letzten Besuch“.
+        static let lastVisit = "studgo.today.lastVisit"
+
         /// Der Schalter des Kalender-Abgleichs. Sein Kalender wird am
         /// Sitzungsende gelöscht - ein stehengelassener Schalter würde beim
         /// nächsten Konto ohne Rückfrage wieder einsynchronisieren.
@@ -53,6 +62,9 @@ enum AccountState {
          Key.hiddenEvents,
          Key.lastNotifiedMessage,
          Key.lastNotifiedActivity,
+         Key.lastNotifiedCourseNews,
+         Key.mutedCourses,
+         Key.lastVisit,
          Key.calendarSync]
     }
 

@@ -24,7 +24,12 @@ enum BackgroundSync {
         // Erst hier erzeugt: `Preferences` hängt am Hauptaktor, der Rückruf
         // des `BGAppRefreshTask` läuft nicht darauf.
         let preferences = Preferences()
-        guard preferences.mailboxAlerts, await Notifications.isAuthorized() else { return }
+        // Getrennt je Mitteilungsart: Bis 1.8 brach der Lauf ganz ab, wenn
+        // Nachrichten aus waren - Hinweis und Widget hingen an einem
+        // Schalter, der sie nichts anging.
+        let wantsMailbox = preferences.mailboxAlerts
+        let wantsCourseNews = preferences.courseNewsAlerts
+        guard wantsMailbox || wantsCourseNews, await Notifications.isAuthorized() else { return }
         if preferences.quietWeekend, Calendar.current.isDateInWeekend(Date()) { return }
 
         // Passiv: Dieser Lauf erneuert Tokens, meldet aber nie ab - auch
@@ -34,16 +39,51 @@ enum BackgroundSync {
         guard case .signedIn(let user) = auth.state, !auth.isDemo else { return }
 
         let client = auth.freshClient
-        let unread = await notifyNewMessages(client: client, userID: user.id,
-                                             preferences: preferences)
-        await notifyNewThreads(client: client, userID: user.id, preferences: preferences)
 
-        // Was das Nachrichten-Widget zeigt - aus dem Posteingang, der hier
-        // ohnehin geholt wird; der nächste Termin bleibt dem Startbildschirm
-        // überlassen (siehe `WidgetBridge.publish(unread:)`). Konnte der
-        // Posteingang nicht geholt werden (nil), bleibt im Widget der alte
-        // Wert stehen - bis 1.9 stand dann „0 Nachrichten“ da.
-        WidgetBridge.publish(unread: unread)
+        if wantsMailbox {
+            let unread = await notifyNewMessages(client: client, userID: user.id,
+                                                 preferences: preferences)
+            await notifyNewThreads(client: client, userID: user.id, preferences: preferences)
+
+            // Was das Nachrichten-Widget zeigt - aus dem Posteingang, der hier
+            // ohnehin geholt wird; der nächste Termin bleibt dem Startbildschirm
+            // überlassen (siehe `WidgetBridge.publish(unread:)`). Konnte der
+            // Posteingang nicht geholt werden (nil), bleibt im Widget der alte
+            // Wert stehen - bis 1.9 stand dann „0 Nachrichten“ da.
+            WidgetBridge.publish(unread: unread)
+        }
+
+        if wantsCourseNews {
+            await notifyNewCourseNews(client: client, userID: user.id,
+                                      preferences: preferences)
+        }
+    }
+
+    // MARK: - Neu in deinen Kursen
+
+    /// Eine gesammelte Mitteilung über neue Dateien, Forenbeiträge,
+    /// Wikiseiten und Ankündigungen in den belegten Veranstaltungen.
+    ///
+    /// Der Merker wandert **erst nach Erfolg** - schlägt der eine Abruf
+    /// fehl (Netz, Wartung, ein verwaistes Ziel im Strom), gibt es keine
+    /// Falschmeldung und beim nächsten Lauf dieselbe Chance noch einmal.
+    private static func notifyNewCourseNews(client: StudIPClient,
+                                            userID: String,
+                                            preferences: Preferences) async {
+        let since = preferences.lastNotifiedCourseNews.timeIntervalSince1970 > 0
+            ? preferences.lastNotifiedCourseNews
+            : Date().addingTimeInterval(-CourseNews.fallbackHorizon)
+        guard let items = try? await client.courseNews(since: since, for: userID) else { return }
+
+        let fresh = CourseNews.unmuted(CourseNews.fresh(items, since: since, limit: 30),
+                                       muted: preferences.mutedCourseIDs)
+        guard let summary = CourseNews.summary(for: fresh) else { return }
+        await Notifications.post(title: summary.title, body: summary.body,
+                                 thread: "studgo.coursenews")
+
+        if let newest = fresh.first?.createdAt {
+            preferences.lastNotifiedCourseNews = newest
+        }
     }
 
     // MARK: - Nachrichten

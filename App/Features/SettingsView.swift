@@ -536,6 +536,14 @@ struct NotificationSettingsView: View {
 
     @State private var isAuthorized: Bool?
     @State private var pendingCount = 0
+    /// Die belegten Veranstaltungen - für die Stummschaltung je Kurs.
+    @StateObject private var courses = Loadable<[Course]>()
+
+    /// Rückgabe der Stummschaltung eines Kurses - ein Schalter je Zeile.
+    private func isNotMuted(_ course: Course) -> Binding<Bool> {
+        Binding(get: { !preferences.isMuted(course.id) },
+                set: { preferences.setMuted(!$0, courseID: course.id) })
+    }
 
     var body: some View {
         List {
@@ -589,6 +597,26 @@ struct NotificationSettingsView: View {
             }
 
             Section {
+                Toggle(isOn: $preferences.courseNewsAlerts) {
+                    RowLabel(symbol: "sparkles",
+                             title: "Neu in deinen Kursen melden",
+                             subtitle: "Dateien, Forum, Wiki und Ankündigungen")
+                }
+                if preferences.courseNewsAlerts {
+                    ForEach(courses.value ?? []) { course in
+                        Toggle(isOn: isNotMuted(course)) {
+                            RowLabel(symbol: "bell.slash",
+                                     title: course.shortTitle)
+                        }
+                    }
+                }
+            } header: {
+                Text("Kurse")
+            } footer: {
+                Text("Eine gesammelte Mitteilung statt einer Flut, wenn iOS die App im Hintergrund weckt - niemals in Echtzeit. Der Bereich auf „Heute“ zeigt alles immer, auch bei stummgeschalteten Kursen. Der kleine Schalter je Veranstaltung stellt genau diesen Kurs still.")
+            }
+
+            Section {
                 Button {
                     webTarget = WebTarget(url: WebLinks.notificationSettings)
                 } label: {
@@ -604,6 +632,15 @@ struct NotificationSettingsView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Benachrichtigungen")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            // Erst mit dem ersten Einschalten nötig - dann aber ohne eigenes
+            // Antippen da.
+            if preferences.courseNewsAlerts, courses.value == nil,
+               let userID = auth.currentUserID {
+                await courses.load { try await auth.client.courses(for: userID) }
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $webTarget) { target in
             WebSheet(url: target.url).ignoresSafeArea()
         }
@@ -616,6 +653,9 @@ struct NotificationSettingsView: View {
         }
         .onChange(of: preferences.mailboxAlerts) { isOn in
             Task { await apply(mailboxEnabled: isOn) }
+        }
+        .onChange(of: preferences.courseNewsAlerts) { isOn in
+            Task { await apply(courseNewsEnabled: isOn) }
         }
     }
 
@@ -669,7 +709,27 @@ struct NotificationSettingsView: View {
                 return
             }
             Notifications.scheduleBackgroundRefresh()
-        } else {
+        } else if !Preferences.wantsBackgroundRefresh {
+            // Nur ganz still legen, wenn keine der Hintergrund-Funktionen
+            // mehr etwas will (siehe `BackgroundSync`, je Mitteilungsart).
+            Notifications.cancelBackgroundRefresh()
+        }
+        await refreshStatus()
+    }
+
+    private func apply(courseNewsEnabled: Bool) async {
+        if courseNewsEnabled {
+            guard await ensureAuthorization() else {
+                preferences.courseNewsAlerts = false
+                return
+            }
+            Notifications.scheduleBackgroundRefresh()
+            // Kurse für die Stummschaltung nachziehen, falls der Abschnitt
+            // vorher nicht zu sehen war.
+            if courses.value == nil, let userID = auth.currentUserID {
+                await courses.load { try await auth.client.courses(for: userID) }
+            }
+        } else if !Preferences.wantsBackgroundRefresh {
             Notifications.cancelBackgroundRefresh()
         }
         await refreshStatus()

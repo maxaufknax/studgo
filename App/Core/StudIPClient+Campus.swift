@@ -91,6 +91,22 @@ extension StudIPClient {
             .sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
     }
 
+    /// „Neu in deinen Kursen“ für den Hintergrundlauf: **ein einziger, enger
+    /// Abruf** ohne die gestuften `include`-Wiederholungen der Oberfläche.
+    ///
+    /// Der Lauf hat rund 30 Sekunden, und die Stufen oben sind eine
+    /// Rückfallebene für die *Anzeige* - hier dient der Strom nur dem Zählen
+    /// neuer Einträge; Anzeigenamen holen „Heute“ beim Öffnen der App nach.
+    /// Schlägt dieser eine Abruf fehl, gibt es schlicht keine Mitteilung
+    /// (ein Fehler ist keine Falschmeldung), und der Merker wandert nicht.
+    func courseNews(since: Date, for userID: String, limit: Int = 30) async throws -> [ActivityItem] {
+        let document = try await get("/v1/users/\(userID)/activitystream",
+                                     limit: limit,
+                                     extra: [URLQueryItem(name: "filter[start]",
+                                                          value: String(Int(since.timeIntervalSince1970)))])
+        return document.resources.compactMap { ActivityItem($0) }
+    }
+
     // MARK: - Kontakte
 
     func contacts(for userID: String) async throws -> [Contact] {

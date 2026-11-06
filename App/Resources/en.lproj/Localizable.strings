@@ -150,6 +150,7 @@
 "Dateien" = "Files";
 "Dateien der Veranstaltung" = "Course files";
 "Dateien, Ankündigungen, Forum, Wiki und Courseware." = "Files, announcements, forum, wiki and courseware.";
+"Dateien, Forum, Wiki und Ankündigungen" = "Files, forum, wiki and announcements";
 "Dateiverwaltung öffnen" = "Open file management";
 "Datenschutz" = "Privacy";
 "Dein Semester" = "Your semester";
@@ -220,6 +221,7 @@
 "Ein quelloffenes Studierendenprojekt, das Stud.IP auf dem Telefon bedienbar macht. Keine offizielle App einer Hochschule." = "An open-source student project that makes Stud.IP usable on your phone. Not an official university app.";
 "Ein- und austragen in Stud.IP" = "Enroll and unenroll in Stud.IP";
 "Eine freie Stelle gedrückt halten → Bearbeiten → Widget hinzufügen → StudGo." = "Touch and hold an empty area → Edit → Add Widget → StudGo.";
+"Eine gesammelte Mitteilung statt einer Flut, wenn iOS die App im Hintergrund weckt - niemals in Echtzeit. Der Bereich auf „Heute“ zeigt alles immer, auch bei stummgeschalteten Kursen. Der kleine Schalter je Veranstaltung stellt genau diesen Kurs still." = "One combined notification instead of a flood, sent whenever iOS wakes the app in the background - never in real time. The section on “Today” always shows everything, including muted courses. The small toggle per course silences exactly that course.";
 "Einführung ansehen" = "View introduction";
 "Eingrenzen" = "Filter";
 "Einrichtung" = "Institute";
@@ -441,6 +443,9 @@
 "Name oder Kennung" = "Name or username";
 "Neu" = "New";
 "Neu laden" = "Reload";
+"Neu in deinen Kursen" = "New in your courses";
+"Neu in deinen Kursen melden" = "Alert about new things in your courses";
+"Neu seit deinem letzten Besuch" = "New since your last visit";
 "Neue Dateien, Forenbeiträge und Ankündigungen aus den belegten Veranstaltungen." = "New files, forum posts and announcements from your courses.";
 "Neue Nachricht" = "New message";
 "Neue Nachrichten und Beiträge" = "New messages and posts";
@@ -449,6 +454,7 @@
 "Neuer Faden" = "New thread";
 "Neues in %lld Unterhaltungen" = "New activity in %lld conversations";
 "Neujahr" = "New Year's Day";
+"%lld Neuigkeiten in deinen Kursen" = "%lld new things in your courses";
 "Nicht angemeldet." = "Not signed in.";
 "Nicht gefunden. Vielleicht wurde der Eintrag entfernt." = "Not found. The entry may have been removed.";
 "Nicht geladen" = "Not loaded";

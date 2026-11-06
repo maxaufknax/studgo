@@ -12,6 +12,7 @@ struct TodayView: View {
     @StateObject private var semesters = Loadable<[Semester]>()
     @StateObject private var messages = Loadable<[Message]>()
     @StateObject private var news = Loadable<[NewsItem]>()
+    @StateObject private var courseNews = Loadable<[ActivityItem]>()
     @State private var courses: [Course] = []
     @State private var isShowingSettings = false
 
@@ -60,6 +61,21 @@ struct TodayView: View {
 
     private var unread: [Message] {
         (messages.value ?? []).filter { !$0.isRead }
+    }
+
+    /// „Neu seit deinem letzten Besuch“: neue Dateien, Forenbeiträge,
+    /// Wikiseiten und Ankündigungen in den Kursen.
+    ///
+    /// **Dieser Bereich ist der zuverlässige Teil** - ein iOS-Hintergrundlauf
+    /// kommt, wenn es passt, nicht sicher. Gemessen am letzten Besuch dieses
+    /// Geräts; ein gescheiterter Abruf lässt den Bereich einfach weg, statt
+    /// hier einen Serverfehler zu zeigen („Heute“ ist der Startbildschirm).
+    private var freshCourseNews: [ActivityItem] {
+        guard let items = courseNews.value else { return [] }
+        let since = preferences.lastVisit.timeIntervalSince1970 > 0
+            ? preferences.lastVisit
+            : Date().addingTimeInterval(-CourseNews.fallbackHorizon)
+        return CourseNews.fresh(items, since: since, limit: 6)
     }
 
     private var isInitialLoad: Bool {
@@ -125,6 +141,17 @@ struct TodayView: View {
                                 rows(Array(items.prefix(3))) { item in
                                     PushButton(value: item) {
                                         linkRow { NewsRow(item: item) }
+                                    }
+                                }
+                            }
+                        }
+
+                        if !freshCourseNews.isEmpty {
+                            SectionCard(title: "Neu seit deinem letzten Besuch",
+                                        symbol: "sparkles") {
+                                rows(freshCourseNews) { item in
+                                    PushButton(value: item) {
+                                        linkRow { ActivityRow(item: item) }
                                     }
                                 }
                             }
@@ -391,7 +418,20 @@ struct TodayView: View {
         async let loadSemesters: Void = semesters.load { try await client.semesters() }
         async let loadMessages: Void = messages.load { try await client.inbox(for: user.id) }
         async let loadNews: Void = news.load { try await client.news(for: user.id) }
-        _ = await (loadEvents, loadPlan, loadSemesters, loadMessages, loadNews)
+        // „Neu seit deinem letzten Besuch“ - gemessen am Stand zu Beginn
+        // dieses Ladens, nicht am Ende: Sonst fiele alles, was während des
+        // Ladens dazukommt, unter den Tisch.
+        let visitStarted = Date()
+        async let loadCourseNews: Void = courseNews.load {
+            let since = preferences.lastVisit.timeIntervalSince1970 > 0
+                ? preferences.lastVisit
+                : Date().addingTimeInterval(-CourseNews.fallbackHorizon)
+            return try await client.activityStream(for: user.id, since: since, limit: 60)
+        }
+        _ = await (loadEvents, loadPlan, loadSemesters, loadMessages, loadNews, loadCourseNews)
+        if courseNews.hasValue {
+            preferences.lastVisit = visitStarted
+        }
         let unreadCount = (messages.value ?? []).filter { !$0.isRead }.count
         auth.noteUnread(unreadCount)
         // Für die Kursfarben im Kalender: Der ICS-Strom nennt nur den

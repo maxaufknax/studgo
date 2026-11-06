@@ -229,7 +229,11 @@ private struct OnboardingAlertsPage: View {
             Notifications.scheduleBackgroundRefresh()
         } else {
             preferences.mailboxAlerts = false
-            Notifications.cancelBackgroundRefresh()
+            // Nur wenn danach gar keine Hintergrund-Funktion mehr an ist -
+            // der Lauf prüft jede Art einzeln (siehe `BackgroundSync`).
+            if !Preferences.wantsBackgroundRefresh {
+                Notifications.cancelBackgroundRefresh()
+            }
         }
     }
 

@@ -52,7 +52,7 @@ struct StudGoApp: App {
                 }
                 .task { await auth.restore() }
                 .task {
-                    guard preferences.mailboxAlerts else { return }
+                    guard Preferences.wantsBackgroundRefresh else { return }
                     Notifications.scheduleBackgroundRefresh()
                 }
         }
