@@ -353,7 +353,8 @@ struct StudIPClient {
     /// Lädt eine Datei in einen temporären Ordner und gibt den lokalen Pfad
     /// zurück - von dort aus übernehmen QuickLook und das Teilen-Menü.
     func download(_ file: FileRef) async throws -> URL {
-        if isDemo { return try Self.storeForPreview(DemoServer.fileContent(id: file.id), as: file.name) }
+        if isDemo { return try Self.storeForPreview(data: DemoServer.fileContent(id: file.id),
+                                                    id: file.id, as: file.name) }
 
         var request = URLRequest(url: URL(string: AppConfig.apiRoot.absoluteString
                                           + "/v1/file-refs/\(file.id)/content")!)
@@ -363,7 +364,7 @@ struct StudIPClient {
 
         // Der Download landet unter einem Zufallsnamen - für die Vorschau und
         // das Teilen zählt aber der echte Dateiname samt Endung.
-        let destination = try Self.downloadLocation(for: file.name)
+        let destination = try Self.downloadLocation(id: file.id, name: file.name)
         try FileManager.default.moveItem(at: temporaryURL, to: destination)
         return destination
     }
@@ -388,10 +389,16 @@ struct StudIPClient {
         return temporaryURL
     }
 
-    /// Der Platz im temporären Ordner, unter dem eine geladene Datei landet.
-    private static func downloadLocation(for name: String) throws -> URL {
+    /// Der Ort im temporären Ordner, an dem eine geladene Datei landet.
+    ///
+    /// **Ein eigener Unterordner je Datei-ID:** Kurse benennen Dateien gerne
+    /// gleich („Loesung.pdf“ in zwei Übungsordnern); bis 1.9 überschrieb eine
+    /// geladene Datei jede andere mit demselben Namen - die Vorschau zeigte
+    /// dann die falsche Datei, ohne dass es auffiel.
+    private static func downloadLocation(id: String, name: String) throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("StudGo-Downloads", isDirectory: true)
+            .appendingPathComponent(id.sanitizedFileName, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let destination = directory.appendingPathComponent(name.sanitizedFileName)
         try? FileManager.default.removeItem(at: destination)
@@ -408,8 +415,8 @@ struct StudIPClient {
 
     /// Legt fertige Daten so ab, als wären sie geladen worden - der Weg des
     /// Demo-Modus zur selben Vorschau.
-    static func storeForPreview(_ data: Data, as name: String) throws -> URL {
-        let destination = try downloadLocation(for: name)
+    static func storeForPreview(data: Data, id: String, as name: String) throws -> URL {
+        let destination = try downloadLocation(id: id, name: name)
         try data.write(to: destination)
         return destination
     }

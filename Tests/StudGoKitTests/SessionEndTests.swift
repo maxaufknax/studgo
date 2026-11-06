@@ -122,11 +122,27 @@ struct SessionEndTests {
 
     @Test("Der Downloadordner wird geleert")
     func downloadsCleared() throws {
-        let url = try StudIPClient.storeForPreview(Data("%PDF-test".utf8), as: "probeklausur.pdf")
+        let url = try StudIPClient.storeForPreview(data: Data("%PDF-test".utf8),
+                                                   id: "datei1", as: "probeklausur.pdf")
         #expect(FileManager.default.fileExists(atPath: url.path))
 
         StudIPClient.clearDownloads()
 
         #expect(!FileManager.default.fileExists(atPath: url.path))
+    }
+
+    @Test("Gleichnamige Dateien mit eigener Kennung kollidieren nicht")
+    func gleichnamigeDownloads() throws {
+        // Zwei Übungsordner, dieselbe Datei „loesung.pdf“ - bis 1.9
+        // überschrieb der zweite Download den ersten.
+        let eins = try StudIPClient.storeForPreview(data: Data("erste Fassung".utf8),
+                                                   id: "datei1", as: "loesung.pdf")
+        let zwei = try StudIPClient.storeForPreview(data: Data("zweite Fassung".utf8),
+                                                   id: "datei2", as: "loesung.pdf")
+        #expect(eins != zwei)
+        #expect(String(data: try Data(contentsOf: eins), encoding: .utf8) == "erste Fassung")
+        #expect(String(data: try Data(contentsOf: zwei), encoding: .utf8) == "zweite Fassung")
+
+        StudIPClient.clearDownloads()
     }
 }
