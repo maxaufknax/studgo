@@ -1,0 +1,63 @@
+name: Fehlerbericht
+description: Etwas geht in der App schief oder verhält sich anders als gedacht
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke fürs Aufschreiben. App-Version und iOS-Version (beide unter
+        *Einstellungen - Allgemein - Info*, die App-Version unter
+        *Profil - Darstellung* bzw. im App Store) ersparen oft eine Rückfrage.
+  - type: input
+    id: version
+    attributes:
+      label: App- und iOS-Version
+      placeholder: "StudGo 1.9.0 auf iOS 26.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: modus
+    attributes:
+      label: Mit echtem Konto oder im Demo-Modus?
+      options:
+        - Angemeldet mit Uni-Kennung
+        - Demo-Modus ohne Anmeldung
+        - Trifft nicht zu (Absturz, Anmeldung, Widget)
+    validations:
+      required: true
+  - type: dropdown
+    id: bereich
+    attributes:
+      label: Welcher Bereich der App ist betroffen?
+      options:
+        - Heute
+        - Plan
+        - Kurse
+        - Dateien
+        - Postfach / Blubber
+        - Campus
+        - Widgets
+        - Kalender / Profil
+        - Anmeldung / Abmeldung
+      multiple: true
+    validations:
+      required: true
+  - type: textarea
+    id: ablauf
+    attributes:
+      label: Was ist passiert, was hättest du erwartet?
+      description: Die Schritte in der Reihenfolge, kurz genügt. Wenn ein konkreter Kurs, ein Termin oder eine Nachricht betroffen ist: Namen reicht, keine Screenshots mit Inhalten anderer.
+      placeholder: |
+        1. Geöffnet ...
+        2. Gewischt ...
+        3. Da stand ...
+    validations:
+      required: true
+  - type: textarea
+    id: kontext
+    attributes:
+      label: Umfeld
+      description: Nicht nötig, oft aber die fehlende Hälfte: Graustufen, große Schrift, Dynamic Type? Flugmodus, VPN, Uni-WLAN, App frisch installiert oder alt im Gebrauch?
+      placeholder: "Vorlesungsfreie Zeit, iPad, Mobiles Datum"
+    validations:
+      required: false

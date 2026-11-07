@@ -37,5 +37,8 @@ store/
 
 # Logo-Quelldateien des Entwurfs - verarbeitet liegen sie in den Assets
 logos/
-media/
+# App-Store-Medien bleiben draussen - Ausnahme nur das GIF der Readme,
+# denn GitHub rendert im README nur Dateien, die im Repo liegen.
+media/*
+!media/Preview.gif
 docs/IDEEN.md

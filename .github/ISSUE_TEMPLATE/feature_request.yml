@@ -1,0 +1,38 @@
+name: Wunsch
+description: Etwas, das StudGo können soll - oder anders machen sollte
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: situation
+    attributes:
+      label: Was willst du damit erledigen?
+      description: Erst die Situation, nicht die Lösung: Wo störst du dich, was suchst du, wie sieht dein Alltag damit aus?
+      placeholder: "Im Bus will ich kurz sehen, ob ..."
+    validations:
+      required: true
+  - type: textarea
+    id: wunsch
+    attributes:
+      label: Wie sollte es ablaufen?
+      description: Wenn du den Bildschirm schon vor Augen hast, beschreib ihn. Grobe Ideen sind genauso willkommen.
+      placeholder: "Ein Knopf unter Heute, der ..."
+    validations:
+      required: false
+  - type: dropdown
+    id: bereich
+    attributes:
+      label: Welcher Bereich der App ist betroffen?
+      options:
+        - Heute
+        - Plan
+        - Kurse
+        - Dateien
+        - Postfach / Blubber
+        - Campus
+        - Widgets
+        - Kalender / Profil
+        - Anmeldung
+        - Grundsätzlich / Anderes
+      multiple: true
+    validations:
+      required: false

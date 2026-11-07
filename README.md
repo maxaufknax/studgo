@@ -1,11 +1,25 @@
 # StudGo
 
+<p align="center">
+  <a href="https://apps.apple.com/de/app/studgo/id6804845342"><img src="https://img.shields.io/badge/App%20Store-1.9-%23000" alt="App Store 1.9" /></a>
+  <a href="https://github.com/maxaufknax/studgo/releases"><img src="https://img.shields.io/github/v/release/maxaufknax/studgo?label=Release" alt="aktuelles Release" /></a>
+  <a href="https://studgo.de"><img src="https://img.shields.io/badge/studgo.de-Website-8a5cf6" alt="studgo.de" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-MIT-3da35b" alt="MIT" /></a>
+</p>
+
 Native iOS-App für **Stud.IP**, eingerichtet auf die Installation unter
 `studip.uni-hannover.de`. Kein eigenes Backend: Die App spricht direkt mit
 diesem Server, Zugangstoken liegen ausschließlich in der Keychain des Geräts.
 
 Quelloffenes Studierendenprojekt, keine offizielle App der Universität.
 Website: [studgo.de](https://studgo.de) · [App Store](https://apps.apple.com/de/app/studgo/id6804845342)
+
+<p align="center">
+  <img src="media/Preview.gif" alt="StudGo in Bewegung - 28 Sekunden Vorschau" width="220" />
+</p>
+<p align="center">28 Sekunden Vorschau - die Screenshots im App Store zeigen jedes Bild in voller Größe.</p>
+
+Direkt zu: [Funktionen](#funktionen) · [Demo ohne Konto](#ohne-konto-der-demo-modus) · [Ohne Empfang](#ohne-empfang) · [Aufbau](#aufbau) · [Bauen](#bauen) · [API erkunden](#api-erkunden) · [Lizenz](#lizenz)
 
 ## Funktionen
 
